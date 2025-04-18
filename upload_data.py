@@ -8,7 +8,7 @@ def main():
     print("1. Insert Specified Data")
     print("2. Delete All Data")
     print("-------------------------")
-    print("\nChoose and Enter the command:")
+    print("\nChoose and Enter the command: ", end="")
     
     command = 0
     while True:

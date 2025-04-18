@@ -55,7 +55,7 @@ class DatabaseManager:
                  cur.execute("SELECT version();")
                  db_version = cur.fetchone()
                  if db_version:
-                     print(f"Postgre Version: {db_version[0]}")
+                    print(f"Postgre Version: {db_version[0]}")
             return conn
         
         except psycopg2.OperationalError as e:
@@ -80,6 +80,29 @@ class DatabaseManager:
             except Exception as e:
                  print(f"Error closing database connection: {e}")
         self.connection = None
+
+    def execute_many_query(self, query, params_list):
+        """Executes a query multiple times with different parameters"""
+        conn = self.get_connection()
+        if not conn:
+            print("Cannot execute bulk query: No active database connection")
+            return None
+        
+        result = None
+        try:
+            with conn:
+                with conn.cursor() as cur:
+                    cur.executemany(query, params_list)
+                    result = cur.rowcount
+                    print(f"Successfully executed bulk query for {result} rows")
+        
+        except(Exception, psycopg2.Error) as error:
+            print(f"\nError executing bulk query: {error}")
+            print(f"Query: {query}")
+            print(f"Number of parameter sets attempted: {len(params_list)}")
+            return None
+        
+        return result
 
     def execute_query(self, query, params=None, fetch_one=False, fetch_all=False):
         conn = self.get_connection()
