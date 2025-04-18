@@ -235,7 +235,57 @@ def main():
             print("--- The Data is Successfully Inserted ---")
             break;
         elif command == 4:
-            games_data = []
+            games_data = [
+                # --- Terraria --- #
+                ("Terraria", "Dig, fight, explore, build! Nothing is impossible in this action-packed adventure game.", "2011-05-16", "terraria_game_image.jpg", "Released", "2011-01-03", "2025-03-27"),
+                
+                # --- Don't Starve Together  --- #
+                ("Don't Starve Together", "Fight, Farm, Build and Explore Together in the standalone multiplayer expansion to the uncompromising wilderness survival game, Don't Starve.", "2016-04-21", "don't_starve_together_image.jpg", "Released", "2014-12-15", "2025-04-17"),
+                
+                # --- Astroneer --- #
+                ("Astroneer", "Interact with strange new worlds in a unique and tactile way, molding the environment itself as if it were clay in your hands.", "2019-02-06", "astroneer_image.jpg", "Released", "2016-12-16", "2025-04-02"),
+                
+                # --- Factorio --- #
+                ("Factorio", "Factorio is a game about building and creating automated factories to produce items of increasing complexity, within an infinite 2D world.", "2020-08-14", "factorio_image.jpg", "Released", "2012-06-22", "2025-03-31"),
+                
+                # --- Stardew Valley --- #
+                ("Stardew Valley", "You've inherited your grandfather's old farm plot in Stardew Valley.", "2016-02-26", "stardew_valley_image.jpg", "Released", "2011-11-29", "2024-12-20"),
+                
+                # --- Sid Meier's Civilization VI --- #
+                ("Sid Meier's Civilization VI", "Expand your empire, advance your culture and go head-to-head against history’s greatest leaders.", "2016-10-21", "civilization_vi_image.jpg", "Released", "2014-05-03", "2025-01-15"),
+                
+                # --- Marvel Rivals --- #
+                ("Marvel Rivals", "Marvel Rivals is a Super Hero Team-Based PVP Shooter! Assemble an all-star Marvel squad, devise countless strategies by combining powers to form unique Team-Up skills and fight in destructible, ever-changing battlefields across the continually evolving Marvel universe!", None, "marvel_rivals_image.jpg", "Alpha", "2024-12-06", "2025-04-17"),
+                
+                # --- Hades II --- #
+                ("Hades II", "Battle beyond the Underworld using dark sorcery to take on the Titan of Time in this bewitching sequel to the award-winning rogue-like dungeon crawler.", None, "hades_ii.jpg", "Early Access", "2024-05-06", "2025-02-26"),
+                
+                # --- Project Odyssey --- #
+                ("Project Odyssey", None, None, "project_odyssey_image.jpg", "Cancelled", None, None),
+                
+                # --- The Elder Scrolls VI --- #
+                ("The Elder Scrolls VI", "It's an action role-playing video game", None, "the_elder_scrolls_vi_image.jpg", "Development", None, None),
+                
+                # --- Star citizen --- #
+                ("Star citizen", "Star Citizen is a science fiction game, with players taking the role of humans in the milky way 930 years into the future, with the United Empire of Earth ruling over dozens of systems, worlds and moons in the 30th century, and aliens controling their own systems and worlds.", None, "star_citizen_image.jpg", "Beta", "2017-12-23", "2018-03-04"),
+                
+                # --- Deep down --- #
+                ("Deep down", "Deep Down is an Action RPG with procedurally generated caves, real-time mining, crafting, and combat.", None, "deep_down_image.jpg", "On Hold", "2014-07-17", "2016-12-02"),
+                
+                # --- Hearts of Iron IV --- #
+                ("Hearts of Iron IV", "Victory is at your fingertips! Your ability to lead your nation is your supreme weapon, the strategy game Hearts of Iron IV lets you take command of any nation in World War II.", "2016-06-06", "hearts_of_iron_iv_image.jpg", "Released", "2014-01-23", "2025-04-09"),
+                
+                # --- Geometry Dash --- #
+                ("Geometry Dash", "Jump and fly your way through danger in this rhythm-based action platformer!", "2013-08-13", "geometry_dash_image.jpg", "Released", "2013-08-13", "2025-04-05")
+            ]
+            
+            print("--- Inserting Games Data ---")
+            insert_query = "INSERT INTO Games (title, description, release_date, image, status, created_at, updated_at) VALUES (%s, %s, %s, %s, %s, %s, %s);"
+            
+            db_manager.execute_many_query(insert_query, games_data)
+            
+            print("--- The Data is Successfully Inserted ---")
+            break;
         elif command == 10:
             print("--- Deleting Data ---")
             
