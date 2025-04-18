@@ -8,6 +8,7 @@ def main():
     print("1. Insert Users Data")
     print("2. Insert Studios Data")
     print("3. Insert Developers Data")
+    print("4. Insert Games Data")
     print("10. Delete Specified Data")
     print("-------------------------")
     print("\nChoose and Enter the command: ", end="")
@@ -162,12 +163,83 @@ def main():
                 (3, 1, "Loki@gmail.com"),
                 (4, 1, "FoodBarbarian@gmail.com"),
                 
+                # --- Don't Starve Together  --- #
+                (5, 2, "MatthewMarteinsson@gmail.com"),
+                (6, 2, "BryceDoig@gmail.com"),
+                (7, 2, "AlexSavin@gmail.com"),
                 
+                # --- Astroneer --- #
+                (8, 3, "AaronBiddlecom@gmail.com"),
+                (9, 3, "AdamBromell@gmail.com"),
+                (10, 3, "AndreMaguire@gmail.com"),
+                
+                # --- Factorio --- #
+                (11, 4, "MichalKovarik@gmail.com"),
+                (12, 4, "Tomax@gmail.com"), # have special rights in the game page
+                (13, 4, "DanStevens@gmail.com"),
+                
+                # --- Stardew Valley --- #
+                (14, 5, "EricBarone@gmail.com"), # have special rights in the game page
+                
+                # --- Sid Meier's Civilization VI --- #
+                (15, 6, "EdBeach@gmail.com"),
+                (16, 6, "DennisShirk@gmail.com"), # have special rights in the game page
+                (17, 6, "AndrewFrederiksen@gmail.com"),
+                
+                (18, 7, "ChristophHartmann@gmail.com"),
+                (19, 7, "JohnChowanec@gmail.com"),
+                (20, 7, "MelissaMiller@gmail.com"),
+            
+                # --- Marvel Rivals --- #
+                (21, 8, "ThaddeusSasser@gmail.com"),
+                (22, 8, "James@gmail.com"), # have special rights in the game page
+                (23, 8, "GuangyunChen@gmail.com"),
+                
+                # --- Hades II --- #
+                (24, 9, "WillTurnbull@gmail.com"), # have special rights in the game page
+                (25, 9, "AmirRao@gmail.com"),
+                (26, 9, "GregKasavin@gmail.com"),
+                
+                # --- Project Odyssey --- #
+                (27, 10, "DanHay@gmail.com"),
+                (28, 10, "RimaBrek@gmail.com"), # have special rights in the game page
+                (29, 10, "ClementMarcou@gmail.com"),
+                
+                # --- The Elder Scrolls VI --- #
+                (30, 11, "CraigLafferty@gmail.com"),
+                (31, 11, "MarkLampert@gmail.com"),
+                (32, 11, "AshleyCheng@gmail.com"),
+                
+                # --- Star citizen --- #
+                (33, 12, "ChrisRoberts@gmail.com"),
+                (34, 12, "PedroCamacho@gmail.com"), # have special rights in the game page
+                
+                # --- Deep down --- #
+                (35, 13, "KenzoTsujimoto@gmail.com"), # have special rights in the game page
+                (36, 13, "TokuroFujiwara@gmail.com"),
+                
+                # --- Hearts of Iron IV --- #
+                (37, 14, "JohanAndersson@gmail.com"),
+                (38, 14, "DanLind@gmail.com"), # have special rights in the game page
+                (39, 14, "LindaKiby@gmail.com"),
+                
+                # --- Geometry Dash --- #
+                (40, 15, "RobTop@gmail.com") # have special rights in the game page
             ]
+            
+            print("--- Inserting Developers Data ---")
+            insert_query = "INSERT INTO Developers (user_id, studio_id, contact_email) VALUES (%s, %s, %s);"
+            
+            db_manager.execute_many_query(insert_query, developers_data)
+            
+            print("--- The Data is Successfully Inserted ---")
+            break;
+        elif command == 4:
+            games_data = []
         elif command == 10:
             print("--- Deleting Data ---")
             
-            db_manager.clear_specified_table("users")
+            db_manager.clear_specified_table("developers")
             
             print("--- The Data is Successfully Deleted ---")
             break;
