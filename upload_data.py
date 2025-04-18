@@ -5,8 +5,10 @@ db_manager = DatabaseManager()
 
 def main():
     print("-------------------------")
-    print("1. Insert Specified Data")
-    print("2. Delete All Data")
+    print("1. Insert Users Data")
+    print("2. Insert Studios Data")
+    print("3. Insert Developers Data")
+    print("10. Delete Specified Data")
     print("-------------------------")
     print("\nChoose and Enter the command: ", end="")
     
@@ -21,17 +23,17 @@ def main():
         if command == 1:
             users_data = [
                 # --- Terraria --- #
-                ("Redigit", "redigit@gmail.com", hash_password("Redigit"), "2012-06-17"),
-                ("Cenx", "Cenx@gmail.com", hash_password("Cenx"), "2016-08-05"),
-                ("Loki", "Loki@gmail.com", hash_password("Loki"), "2015-07-02"),
-                ("FoodBarbarian", "FoodBarbarian@gmail.com", hash_password("FoodBarbarian"), "2016-09-03"),
+                ("Redigit", "redigit@gmail.com", hash_password("Redigit"), "2009-06-17"),
+                ("Cenx", "Cenx@gmail.com", hash_password("Cenx"), "2013-08-05"),
+                ("Loki", "Loki@gmail.com", hash_password("Loki"), "2012-07-02"),
+                ("FoodBarbarian", "FoodBarbarian@gmail.com", hash_password("FoodBarbarian"), "2014-09-03"),
                 
                 # --- Don't Starve Together  --- #
                 ("MatthewMarteinsson", "MatthewMarteinsson@gmail.com", hash_password("MatthewMarteinsson"), "2011-03-26"),
                 ("BryceDoig", "BryceDoig@gmail.com", hash_password("BryceDoig"), "2013-05-11"),
                 ("AlexSavin", "AlexSavin@gmail.com", hash_password("AlexSavin"), "2014-03-21"),
                 
-                 # --- Astroneer --- #
+                # --- Astroneer --- #
                 ("AaronBiddlecom", "AaronBiddlecom@gmail.com", hash_password("AaronBiddlecom"), "2011-11-01"),
                 ("AdamBromell", "AdamBromell@gmail.com", hash_password("AdamBromell"), "2012-12-16"),
                 ("AndreMaguire", "AndreMaguire@gmail.com", hash_password("AndreMaguire"), "2011-09-28"),
@@ -98,6 +100,71 @@ def main():
             print("--- The Data is Successfully Inserted ---")
             break
         elif command == 2:
+            
+            studios_data = [
+                # --- Terraria --- #
+                ("Re-Logic", "https://re-logic.com/", "1", "United States", "Best known for the Terraria franchise - the revolutionary 2D Sandbox Adventure that has entertained millions of gamers worldwide - Re-Logic seeks to showcase and evolve the limits of what Indie gaming can be!", "2011-01-24"),
+                
+                # --- Don't Starve Together --- #
+                ("Klei", "https://www.klei.com/", "2", "Canada", "It Rhymes With Play", "2005-07-01"),
+                
+                # --- Astroneer --- #
+                ("System Era Softworks", "https://www.systemera.net/", "3", "United States", "System Era Softworks is a small development studio led by veteran game developers headquartered in Seattle, Washington. We are currently working on our first game, Astroneer.", "2014-03-07"),
+                
+                # --- Factorio --- #
+                ("Wube Software", None, "4", "Czech Republic", "Wube Software is a team of passionate professionals dedicated to creating exceptional games.", "2014-09-03"),
+                
+                # --- Stardew Valley --- #
+                ("ConcernedApe", None, "5", "United States", "ConcernedApe is the moniker of Eric Barone, a solo game developer based in Seattle, WA.", "2012-05-05"),
+                
+                # --- Sid Meier's Civilization VI --- #
+                ("Firaxis Games", "https://firaxis.com/", "6", "United States", "Firaxis Games is a world-renowned game development studio with an unwavering mission to \"build games that stand the test of time\".", "1996-05-12"),
+                
+                ("2K", "https://2k.com/", "7", "United States", "2K develops and publishes critically-acclaimed franchises such as BioShock, Borderlands, Sid Meier’s Civilization, XCOM, WWE 2K, and NBA 2K.", "2005-01-25"),
+                
+                # --- Marvel Rivals --- #
+                ("NetEaseGames", "https://www.neteasegames.com/", "8", "China", "NetEase Games is the gaming division of NetEase, Inc., a major Chinese tech company. It focuses on developing and publishing video games across various platforms, including mobile, PC, and consoles.", "2001-09-08"),
+                
+                # --- Hades II --- #
+                ("Supergiant Games", "https://www.supergiantgames.com/", "9", "United States", "We make games that spark your imagination like the games you played as a kid.", "2009-07-27"),
+                
+                # --- Project Odyssey --- #
+                ("Blizzard Entertainment", "https://www.blizzard.com/en-us/", "10", "United States", "Dedicated to creating the most epic entertainment experiences... ever.", "1991-02-08"),
+                
+                # --- The Elder Scrolls VI --- #
+                ("Bethesda Softworks", "https://bethesda.net/en/dashboard", "11", "United States", "Bethesda Softworks is an award-winning development team renowned worldwide for its groundbreaking work on the The Elder Scrolls and Fallout series.", "1986-06-28"),
+                
+                # --- Star citizen --- #
+                ("Cloud Imperium Games Corporation", "https://cloudimperiumgames.com/", "12", "United States", "We never settle and we're never daunted.", "2012-03-17"),
+                
+                # --- Deep down --- #
+                ("Capcom", "https://www.capcom.com/", "13", "Japan", "Capcom began in Japan in 1979 as a manufacturer and distributor of electronic game machines.", "1979-09-21"),
+                
+                # --- Hearts of Iron IV --- #
+                ("Paradox Interactive", "https://www.paradoxinteractive.com/", "14", "Sweden", "We Create the Games. You Create the Stories.", "1999-01-04"),
+                
+                # --- Geometry Dash --- #
+                ("RobTop Games", "https://www.robtopgames.com/", "15", "Sweden", "I have created the mobile games Rune, Boomlings, Boomlings MatchUp, Memory Mastermind, Forlorn", "2012-11-05")
+            ]
+            
+            print("--- Inserting Studios Data ---")
+            insert_query = "INSERT INTO Studios (name, website_url, logo, country, description, established_date) VALUES (%s, %s, %s, %s, %s, %s);"
+            
+            db_manager.execute_many_query(insert_query, studios_data)
+            
+            print("--- The Data is Successfully Inserted ---")
+            break
+        elif command == 3:
+            developers_data = [
+                # --- Terraria --- #
+                (1, 1, "redigit@gmail.com"),
+                (2, 1, "Cenx@gmail.com"),
+                (3, 1, "Loki@gmail.com"),
+                (4, 1, "FoodBarbarian@gmail.com"),
+                
+                
+            ]
+        elif command == 10:
             print("--- Deleting Data ---")
             
             db_manager.clear_specified_table("users")
