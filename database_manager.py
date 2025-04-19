@@ -156,11 +156,11 @@ class DatabaseManager:
     def validate_user(self, username, password):
         print(f"DBManager validating user: {username}")
         
-        return username == "admin" and password == "password"
+        return username == "admin" and password == "admin"
 
 
     def fetch_all_games(self):
-        query = "SELECT id, title, genre, price FROM games ORDER BY title;"
+        query = "SELECT game_id, title, NULL AS genre, price, image FROM games ORDER BY title;"
         print("DB: Fetching all games with image IDs...")
         games_data = self.execute_query(query, fetch_all=True)
         if games_data is None:

@@ -104,48 +104,48 @@ def main():
             
             studios_data = [
                 # --- Terraria --- #
-                ("Re-Logic", "https://re-logic.com/", "1", "United States", "Best known for the Terraria franchise - the revolutionary 2D Sandbox Adventure that has entertained millions of gamers worldwide - Re-Logic seeks to showcase and evolve the limits of what Indie gaming can be!", "2011-01-24"),
+                ("Re-Logic", "https://re-logic.com/", "re-logic_icon_1.jpg", "United States", "Best known for the Terraria franchise - the revolutionary 2D Sandbox Adventure that has entertained millions of gamers worldwide - Re-Logic seeks to showcase and evolve the limits of what Indie gaming can be!", "2011-01-24"),
                 
                 # --- Don't Starve Together --- #
-                ("Klei", "https://www.klei.com/", "2", "Canada", "It Rhymes With Play", "2005-07-01"),
+                ("Klei", "https://www.klei.com/", "klei_icon_2.jpg", "Canada", "It Rhymes With Play", "2005-07-01"),
                 
                 # --- Astroneer --- #
-                ("System Era Softworks", "https://www.systemera.net/", "3", "United States", "System Era Softworks is a small development studio led by veteran game developers headquartered in Seattle, Washington. We are currently working on our first game, Astroneer.", "2014-03-07"),
+                ("System Era Softworks", "https://www.systemera.net/", "system_era_softworks_icon_3.jpg", "United States", "System Era Softworks is a small development studio led by veteran game developers headquartered in Seattle, Washington. We are currently working on our first game, Astroneer.", "2014-03-07"),
                 
                 # --- Factorio --- #
-                ("Wube Software", None, "4", "Czech Republic", "Wube Software is a team of passionate professionals dedicated to creating exceptional games.", "2014-09-03"),
+                ("Wube Software", None, "wube_software_icon_4.jpg", "Czech Republic", "Wube Software is a team of passionate professionals dedicated to creating exceptional games.", "2014-09-03"),
                 
                 # --- Stardew Valley --- #
-                ("ConcernedApe", None, "5", "United States", "ConcernedApe is the moniker of Eric Barone, a solo game developer based in Seattle, WA.", "2012-05-05"),
+                ("ConcernedApe", None, "concernedape_icon_5.jpg", "United States", "ConcernedApe is the moniker of Eric Barone, a solo game developer based in Seattle, WA.", "2012-05-05"),
                 
                 # --- Sid Meier's Civilization VI --- #
-                ("Firaxis Games", "https://firaxis.com/", "6", "United States", "Firaxis Games is a world-renowned game development studio with an unwavering mission to \"build games that stand the test of time\".", "1996-05-12"),
+                ("Firaxis Games", "https://firaxis.com/", "firaxis_games_icon_6.jpg", "United States", "Firaxis Games is a world-renowned game development studio with an unwavering mission to \"build games that stand the test of time\".", "1996-05-12"),
                 
-                ("2K", "https://2k.com/", "7", "United States", "2K develops and publishes critically-acclaimed franchises such as BioShock, Borderlands, Sid Meier’s Civilization, XCOM, WWE 2K, and NBA 2K.", "2005-01-25"),
+                ("2K", "https://2k.com/", "2k_icon_7.jpg", "United States", "2K develops and publishes critically-acclaimed franchises such as BioShock, Borderlands, Sid Meier’s Civilization, XCOM, WWE 2K, and NBA 2K.", "2005-01-25"),
                 
                 # --- Marvel Rivals --- #
-                ("NetEaseGames", "https://www.neteasegames.com/", "8", "China", "NetEase Games is the gaming division of NetEase, Inc., a major Chinese tech company. It focuses on developing and publishing video games across various platforms, including mobile, PC, and consoles.", "2001-09-08"),
+                ("NetEaseGames", "https://www.neteasegames.com/", "net_ease_games_icon_8.jpg", "China", "NetEase Games is the gaming division of NetEase, Inc., a major Chinese tech company. It focuses on developing and publishing video games across various platforms, including mobile, PC, and consoles.", "2001-09-08"),
                 
                 # --- Hades II --- #
-                ("Supergiant Games", "https://www.supergiantgames.com/", "9", "United States", "We make games that spark your imagination like the games you played as a kid.", "2009-07-27"),
+                ("Supergiant Games", "https://www.supergiantgames.com/", "supergiant_games_icon_9.jpg", "United States", "We make games that spark your imagination like the games you played as a kid.", "2009-07-27"),
                 
                 # --- Project Odyssey --- #
-                ("Blizzard Entertainment", "https://www.blizzard.com/en-us/", "10", "United States", "Dedicated to creating the most epic entertainment experiences... ever.", "1991-02-08"),
+                ("Blizzard Entertainment", "https://www.blizzard.com/en-us/", "blizzard_entertainment_icon_10.jpg", "United States", "Dedicated to creating the most epic entertainment experiences... ever.", "1991-02-08"),
                 
                 # --- The Elder Scrolls VI --- #
-                ("Bethesda Softworks", "https://bethesda.net/en/dashboard", "11", "United States", "Bethesda Softworks is an award-winning development team renowned worldwide for its groundbreaking work on the The Elder Scrolls and Fallout series.", "1986-06-28"),
+                ("Bethesda Softworks", "https://bethesda.net/en/dashboard", "bethesda_softworks_icon_11.jpg", "United States", "Bethesda Softworks is an award-winning development team renowned worldwide for its groundbreaking work on the The Elder Scrolls and Fallout series.", "1986-06-28"),
                 
                 # --- Star citizen --- #
-                ("Cloud Imperium Games Corporation", "https://cloudimperiumgames.com/", "12", "United States", "We never settle and we're never daunted.", "2012-03-17"),
+                ("Cloud Imperium Games Corporation", "https://cloudimperiumgames.com/", "cloud_imperium_games_corporation_icon_12.jpg", "United States", "We never settle and we're never daunted.", "2012-03-17"),
                 
                 # --- Deep down --- #
-                ("Capcom", "https://www.capcom.com/", "13", "Japan", "Capcom began in Japan in 1979 as a manufacturer and distributor of electronic game machines.", "1979-09-21"),
+                ("Capcom", "https://www.capcom.com/", "capcom_icon_13.jpg", "Japan", "Capcom began in Japan in 1979 as a manufacturer and distributor of electronic game machines.", "1979-09-21"),
                 
                 # --- Hearts of Iron IV --- #
-                ("Paradox Interactive", "https://www.paradoxinteractive.com/", "14", "Sweden", "We Create the Games. You Create the Stories.", "1999-01-04"),
+                ("Paradox Interactive", "https://www.paradoxinteractive.com/", "paradox_interactive_icon_14.jpg", "Sweden", "We Create the Games. You Create the Stories.", "1999-01-04"),
                 
                 # --- Geometry Dash --- #
-                ("RobTop Games", "https://www.robtopgames.com/", "15", "Sweden", "I have created the mobile games Rune, Boomlings, Boomlings MatchUp, Memory Mastermind, Forlorn", "2012-11-05")
+                ("RobTop Games", "https://www.robtopgames.com/", "robtop_games_icon_15.jpg", "Sweden", "I have created the mobile games Rune, Boomlings, Boomlings MatchUp, Memory Mastermind, Forlorn", "2012-11-05")
             ]
             
             print("--- Inserting Studios Data ---")
@@ -237,50 +237,50 @@ def main():
         elif command == 4:
             games_data = [
                 # --- Terraria --- #
-                ("Terraria", "Dig, fight, explore, build! Nothing is impossible in this action-packed adventure game.", "2011-05-16", "terraria_game_image.jpg", "Released", "2011-01-03", "2025-03-27"),
+                ("Terraria", "Dig, fight, explore, build! Nothing is impossible in this action-packed adventure game.", 225.00, "2011-05-16", "terraria_icon_1.jpg", "Released", "2011-01-03", "2025-03-27"),
                 
                 # --- Don't Starve Together  --- #
-                ("Don't Starve Together", "Fight, Farm, Build and Explore Together in the standalone multiplayer expansion to the uncompromising wilderness survival game, Don't Starve.", "2016-04-21", "don't_starve_together_image.jpg", "Released", "2014-12-15", "2025-04-17"),
+                ("Don't Starve Together", "Fight, Farm, Build and Explore Together in the standalone multiplayer expansion to the uncompromising wilderness survival game, Don't Starve.", 229.00, "2016-04-21", "don't_starve_together_icon_2.jpg", "Released", "2014-12-15", "2025-04-17"),
                 
                 # --- Astroneer --- #
-                ("Astroneer", "Interact with strange new worlds in a unique and tactile way, molding the environment itself as if it were clay in your hands.", "2019-02-06", "astroneer_image.jpg", "Released", "2016-12-16", "2025-04-02"),
+                ("Astroneer", "Interact with strange new worlds in a unique and tactile way, molding the environment itself as if it were clay in your hands.", 600.00, "2019-02-06", "astroneer_icon_3.jpg", "Released", "2016-12-16", "2025-04-02"),
                 
                 # --- Factorio --- #
-                ("Factorio", "Factorio is a game about building and creating automated factories to produce items of increasing complexity, within an infinite 2D world.", "2020-08-14", "factorio_image.jpg", "Released", "2012-06-22", "2025-03-31"),
+                ("Factorio", "Factorio is a game about building and creating automated factories to produce items of increasing complexity, within an infinite 2D world.", 300.00, "2020-08-14", "factorio_icon_4.jpg", "Released", "2012-06-22", "2025-03-31"),
                 
                 # --- Stardew Valley --- #
-                ("Stardew Valley", "You've inherited your grandfather's old farm plot in Stardew Valley.", "2016-02-26", "stardew_valley_image.jpg", "Released", "2011-11-29", "2024-12-20"),
+                ("Stardew Valley", "You've inherited your grandfather's old farm plot in Stardew Valley.", 229.00, "2016-02-26", "stardew_valley_icon_5.jpg", "Released", "2011-11-29", "2024-12-20"),
                 
                 # --- Sid Meier's Civilization VI --- #
-                ("Sid Meier's Civilization VI", "Expand your empire, advance your culture and go head-to-head against history’s greatest leaders.", "2016-10-21", "civilization_vi_image.jpg", "Released", "2014-05-03", "2025-01-15"),
+                ("Sid Meier's Civilization VI", "Expand your empire, advance your culture and go head-to-head against history’s greatest leaders.", 525.00, "2016-10-21", "sid_meier's_civilization_vi_icon_6.jpg", "Released", "2014-05-03", "2025-01-15"),
                 
                 # --- Marvel Rivals --- #
-                ("Marvel Rivals", "Marvel Rivals is a Super Hero Team-Based PVP Shooter! Assemble an all-star Marvel squad, devise countless strategies by combining powers to form unique Team-Up skills and fight in destructible, ever-changing battlefields across the continually evolving Marvel universe!", None, "marvel_rivals_image.jpg", "Alpha", "2024-12-06", "2025-04-17"),
+                ("Marvel Rivals", "Marvel Rivals is a Super Hero Team-Based PVP Shooter! Assemble an all-star Marvel squad, devise countless strategies by combining powers to form unique Team-Up skills and fight in destructible, ever-changing battlefields across the continually evolving Marvel universe!", 0.00, None, "marvel_rivals_icon_7.jpg", "Alpha", "2024-12-06", "2025-04-17"),
                 
                 # --- Hades II --- #
-                ("Hades II", "Battle beyond the Underworld using dark sorcery to take on the Titan of Time in this bewitching sequel to the award-winning rogue-like dungeon crawler.", None, "hades_ii.jpg", "Early Access", "2024-05-06", "2025-02-26"),
+                ("Hades II", "Battle beyond the Underworld using dark sorcery to take on the Titan of Time in this bewitching sequel to the award-winning rogue-like dungeon crawler.", 460.00, None, "hades_ii_icon_8.jpg", "Early Access", "2024-05-06", "2025-02-26"),
                 
                 # --- Project Odyssey --- #
-                ("Project Odyssey", None, None, "project_odyssey_image.jpg", "Cancelled", None, None),
+                ("Project Odyssey", None, None, None, "project_odyssey_icon_9.jpg", "Cancelled", None, None),
                 
                 # --- The Elder Scrolls VI --- #
-                ("The Elder Scrolls VI", "It's an action role-playing video game", None, "the_elder_scrolls_vi_image.jpg", "Development", None, None),
+                ("The Elder Scrolls VI", "It's an action role-playing video game", None, None, "the_elder_scrolls_vi_icon_10.jpg", "Development", None, None),
                 
                 # --- Star citizen --- #
-                ("Star citizen", "Star Citizen is a science fiction game, with players taking the role of humans in the milky way 930 years into the future, with the United Empire of Earth ruling over dozens of systems, worlds and moons in the 30th century, and aliens controling their own systems and worlds.", None, "star_citizen_image.jpg", "Beta", "2017-12-23", "2018-03-04"),
+                ("Star citizen", "Star Citizen is a science fiction game, with players taking the role of humans in the milky way 930 years into the future, with the United Empire of Earth ruling over dozens of systems, worlds and moons in the 30th century, and aliens controling their own systems and worlds.", 515.00, None, "star_citizen_icon_11.jpg", "Beta", "2017-12-23", "2018-03-04"),
                 
                 # --- Deep down --- #
-                ("Deep down", "Deep Down is an Action RPG with procedurally generated caves, real-time mining, crafting, and combat.", None, "deep_down_image.jpg", "On Hold", "2014-07-17", "2016-12-02"),
+                ("Deep down", "Deep Down is an Action RPG with procedurally generated caves, real-time mining, crafting, and combat.", None, None, "deep_down_icon_12.jpg", "On Hold", "2014-07-17", "2016-12-02"),
                 
                 # --- Hearts of Iron IV --- #
-                ("Hearts of Iron IV", "Victory is at your fingertips! Your ability to lead your nation is your supreme weapon, the strategy game Hearts of Iron IV lets you take command of any nation in World War II.", "2016-06-06", "hearts_of_iron_iv_image.jpg", "Released", "2014-01-23", "2025-04-09"),
+                ("Hearts of Iron IV", "Victory is at your fingertips! Your ability to lead your nation is your supreme weapon, the strategy game Hearts of Iron IV lets you take command of any nation in World War II.", 1219.00, "2016-06-06", "hearts_of_iron_iv_icon_14.jpg", "Released", "2014-01-23", "2025-04-09"),
                 
                 # --- Geometry Dash --- #
-                ("Geometry Dash", "Jump and fly your way through danger in this rhythm-based action platformer!", "2013-08-13", "geometry_dash_image.jpg", "Released", "2013-08-13", "2025-04-05")
+                ("Geometry Dash", "Jump and fly your way through danger in this rhythm-based action platformer!", 124.00, "2013-08-13", "geometry_dash_icon_15.jpg", "Released", "2013-08-13", "2025-04-05")
             ]
             
             print("--- Inserting Games Data ---")
-            insert_query = "INSERT INTO Games (title, description, release_date, image, status, created_at, updated_at) VALUES (%s, %s, %s, %s, %s, %s, %s);"
+            insert_query = "INSERT INTO Games (title, description, price, release_date, image, status, created_at, updated_at) VALUES (%s, %s, %s, %s, %s, %s, %s, %s);"
             
             db_manager.execute_many_query(insert_query, games_data)
             
@@ -289,7 +289,7 @@ def main():
         elif command == 10:
             print("--- Deleting Data ---")
             
-            db_manager.clear_specified_table("developers")
+            db_manager.clear_specified_table("studios")
             
             print("--- The Data is Successfully Deleted ---")
             break;
