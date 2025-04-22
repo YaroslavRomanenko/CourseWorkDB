@@ -1,6 +1,5 @@
 import tkinter as tk
 from tkinter import ttk, messagebox
-# scrolledtext is no longer needed
 import os
 from PIL import Image, ImageTk
 from functools import partial
@@ -39,6 +38,9 @@ class StoreWindow(tk.Tk):
         self.hover_bg = "#f0f0f0"
         self.listbox_select_bg = self.original_bg
         self.listbox_select_fg = "black"
+        self.no_comments_fg = "grey"
+        self.comment_fg = "black"
+        self.no_comments_message = " Коментарів ще немає."
 
         self.detail_icon_size = (160, 160)
 
@@ -132,6 +134,8 @@ class StoreWindow(tk.Tk):
         self.title(f"Universal Games - {game_details.get('title', 'Деталі гри')}")
 
     def _populate_detail_frame(self, game_data):
+        self.detail_frame.grid_rowconfigure(7, weight=1)
+
         back_button = ttk.Button(self.detail_frame, text="< Назад до списку", command=self._show_list_view)
         back_button.grid(row=0, column=0, columnspan=2, pady=(5, 15), padx=5, sticky='w')
 
@@ -163,7 +167,7 @@ class StoreWindow(tk.Tk):
             except (ValueError, TypeError): price_text_raw = "N/A"
 
         if price_text_raw != "N/A":
-            price_label_detail = tk.Label(price_buy_frame, text=price_text_raw, font=self.price_font, background=self.original_bg)
+            price_label_detail = tk.Label(price_buy_frame, text=price_text_raw, font=self.detail_font, background=self.original_bg)
             price_label_detail.pack(side=tk.LEFT, anchor='w')
             buy_button = ttk.Button(price_buy_frame, text="Придбати")
             if price_text_raw == "Безкоштовно":
@@ -203,7 +207,6 @@ class StoreWindow(tk.Tk):
         comments_list_frame.grid(row=7, column=0, columnspan=2, sticky='nsew', padx=10)
         comments_list_frame.grid_rowconfigure(0, weight=1)
         comments_list_frame.grid_columnconfigure(0, weight=1)
-        self.detail_frame.grid_rowconfigure(7, weight=1)
 
         comments_scrollbar = ttk.Scrollbar(comments_list_frame)
         comments_scrollbar.pack(side=tk.RIGHT, fill=tk.Y)
@@ -222,6 +225,7 @@ class StoreWindow(tk.Tk):
         )
         self.comments_listbox.pack(side=tk.LEFT, fill=tk.BOTH, expand=True)
         comments_scrollbar.config(command=self.comments_listbox.yview)
+        self.comments_listbox.bind("<<ListboxSelect>>", self._on_comment_select)
 
         comment_input_frame = tk.Frame(self.detail_frame, background=self.original_bg)
         comment_input_frame.grid(row=8, column=0, columnspan=2, sticky='ew', padx=10, pady=(5, 10))
@@ -237,6 +241,17 @@ class StoreWindow(tk.Tk):
 
         self._load_comments(game_data.get('game_id'))
 
+    def _on_comment_select(self, event):
+        widget = event.widget
+        selected_indices = widget.curselection()
+        if not selected_indices:
+            return
+        index = selected_indices[0]
+        item_text = widget.get(index)
+        if item_text == self.no_comments_message:
+            widget.selection_clear(index)
+            widget.itemconfig(index, {'fg': self.no_comments_fg})
+
     def _load_comments(self, game_id):
         self.comments_listbox.delete(0, tk.END)
         if game_id is None: return
@@ -245,15 +260,18 @@ class StoreWindow(tk.Tk):
         try:
              if game_id == 1: comments_data = [('Гравець1', 'Дуже сподобалось!', '2024-05-20 10:30'), ('Тестувальник', 'Потрібно більше контенту.', '2024-05-21 15:00')]
              else: comments_data = []
-        except AttributeError: print("Метод fetch_comments не реалізовано в db_manager."); comments_data = [("System", "Функція коментарів не активна.", "")]
+        except AttributeError: print("Метод fetch_comments не реалізовано."); comments_data = [("System", "Функція коментарів не активна.", "")]
         except Exception as e: print(f"Помилка завантаження коментарів: {e}"); comments_data = [("System", "Помилка завантаження коментарів.", "")]
-        if not comments_data: self.comments_listbox.insert(tk.END, " Коментарів ще немає."); self.comments_listbox.itemconfig(tk.END, {'fg': 'grey'})
+        if not comments_data:
+            self.comments_listbox.insert(tk.END, self.no_comments_message)
+            self.comments_listbox.itemconfig(tk.END, {'fg': self.no_comments_fg})
         else:
             for comment in comments_data:
                 try:
                     user, text, date = comment
                     display_string = f" {user} ({date}): {text}"
                     self.comments_listbox.insert(tk.END, display_string)
+                    self.comments_listbox.itemconfig(tk.END, {'fg': self.comment_fg})
                 except Exception as e: print(f"Помилка відображення коментаря {comment}: {e}"); self.comments_listbox.insert(tk.END, " Помилка завантаження коментаря")
 
     def _post_comment(self):
@@ -278,12 +296,9 @@ class StoreWindow(tk.Tk):
 
     def _load_image_internal(self, image_filename, full_path, size=(64, 64), is_placeholder=False):
         placeholder_to_return = self.placeholder_image_detail if size == self.detail_icon_size else self.placeholder_image
-
         if not image_filename: return placeholder_to_return
-
         cache_key = f"{image_filename}_{size[0]}x{size[1]}"
         if cache_key in self._image_references: return self._image_references[cache_key]
-
         if full_path and os.path.exists(full_path):
             try:
                 img = Image.open(full_path)
@@ -301,7 +316,6 @@ class StoreWindow(tk.Tk):
     def _get_image(self, image_filename, size=(64, 64)):
         if not image_filename:
              return self.placeholder_image_detail if size == self.detail_icon_size else self.placeholder_image
-
         full_path = os.path.join(IMAGE_FOLDER, image_filename)
         return self._load_image_internal(image_filename, full_path, size)
 
@@ -333,58 +347,35 @@ class StoreWindow(tk.Tk):
                      widget.config(background=self.original_bg)
 
     def _create_game_entry(self, parent, game_data):
-        try:
-            game_id, title, genre, price, image_filename = game_data
-        except (ValueError, TypeError):
-            print(f"Помилка розпаковки: {game_data}")
-            return None
-
-        entry_frame = tk.Frame(parent, borderwidth=1, relief=tk.RIDGE, background=self.original_bg)
-
-        icon_label = tk.Label(entry_frame, background=self.original_bg)
-        tk_image = self._get_image(image_filename)
-        if tk_image:
-            icon_label.config(image=tk_image)
-            icon_label.image = tk_image
-        icon_label.pack(side=tk.LEFT, padx=5, pady=5)
-
-        text_frame = tk.Frame(entry_frame, background=self.original_bg)
-        text_frame.pack(side=tk.LEFT, fill=tk.X, expand=True, padx=5, pady=5)
-
-        title_label = tk.Label(text_frame, text=title, font=("Verdana", 12, "bold"), anchor="w", background=self.original_bg)
-        title_label.pack(fill=tk.X)
-
+        try: game_id, title, genre, price, image_filename = game_data
+        except (ValueError, TypeError): print(f"Помилка розпаковки: {game_data}"); return None;
+        entry_frame = tk.Frame(parent, borderwidth=1, relief=tk.RIDGE, background=self.original_bg); icon_label = tk.Label(entry_frame, background=self.original_bg); tk_image = self._get_image(image_filename);
+        if tk_image: icon_label.config(image=tk_image); icon_label.image = tk_image;
+        icon_label.pack(side=tk.LEFT, padx=5, pady=5); text_frame = tk.Frame(entry_frame, background=self.original_bg); text_frame.pack(side=tk.LEFT, fill=tk.X, expand=True, padx=5, pady=5);
+        title_label = tk.Label(text_frame, text=title, font=("Verdana", 12, "bold"), anchor="w", background=self.original_bg); title_label.pack(fill=tk.X);
         if price is None: price_text = "N/A"
         elif isinstance(price, (int, float, decimal.Decimal)) and float(price) == 0.0: price_text = "Безкоштовно"
         else:
             try: price_text = f"Ціна: {float(price):.2f}₴"
-            except (ValueError, TypeError): price_text = "N/A"
-        price_label = tk.Label(text_frame, text=price_text, font=self.ui_font, anchor="w", background=self.original_bg)
-        price_label.pack(fill=tk.X)
-
-        click_handler = partial(self._show_detail_view, game_id)
-        enter_handler = partial(self._on_enter, frame=entry_frame, icon_widget=icon_label)
-        leave_handler = partial(self._on_leave, frame=entry_frame, icon_widget=icon_label)
-
-        widgets_to_bind = [entry_frame, icon_label, text_frame, title_label, price_label]
-
-        for widget in widgets_to_bind:
-            widget.bind("<Button-1>", click_handler)
-            widget.bind("<Enter>", enter_handler)
-            widget.bind("<Leave>", leave_handler)
-            widget.config(cursor="hand2")
-
+            except (ValueError, TypeError): price_text = "N/A";
+        price_label = tk.Label(text_frame, text=price_text, font=self.ui_font, anchor="w", background=self.original_bg); price_label.pack(fill=tk.X);
+        click_handler = partial(self._show_detail_view, game_id); enter_handler = partial(self._on_enter, frame=entry_frame, icon_widget=icon_label); leave_handler = partial(self._on_leave, frame=entry_frame, icon_widget=icon_label);
+        widgets_to_bind = [entry_frame, icon_label, text_frame, title_label, price_label];
+        for widget in widgets_to_bind: widget.bind("<Button-1>", click_handler); widget.bind("<Enter>", enter_handler); widget.bind("<Leave>", leave_handler); widget.config(cursor="hand2");
         return entry_frame
 
     def load_games(self):
         for widget in self.games_list_frame.winfo_children():
             widget.destroy()
         self._game_widgets = []
+
         games_data = self.db_manager.fetch_all_games()
+
         if games_data is None:
             tk.Label(self.games_list_frame, text="Помилка завантаження даних", fg="red").pack(pady=20)
             print("DB: Failed to fetch games from DB.")
             return
+
         if not games_data:
             tk.Label(self.games_list_frame, text="Немає доступних ігор").pack(pady=20)
         else:
@@ -396,9 +387,10 @@ class StoreWindow(tk.Tk):
                 if game_widget:
                     game_widget.pack(fill=tk.X, pady=2, padx=2)
                     self._game_widgets.append(game_widget)
+
         self.games_list_frame.update_idletasks()
         self._on_frame_configure()
-
+        
     def on_close(self):
         print("Closing Store Window...")
         self._image_references.clear()
