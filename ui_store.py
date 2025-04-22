@@ -334,34 +334,74 @@ class StoreWindow(tk.Tk):
 
     def _on_enter(self, event, frame, icon_widget):
         frame.config(background=self.hover_bg)
-        for widget in frame.winfo_children():
-            if widget != icon_widget:
-                if isinstance(widget, (tk.Label, tk.Frame)):
-                     widget.config(background=self.hover_bg)
+        for child in frame.winfo_children():
+            if child != icon_widget:
+                if isinstance(child, tk.Frame):
+                    child.config(background=self.hover_bg) 
+                    for grandchild in child.winfo_children():
+                        if isinstance(grandchild, tk.Label): 
+                             grandchild.config(background=self.hover_bg)
+                elif isinstance(child, tk.Label):
+                     child.config(background=self.hover_bg)
 
     def _on_leave(self, event, frame, icon_widget):
         frame.config(background=self.original_bg)
-        for widget in frame.winfo_children():
-             if widget != icon_widget:
-                if isinstance(widget, (tk.Label, tk.Frame)):
-                     widget.config(background=self.original_bg)
+        for child in frame.winfo_children():
+             if child != icon_widget:
+                if isinstance(child, tk.Frame):
+                    child.config(background=self.original_bg) 
+                    for grandchild in child.winfo_children():
+                        if isinstance(grandchild, tk.Label):
+                             grandchild.config(background=self.original_bg)
+                elif isinstance(child, tk.Label):
+                     child.config(background=self.original_bg)
 
     def _create_game_entry(self, parent, game_data):
-        try: game_id, title, genre, price, image_filename = game_data
-        except (ValueError, TypeError): print(f"Помилка розпаковки: {game_data}"); return None;
-        entry_frame = tk.Frame(parent, borderwidth=1, relief=tk.RIDGE, background=self.original_bg); icon_label = tk.Label(entry_frame, background=self.original_bg); tk_image = self._get_image(image_filename);
-        if tk_image: icon_label.config(image=tk_image); icon_label.image = tk_image;
-        icon_label.pack(side=tk.LEFT, padx=5, pady=5); text_frame = tk.Frame(entry_frame, background=self.original_bg); text_frame.pack(side=tk.LEFT, fill=tk.X, expand=True, padx=5, pady=5);
-        title_label = tk.Label(text_frame, text=title, font=("Verdana", 12, "bold"), anchor="w", background=self.original_bg); title_label.pack(fill=tk.X);
+        try:
+            game_id, title, genre, price, image_filename = game_data
+        except (ValueError, TypeError):
+            print(f"Помилка розпаковки: {game_data}")
+            return None
+
+        entry_frame = tk.Frame(parent, borderwidth=1, relief=tk.RIDGE, background=self.original_bg)
+
+        icon_label = tk.Label(entry_frame, background=self.original_bg)
+        tk_image = self._get_image(image_filename)
+        if tk_image:
+            icon_label.config(image=tk_image)
+            icon_label.image = tk_image
+        icon_label.pack(side=tk.LEFT, padx=5, pady=5)
+
+        text_frame = tk.Frame(entry_frame, background=self.original_bg)
+        text_frame.pack(side=tk.LEFT, fill=tk.X, expand=True, padx=5, pady=5)
+
+        title_label = tk.Label(text_frame, text=title, font=("Verdana", 12, "bold"), anchor="w", background=self.original_bg)
+        title_label.pack(fill=tk.X)
+
         if price is None: price_text = "N/A"
         elif isinstance(price, (int, float, decimal.Decimal)) and float(price) == 0.0: price_text = "Безкоштовно"
         else:
             try: price_text = f"Ціна: {float(price):.2f}₴"
-            except (ValueError, TypeError): price_text = "N/A";
-        price_label = tk.Label(text_frame, text=price_text, font=self.ui_font, anchor="w", background=self.original_bg); price_label.pack(fill=tk.X);
-        click_handler = partial(self._show_detail_view, game_id); enter_handler = partial(self._on_enter, frame=entry_frame, icon_widget=icon_label); leave_handler = partial(self._on_leave, frame=entry_frame, icon_widget=icon_label);
-        widgets_to_bind = [entry_frame, icon_label, text_frame, title_label, price_label];
-        for widget in widgets_to_bind: widget.bind("<Button-1>", click_handler); widget.bind("<Enter>", enter_handler); widget.bind("<Leave>", leave_handler); widget.config(cursor="hand2");
+            except (ValueError, TypeError): price_text = "N/A"
+        price_label = tk.Label(text_frame, text=price_text, font=self.ui_font, anchor="w", background=self.original_bg)
+        price_label.pack(fill=tk.X)
+
+        click_handler = partial(self._show_detail_view, game_id)
+        enter_handler = partial(self._on_enter, frame=entry_frame, icon_widget=icon_label)
+        leave_handler = partial(self._on_leave, frame=entry_frame, icon_widget=icon_label)
+
+        entry_frame.bind("<Enter>", enter_handler)
+        entry_frame.bind("<Leave>", leave_handler)
+
+        widgets_to_bind_click_scroll = [entry_frame, icon_label, text_frame, title_label, price_label]
+
+        for widget in widgets_to_bind_click_scroll:
+            widget.bind("<Button-1>", click_handler)
+            widget.config(cursor="hand2")
+            widget.bind("<MouseWheel>", self._on_mousewheel)
+            widget.bind("<Button-4>", self._on_mousewheel)
+            widget.bind("<Button-5>", self._on_mousewheel)
+
         return entry_frame
 
     def load_games(self):
