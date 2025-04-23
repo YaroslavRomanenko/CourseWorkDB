@@ -1,5 +1,6 @@
 import psycopg2
 import psycopg2.sql as sql
+import bcrypt
 import json
 import os
 from tkinter import messagebox
@@ -155,8 +156,20 @@ class DatabaseManager:
 
     def validate_user(self, username, password):
         print(f"DBManager validating user: {username}")
-        
-        return username == "admin" and password == "admin"
+        query = "SELECT user_id, password_hash FROM Users WHERE username = %s;"
+        result = self.execute_query(query, (username,), fetch_one=True)
+
+        if result:
+            user_id, stored_hash = result
+            if bcrypt.checkpw(password.encode('utf-8'), stored_hash.encode('utf-8')):
+                print(f"User {username} validated successfully. User ID: {user_id}")
+                return user_id
+            else:
+                print(f"Password validation failed for user {username}")
+                return None # Пароль невірний
+        else:
+            print(f"User {username} not found.")
+            return None 
 
 
     def fetch_all_games(self):

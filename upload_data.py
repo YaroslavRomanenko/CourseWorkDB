@@ -237,7 +237,7 @@ def main():
         elif command == 4:
             games_data = [
                 # --- Terraria --- #
-                ("Terraria", "Dig, fight, explore, build! Nothing is impossible in this action-packed adventure game.", 225.00, "2011-05-16", "terraria_icon_1.jpg", "Released", "2011-01-03", "2025-03-27"),
+                ("Terraria", "Dig, fight, explore, build! Nothing is impossible in this action-packed adventure game.", 225.00, "2011-05-16", "terraria_icon_1.png", "Released", "2011-01-03", "2025-03-27"),
                 
                 # --- Don't Starve Together  --- #
                 ("Don't Starve Together", "Fight, Farm, Build and Explore Together in the standalone multiplayer expansion to the uncompromising wilderness survival game, Don't Starve.", 229.00, "2016-04-21", "don't_starve_together_icon_2.jpg", "Released", "2014-12-15", "2025-04-17"),
@@ -246,7 +246,7 @@ def main():
                 ("Astroneer", "Interact with strange new worlds in a unique and tactile way, molding the environment itself as if it were clay in your hands.", 600.00, "2019-02-06", "astroneer_icon_3.jpg", "Released", "2016-12-16", "2025-04-02"),
                 
                 # --- Factorio --- #
-                ("Factorio", "Factorio is a game about building and creating automated factories to produce items of increasing complexity, within an infinite 2D world.", 300.00, "2020-08-14", "factorio_icon_4.jpg", "Released", "2012-06-22", "2025-03-31"),
+                ("Factorio", "Factorio is a game about building and creating automated factories to produce items of increasing complexity, within an infinite 2D world.", 300.00, "2020-08-14", "factorio_icon_4.png", "Released", "2012-06-22", "2025-03-31"),
                 
                 # --- Stardew Valley --- #
                 ("Stardew Valley", "You've inherited your grandfather's old farm plot in Stardew Valley.", 229.00, "2016-02-26", "stardew_valley_icon_5.jpg", "Released", "2011-11-29", "2024-12-20"),
@@ -289,7 +289,7 @@ def main():
         elif command == 10:
             print("--- Deleting Data ---")
             
-            db_manager.clear_specified_table("studios")
+            db_manager.clear_specified_table("games")
             
             print("--- The Data is Successfully Deleted ---")
             break;

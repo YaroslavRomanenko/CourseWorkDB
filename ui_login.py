@@ -54,27 +54,21 @@ class LoginWindow(tk.Tk):
         """Check the fields to log in"""
         username = self.login_entry.get()
         password = self.password_entry.get()
-        
-        #--- Entries Check ---#
+
         if not username or not password:
-            messagebox.showwarning("Вхід", "Ви не ввели логін та пароль!", parent=self)
-            return
-        elif not username:
-            messagebox.showwarning("Вхід", "Ви не ввели логін!", parent=self)
-            return
-        elif not password:
-            messagebox.showerror("Вхід", "Ви не ввели пароль!", parent=self)
-            return
-        
-        #--- Data Сorrectness Сheck ---#
-        if self.db_manager.validate_user(username, password):
+             messagebox.showwarning("Вхід", "Ви не ввели логін та пароль!", parent=self)
+             return
+
+        user_id = self.db_manager.validate_user(username, password)
+
+        if user_id is not None:
             messagebox.showinfo("Вхід", "Вхід успішний!", parent=self)
             self.destroy()
-            self.open_store_func()
+            self.open_store_func(user_id) 
         else:
-            messagebox.showerror("Вхід", "Неправильний логін, або пароль", parent=self)
+            messagebox.showerror("Вхід", "Неправильний логін або пароль", parent=self)
             self.password_entry.delete(0, tk.END)
-            self.password_entry.focus_get()
+            self.password_entry.focus_set()
             
     def go_to_register(self):
         """Destroy self and call the function to open the registration window"""
