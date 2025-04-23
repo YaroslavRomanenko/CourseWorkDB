@@ -138,3 +138,165 @@ CREATE TABLE Developers_Games (
 		ON DELETE CASCADE
 		ON UPDATE CASCADE
 );
+
+CREATE TYPE purchase_status AS ENUM (
+    'Pending',
+    'Completed',
+    'Failed',
+    'Cancelled',
+    'Refunded'
+);
+
+CREATE TABLE Purchases (
+    purchase_id SERIAL PRIMARY KEY,
+    user_id INT NOT NULL,
+    purchase_date TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    total_amount DECIMAL(7, 2) NOT NULL DEFAULT 0.00,
+    status purchase_status NOT NULL,
+
+    CONSTRAINT fk_purchase_user
+        FOREIGN KEY (user_id)
+        REFERENCES Users (user_id)
+        ON DELETE RESTRICT
+        ON UPDATE CASCADE
+);
+
+CREATE INDEX idx_purchases_user_id ON Purchases(user_id);
+CREATE INDEX idx_purchases_purchase_date ON Purchases(purchase_date);
+
+CREATE TABLE Purchases_Items (
+    purchase_item_id SERIAL PRIMARY KEY,
+    purchase_id INT NOT NULL,
+    game_id INT NOT NULL,
+    price_at_purchase DECIMAL(7, 2) NOT NULL,
+
+    CONSTRAINT fk_purchaseitem_purchase
+        FOREIGN KEY (purchase_id)
+        REFERENCES Purchases (purchase_id)
+        ON DELETE CASCADE
+        ON UPDATE CASCADE,
+
+    CONSTRAINT fk_purchaseitem_game
+        FOREIGN KEY (game_id)
+        REFERENCES Games (game_id)
+        ON DELETE RESTRICT
+        ON UPDATE CASCADE
+);
+CREATE INDEX idx_purchaseitems_purchase_id ON Purchases_Items(purchase_id);
+CREATE INDEX idx_purchaseitems_game_id ON Purchases_Items(game_id);
+
+CREATE TABLE Reviews (
+    review_id SERIAL PRIMARY KEY,
+    user_id INT NOT NULL,
+    game_id INT NOT NULL,
+    rating SMALLINT NULL,
+    review_text TEXT NULL,
+    review_date TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP,
+
+    CONSTRAINT uq_user_game_review UNIQUE (user_id, game_id),
+
+    CONSTRAINT fk_review_user
+        FOREIGN KEY (user_id) REFERENCES Users (user_id)
+        ON DELETE CASCADE
+        ON UPDATE CASCADE,
+    CONSTRAINT fk_review_game
+        FOREIGN KEY (game_id) REFERENCES Games (game_id)
+        ON DELETE CASCADE
+        ON UPDATE CASCADE
+);
+
+CREATE INDEX idx_reviews_user_id ON Reviews(user_id);
+CREATE INDEX idx_reviews_game_id ON Reviews(game_id);
+
+CREATE TABLE ReviewComments (
+    comment_id SERIAL PRIMARY KEY, 
+    review_id INT NOT NULL,
+    user_id INT NOT NULL,
+    comment_text TEXT NOT NULL,
+    comment_date TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP,
+	
+    CONSTRAINT fk_comment_review
+        FOREIGN KEY (review_id) REFERENCES Reviews (review_id)
+        ON DELETE CASCADE
+        ON UPDATE CASCADE,
+    CONSTRAINT fk_comment_user
+        FOREIGN KEY (user_id) REFERENCES Users (user_id)
+        ON DELETE CASCADE
+        ON UPDATE CASCADE
+);
+
+CREATE INDEX idx_reviewcomments_review_id ON ReviewComments(review_id);
+CREATE INDEX idx_reviewcomments_user_id ON ReviewComments(user_id);
+
+CREATE TABLE Platforms (
+    platform_id SERIAL PRIMARY KEY,
+    name VARCHAR(30) UNIQUE NOT NULL
+);
+CREATE INDEX idx_platforms_name ON Platforms(name);
+
+CREATE TABLE Game_Platforms (
+    game_platform_id SERIAL PRIMARY KEY,
+    game_id INT NOT NULL,
+    platform_id INT NOT NULL,
+    system_requirements TEXT NULL,
+
+    CONSTRAINT uq_game_platform UNIQUE (game_id, platform_id),
+	
+    CONSTRAINT fk_gameplatform_game
+        FOREIGN KEY (game_id) REFERENCES Games (game_id)
+        ON DELETE CASCADE
+        ON UPDATE CASCADE,
+    CONSTRAINT fk_gameplatform_platform
+        FOREIGN KEY (platform_id) REFERENCES Platforms (platform_id)
+        ON DELETE CASCADE
+        ON UPDATE CASCADE
+);
+CREATE INDEX idx_gameplatforms_game_id ON Game_Platforms(game_id);
+CREATE INDEX idx_gameplatforms_platform_id ON Game_Platforms(platform_id);
+
+CREATE TABLE Genres (
+    genre_id SERIAL PRIMARY KEY,
+    name VARCHAR(30) UNIQUE NOT NULL,
+    description TEXT NULL
+);
+CREATE INDEX idx_genres_name ON Genres(name);
+
+CREATE TABLE Game_Genres (
+    game_id INT NOT NULL,
+    genre_id INT NOT NULL,
+	
+    CONSTRAINT pk_game_genres PRIMARY KEY (game_id, genre_id),
+
+    CONSTRAINT fk_gamegenre_game
+        FOREIGN KEY (game_id) REFERENCES Games (game_id)
+        ON DELETE CASCADE
+        ON UPDATE CASCADE,
+    CONSTRAINT fk_gamegenre_genre
+        FOREIGN KEY (genre_id) REFERENCES Genres (genre_id)
+        ON DELETE CASCADE
+        ON UPDATE CASCADE
+);
+CREATE INDEX idx_gamegenres_game_id ON Game_Genres(game_id);
+CREATE INDEX idx_gamegenres_genre_id ON Game_Genres(genre_id);
+
+CREATE TABLE Developers_Games (
+    developer_id INT NOT NULL,
+    game_id INT NOT NULL,     
+	
+    CONSTRAINT pk_developers_games PRIMARY KEY (developer_id, game_id),
+
+    CONSTRAINT fk_devgames_developer
+        FOREIGN KEY (developer_id)
+        REFERENCES Developers (developer_id)
+        ON DELETE CASCADE
+        ON UPDATE CASCADE, 
+		
+    CONSTRAINT fk_devgames_game
+        FOREIGN KEY (game_id)
+        REFERENCES Games (game_id)
+        ON DELETE CASCADE
+        ON UPDATE CASCADE
+);
+
+CREATE INDEX idx_devgames_developer_id ON Developers_Games(developer_id);
+CREATE INDEX idx_devgames_game_id ON Developers_Games(game_id);

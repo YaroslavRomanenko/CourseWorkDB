@@ -4,6 +4,7 @@ import os
 from PIL import Image, ImageTk
 from functools import partial
 import decimal
+from ui_library import LibraryTab
 
 def center_window(window, width, height):
     try:
@@ -33,7 +34,6 @@ class StoreWindow(tk.Tk):
         self.placeholder_image = None
         self.placeholder_image_detail = None
         self._game_widgets_store = []
-        self._game_widgets_library = []
         self.current_detail_game_id = None
 
         self.original_bg = "white"
@@ -67,12 +67,27 @@ class StoreWindow(tk.Tk):
         self.detail_frame = tk.Frame(self, background=self.original_bg)
         self.detail_frame.grid_columnconfigure(0, weight=0)
         self.detail_frame.grid_columnconfigure(1, weight=1)
-        self.detail_frame.grid_rowconfigure(7, weight=1)
 
         app_title_label = tk.Label(self, text="Universal Games", font=("Verdana", 18, "bold"))
         app_title_label.grid(row=0, column=0, pady=(10,5))
 
+        style = ttk.Style(self)
+        self.custom_button_style = 'NoFocus.TButton'
+        style.configure(self.custom_button_style, focuscolor=style.lookup('TButton', 'background'))
+        
+        try:
+            style.configure('TNotebook.Tab', focusthickness=0)
+        except tk.TclError as e:
+            print(f"Помилка налаштування стилю TNotebook.Tab: {e}")   
+            
+        try:
+            style.configure(self.custom_button_style, focusthickness=0)
+            style.map(self.custom_button_style, focuscolor=[('focus', style.lookup('TButton', 'background'))])
+        except tk.TclError as e:
+            print(f"Помилка налаштування стилю TButton: {e}")
+        
         self.notebook = ttk.Notebook(self)
+        self.notebook.bind("<FocusIn>", self._unfocus_notebook)
 
         self.store_tab_frame = ttk.Frame(self.notebook)
         self.notebook.add(self.store_tab_frame, text='Магазин')
@@ -82,18 +97,27 @@ class StoreWindow(tk.Tk):
 
         self.library_tab_frame = ttk.Frame(self.notebook)
         self.notebook.add(self.library_tab_frame, text='Бібліотека')
-        self.library_tab_frame.grid_rowconfigure(0, weight=1)
-        self.library_tab_frame.grid_columnconfigure(0, weight=1)
-        self.library_canvas, self.library_list_frame = self._create_scrollable_list_frame(self.library_tab_frame)
+        self.library_view = LibraryTab(
+            parent=self.library_tab_frame,
+            db_manager=self.db_manager,
+            user_id=self.current_user_id,
+            image_cache=self._image_references,
+            placeholder_list=self.placeholder_image,
+            placeholder_detail=self.placeholder_image_detail
+        )
+        
+        self.library_view.paned_window.pack(fill=tk.BOTH, expand=True)
 
-        refresh_button = ttk.Button(self, text="Оновити поточну вкладку", command=self.refresh_current_tab)
+        refresh_button = ttk.Button(self, text="Оновити поточну вкладку", command=self.refresh_current_tab, style=self.custom_button_style)
         refresh_button.grid(row=2, column=0, pady=10)
 
         self.notebook.grid(row=1, column=0, sticky='nsew')
-
+        
         self.load_games_store()
-        self.load_games_library()
 
+    def _unfocus_notebook(self, event):
+        self.after_idle(self.focus_set)
+    
     def _create_scrollable_list_frame(self, parent):
         canvas_scrollbar_frame = tk.Frame(parent)
         canvas_scrollbar_frame.grid(row=0, column=0, sticky='nsew', padx=5, pady=5)
@@ -139,9 +163,11 @@ class StoreWindow(tk.Tk):
                 self.load_games_store()
             elif selected_tab_index == 1:
                 print("Refreshing Library Tab...")
-                self.load_games_library()
+                self.library_view.load_library_games()
         except tk.TclError:
             print("Could not get selected tab (Notebook might be hidden).")
+        except AttributeError:
+            print("Library view not yet initialized.")
 
 
     def _show_notebook_view(self):
@@ -177,22 +203,28 @@ class StoreWindow(tk.Tk):
 
     def _populate_detail_frame(self, game_data):
         self.detail_frame.grid_rowconfigure(7, weight=1)
-        back_button = ttk.Button(self.detail_frame, text="< Назад", command=self._show_notebook_view)
+        
+        back_button = ttk.Button(self.detail_frame, text="< Назад", command=self._show_notebook_view, style=self.custom_button_style)
         back_button.grid(row=0, column=0, columnspan=2, pady=(5, 15), padx=5, sticky='w')
+        
         icon_label = tk.Label(self.detail_frame, background=self.original_bg)
         img_filename = game_data.get('image')
         tk_detail_image = self._get_image(img_filename, size=self.detail_icon_size)
+        
         if tk_detail_image:
             icon_label.config(image=tk_detail_image)
             icon_label.image = tk_detail_image
         else:
-            icon_label.config(text="Немає фото", font=self.ui_font, width=round(self.detail_icon_size[0]/8), height=round(self.detail_icon_size[1]/15))
+            icon_label.config(text="Немає фото", font=self.ui_font, width=round(self
+                                                                                .detail_icon_size[0]/8), height=round(self.detail_icon_size[1]/15))
         icon_label.grid(row=1, column=0, padx=(10, 20), pady=5, sticky='nw')
         info_frame = tk.Frame(self.detail_frame, background=self.original_bg)
         info_frame.grid(row=1, column=1, sticky='nsew', pady=(10, 0))
         info_frame.grid_columnconfigure(0, weight=1)
+        
         title_label = tk.Label(info_frame, text=game_data.get('title', '...'), font=self.title_font, background=self.original_bg, wraplength=self.width-self.detail_icon_size[0]-100, justify=tk.LEFT)
         title_label.grid(row=0, column=0, sticky='nw')
+        
         price_buy_frame = tk.Frame(info_frame, background=self.original_bg)
         price_buy_frame.grid(row=1, column=0, columnspan=2, sticky='w', pady=(15, 0))
         price = game_data.get('price')
@@ -204,23 +236,30 @@ class StoreWindow(tk.Tk):
         if price_text_raw != "N/A":
             price_label_detail = tk.Label(price_buy_frame, text=price_text_raw, font=self.detail_font, background=self.original_bg)
             price_label_detail.pack(side=tk.LEFT, anchor='w')
-            buy_button = ttk.Button(price_buy_frame, text="Придбати")
+            buy_button = ttk.Button(price_buy_frame, text="Придбати", style=self.custom_button_style)
             if price_text_raw == "Безкоштовно": buy_button.config(text="Отримати")
             buy_button.pack(side=tk.LEFT, padx=(15, 0), anchor='w')
         else:
             status_text = f"Статус: {game_data.get('status', 'N/A')}"
             status_label = tk.Label(price_buy_frame, text=status_text, font=self.detail_font, background=self.original_bg)
             status_label.pack(side=tk.LEFT, anchor='w')
+            
         separator1 = ttk.Separator(self.detail_frame, orient='horizontal')
         separator1.grid(row=2, column=0, columnspan=2, sticky='ew', padx=10, pady=15)
+        
         desc_label = tk.Label(self.detail_frame, text="Опис:", font=("Verdana", 12, "bold"), background=self.original_bg)
         desc_label.grid(row=3, column=0, columnspan=2, sticky='w', padx=10, pady=(0, 5))
+        
         description = game_data.get('description', '...')
+        
         desc_content_label = tk.Label(self.detail_frame, text=description, font=self.description_font, wraplength=self.width - 40, justify=tk.LEFT, anchor='nw', background=self.original_bg)
         desc_content_label.grid(row=4, column=0, columnspan=2, sticky='nw', padx=10, pady=(0, 10))
+        
         self.detail_frame.grid_rowconfigure(4, weight=0)
+        
         separator2 = ttk.Separator(self.detail_frame, orient='horizontal')
         separator2.grid(row=5, column=0, columnspan=2, sticky='ew', padx=10, pady=10)
+        
         comments_label = tk.Label(self.detail_frame, text="Коментарі:", font=("Verdana", 12, "bold"), background=self.original_bg)
         comments_label.grid(row=6, column=0, columnspan=2, sticky='w', padx=10, pady=(5, 2))
         comments_list_frame = tk.Frame(self.detail_frame)
@@ -229,16 +268,21 @@ class StoreWindow(tk.Tk):
         comments_list_frame.grid_columnconfigure(0, weight=1)
         comments_scrollbar = ttk.Scrollbar(comments_list_frame)
         comments_scrollbar.pack(side=tk.RIGHT, fill=tk.Y)
+        
         self.comments_listbox = tk.Listbox(comments_list_frame, yscrollcommand=comments_scrollbar.set, font=self.comment_font, height=6, background=self.original_bg, selectbackground=self.listbox_select_bg, selectforeground=self.listbox_select_fg, activestyle='none', highlightthickness=0, borderwidth=0)
         self.comments_listbox.pack(side=tk.LEFT, fill=tk.BOTH, expand=True)
+        
         comments_scrollbar.config(command=self.comments_listbox.yview)
         self.comments_listbox.bind("<<ListboxSelect>>", self._on_comment_select)
+        
         comment_input_frame = tk.Frame(self.detail_frame, background=self.original_bg)
         comment_input_frame.grid(row=8, column=0, columnspan=2, sticky='ew', padx=10, pady=(5, 10))
         comment_input_frame.grid_columnconfigure(0, weight=1)
+        
         self.comment_entry = tk.Entry(comment_input_frame, font=self.ui_font, width=60)
         self.comment_entry.grid(row=0, column=0, sticky='ew', padx=(0, 5))
-        post_comment_button = ttk.Button(comment_input_frame, text="Надіслати", command=self._post_comment)
+        
+        post_comment_button = ttk.Button(comment_input_frame, text="Надіслати", command=self._post_comment, style=self.custom_button_style)
         post_comment_button.grid(row=0, column=1, sticky='e')
         self._load_comments(game_data.get('game_id'))
 
@@ -315,9 +359,10 @@ class StoreWindow(tk.Tk):
              return placeholder_to_return
 
     def _get_image(self, image_filename, size=(64, 64)):
-        if not image_filename: return self.placeholder_image_detail if size == self.detail_icon_size else self.placeholder_image
+        placeholder_to_return = self.placeholder_image_detail if size[0] > 100 else self.placeholder_image
+        if not image_filename: return placeholder_to_return
         full_path = os.path.join(IMAGE_FOLDER, image_filename)
-        return self._load_image_internal(image_filename, full_path, size)
+        return self._load_image_internal(image_filename, full_path, size=size)
 
     def _on_mousewheel(self, event):
         active_canvas = None
@@ -360,10 +405,12 @@ class StoreWindow(tk.Tk):
         try: game_id, title, genre, price, image_filename = game_data
         except (ValueError, TypeError): print(f"...: {game_data}"); return None
         entry_frame = tk.Frame(parent, borderwidth=1, relief=tk.RIDGE, background=self.original_bg)
+        
         icon_label = tk.Label(entry_frame, background=self.original_bg)
         tk_image = self._get_image(image_filename, size=self.list_icon_size)
         if tk_image: icon_label.config(image=tk_image); icon_label.image = tk_image
         icon_label.pack(side=tk.LEFT, padx=5, pady=5)
+        
         text_frame = tk.Frame(entry_frame, background=self.original_bg)
         text_frame.pack(side=tk.LEFT, fill=tk.X, expand=True, padx=5, pady=5)
         title_label = tk.Label(text_frame, text=title, font=("Verdana", 12, "bold"), anchor="w", background=self.original_bg)
@@ -413,22 +460,10 @@ class StoreWindow(tk.Tk):
         self.store_canvas.configure(scrollregion=self.store_canvas.bbox("all"))
 
     def load_games_library(self):
-        for widget in self.library_list_frame.winfo_children(): widget.destroy()
-        self._game_widgets_library = []
-        try:
-            games_data = self.db_manager.fetch_purchased_games(self.current_user_id)
-        except AttributeError: tk.Label(self.library_list_frame, text="...", fg="orange").pack(pady=20); print("..."); return
-        except Exception as e: tk.Label(self.library_list_frame, text="...", fg="red").pack(pady=20); print(f"...: {e}"); return
-
-        if games_data is None: tk.Label(self.library_list_frame, text="...", fg="red").pack(pady=20); print("..."); return
-        if not games_data: tk.Label(self.library_list_frame, text="...").pack(pady=20)
+        if hasattr(self, 'library_view'):
+            self.library_view.load_library_games()
         else:
-            for game in games_data:
-                 if len(game) < 5: print(f"...: {game}"); continue
-                 game_widget = self._create_game_entry(self.library_list_frame, game, is_library=True)
-                 if game_widget: game_widget.pack(fill=tk.X, pady=2, padx=2); self._game_widgets_library.append(game_widget)
-        self.library_list_frame.update_idletasks()
-        self.library_canvas.configure(scrollregion=self.library_canvas.bbox("all"))
+            print("Warning: Library view is not initialized yet.")
 
     def on_close(self):
         print("Closing Store Window...")

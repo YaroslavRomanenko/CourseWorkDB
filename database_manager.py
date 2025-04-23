@@ -185,19 +185,20 @@ class DatabaseManager:
     def fetch_game_details(self, game_id):
         query = """
             SELECT
-                game_id,
-                title,
-                description,
-                price,
-                image,
-                status,
-                release_date
-                -- Додайте інші поля, якщо потрібно (напр., created_at)
+                game_id, title, description, price, image, status, release_date
             FROM games
             WHERE game_id = %s;
         """
         print(f"DB: Fetching details for game_id {game_id}...")
         game_tuple = self.execute_query(query, (game_id,), fetch_one=True)
+        if game_tuple:
+            details = {
+                'game_id': game_tuple[0], 'title': game_tuple[1], 'description': game_tuple[2],
+                'price': game_tuple[3], 'image': game_tuple[4], 'status': game_tuple[5],
+                'release_date': game_tuple[6]
+            }
+            return details
+        else: return None
 
         if game_tuple:
             print(f"DB: Details found for game_id {game_id}.")
