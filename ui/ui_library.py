@@ -6,7 +6,7 @@ from functools import partial
 import decimal
 
 class LibraryTab:
-    def __init__(self, parent, db_manager, user_id, image_cache, placeholder_list, placeholder_detail, fonts):
+    def __init__(self, parent, db_manager, user_id, image_cache, placeholder_list, placeholder_detail, image_folder_path, fonts, colors):
         self.parent = parent
         self.db_manager = db_manager
         self.user_id = user_id
@@ -14,9 +14,10 @@ class LibraryTab:
         self._image_references = image_cache
         self.placeholder_image_list = placeholder_list
         self.placeholder_image_detail = placeholder_detail
+        self.image_folder_path = image_folder_path
         self._game_widgets_library = []
 
-        self.original_bg = "white"
+        self.original_bg = colors.get('original_bg', "white")
         self.hover_bg = "#f0f0f0"
         self.list_icon_size = (48, 48)
         self.detail_icon_size = (300, 180)
@@ -206,5 +207,5 @@ class LibraryTab:
     def _get_image(self, image_filename, size=(64, 64)):
         placeholder = self.placeholder_image_detail if size == self.detail_icon_size else self.placeholder_image_list
         if not image_filename: return placeholder
-        image_path = os.path.join(IMAGE_FOLDER, image_filename) # Використовуємо глобальний IMAGE_FOLDER
+        image_path = os.path.join(self.image_folder_path, image_filename)
         return self._load_image_internal(image_filename, image_path, size)

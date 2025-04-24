@@ -1,6 +1,6 @@
 import tkinter as tk
 from tkinter import messagebox, ttk
-from window_utils import center_window
+from .ui_utils import center_window
 
 class RegistrationWindow(tk.Tk):
     def __init__(self, db_manager, open_login_func):

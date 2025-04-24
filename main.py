@@ -1,10 +1,23 @@
-import tkinter as tk
+import os
 
-from tkinter import messagebox
+from ui.ui_login import LoginWindow
+from ui.ui_registration import RegistrationWindow
+from ui.ui_store import StoreWindow
+
 from database_manager import DatabaseManager
-from ui_login import LoginWindow
-from ui_registration import RegistrationWindow
-from ui_store import StoreWindow
+
+try:
+    MAIN_SCRIPT_PATH = os.path.abspath(__file__)
+    BASE_DIR = os.path.dirname(MAIN_SCRIPT_PATH)
+except NameError:
+    BASE_DIR = os.getcwd()
+    print(f"Warning: Could not determine script path, using CWD as BASE_DIR: {BASE_DIR}")
+
+CONFIG_PATH = os.path.join(BASE_DIR, 'config.json')
+RESOURCES_DIR = os.path.join(BASE_DIR, 'resources')
+IMAGE_FOLDER_PATH = os.path.join(RESOURCES_DIR, 'games_icons')
+PLACEHOLDER_IMG_NAME = 'placeholder.png'
+PLACEHOLDER_IMG_PATH = os.path.join(IMAGE_FOLDER_PATH, PLACEHOLDER_IMG_NAME)
 
 db_manager = DatabaseManager('config.json')
 
@@ -25,7 +38,13 @@ def start_registration_window():
 def start_store_window(user_id):
     """Creates and runs the store window"""
     print(f"Opening Store Window for user_id: {user_id}...")
-    store_app = StoreWindow(db_manager, user_id) 
+    store_app = StoreWindow(
+        db_manager=db_manager,
+        user_id=user_id, image_folder=IMAGE_FOLDER_PATH,
+        placeholder_image_path=PLACEHOLDER_IMG_PATH,
+        placeholder_image_name=PLACEHOLDER_IMG_NAME
+    )
+    
     store_app.mainloop()
     print("Store Window mainloop finished")
     
