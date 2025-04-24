@@ -2,40 +2,12 @@ import tkinter as tk
 from tkinter import ttk, messagebox
 import os
 from PIL import Image, ImageTk
-import decimal
-
-try:
-    SCRIPT_DIR = os.path.dirname(os.path.abspath(__file__))
-
-    IMAGE_FOLDER = os.path.join(os.path.dirname(SCRIPT_DIR), 'resources', 'games_icons')
-    PLACEHOLDER_IMAGE_NAME = 'placeholder.png'
-    PLACEHOLDER_IMAGE_PATH = os.path.join(IMAGE_FOLDER, PLACEHOLDER_IMAGE_NAME)
-    if not os.path.exists(PLACEHOLDER_IMAGE_PATH):
-         print(f"Warning: Placeholder image not found at {PLACEHOLDER_IMAGE_PATH}")
-         alt_path = os.path.join(os.getcwd(), 'resources', 'games_icons', PLACEHOLDER_IMAGE_NAME)
-         if os.path.exists(alt_path):
-             PLACEHOLDER_IMAGE_PATH = alt_path
-             IMAGE_FOLDER = os.path.dirname(alt_path)
-         else:
-             PLACEHOLDER_IMAGE_PATH = None
-             IMAGE_FOLDER = None
-             print("Placeholder image path could not be determined.")
-
-except NameError:
-    SCRIPT_DIR = os.getcwd()
-
-    IMAGE_FOLDER = os.path.join(SCRIPT_DIR, 'resources', 'games_icons')
-    PLACEHOLDER_IMAGE_NAME = 'placeholder.png'
-    PLACEHOLDER_IMAGE_PATH = os.path.join(IMAGE_FOLDER, PLACEHOLDER_IMAGE_NAME)
-    if not os.path.exists(PLACEHOLDER_IMAGE_PATH):
-        print(f"Warning: Placeholder image not found at {PLACEHOLDER_IMAGE_PATH}")
-        PLACEHOLDER_IMAGE_PATH = None
-        IMAGE_FOLDER = None
-
+from decimal import Decimal, InvalidOperation
 
 class GameDetailView(tk.Frame):
     def __init__(self, parent, db_manager, user_id, game_id, game_data,
                  image_cache, placeholder_list, placeholder_detail,
+                 image_folder, placeholder_path, placeholder_name,
                  fonts, colors, styles, back_command, **kwargs):
         super().__init__(parent, bg=colors.get('original_bg', 'white'), **kwargs)
 
@@ -46,6 +18,9 @@ class GameDetailView(tk.Frame):
         self._image_references = image_cache 
         self.placeholder_image_list = placeholder_list
         self.placeholder_image_detail = placeholder_detail
+        self.image_folder = image_folder
+        self.placeholder_path = placeholder_path
+        self.placeholder_name = placeholder_name
         self.fonts = fonts
         self.colors = colors
         self.styles = styles
@@ -105,23 +80,49 @@ class GameDetailView(tk.Frame):
 
         price_buy_frame = tk.Frame(info_frame, background=self.original_bg)
         price_buy_frame.grid(row=1, column=0, columnspan=2, sticky='w', pady=(15, 0))
+        
         price = self.game_data.get('price')
-        if price is None: price_text_raw = "N/A"
-        elif isinstance(price, (int, float, decimal.Decimal)) and float(price) == 0.0: price_text_raw = "Безкоштовно"
-        else:
-            try: price_text_raw = f"{float(price):.2f}₴"
-            except (ValueError, TypeError): price_text_raw = "N/A"
+        
+        is_owned = False
+        try:
+            if self.user_id is not None and self.game_id is not None:
+                is_owned = self.db_manager.check_ownership(self.user_id, self.game_id)
+            else:
+                print("Warning: Cannot check ownership, user_id or game_id is None.")
+        except AttributeError:
+            print("Warning: DB manager does not have 'check_ownership' method. Assuming not owned.")
+        except Exception as e:
+            print(f"Error checking ownership, assuming not owned: {e}")
 
-        if price_text_raw != "N/A":
-            price_label_detail = tk.Label(price_buy_frame, text=price_text_raw, font=self.detail_font, background=self.original_bg)
-            price_label_detail.pack(side=tk.LEFT, anchor='w')
-            buy_button = ttk.Button(price_buy_frame, text="Придбати", style=self.custom_button_style, command=self._buy_game) # Додамо команду
-            if price_text_raw == "Безкоштовно": buy_button.config(text="Отримати")
-            buy_button.pack(side=tk.LEFT, padx=(15, 0), anchor='w')
+        if is_owned:
+            in_library_label = tk.Label(price_buy_frame, text="У бібліотеці",
+                                        font=self.detail_font, background=self.original_bg, fg="green")
+            in_library_label.pack(side=tk.LEFT, anchor='w')
         else:
-            status_text = f"Статус: {self.game_data.get('status', 'N/A')}"
-            status_label = tk.Label(price_buy_frame, text=status_text, font=self.detail_font, background=self.original_bg)
-            status_label.pack(side=tk.LEFT, anchor='w')
+            price = self.game_data.get('price') 
+            price_text_raw = "N/A" 
+
+            if price is None:
+                price_text_raw = "N/A"
+            elif isinstance(price, (int, float, Decimal)) and float(price) == 0.0:
+                price_text_raw = "Безкоштовно"
+            else:
+                try:
+                    price_text_raw = f"{float(price):.2f}₴"
+                except (ValueError, TypeError):
+                    price_text_raw = "N/A"
+
+            if price_text_raw != "N/A":
+                price_label_detail = tk.Label(price_buy_frame, text=price_text_raw, font=self.detail_font, background=self.original_bg)
+                price_label_detail.pack(side=tk.LEFT, anchor='w')
+                buy_button = ttk.Button(price_buy_frame, text="Придбати", style=self.custom_button_style, command=self._buy_game)
+                if price_text_raw == "Безкоштовно":
+                    buy_button.config(text="Отримати")
+                buy_button.pack(side=tk.LEFT, padx=(15, 0), anchor='w')
+            else:
+                status_text = f"Статус: {self.game_data.get('status', 'N/A')}"
+                status_label = tk.Label(price_buy_frame, text=status_text, font=self.detail_font, background=self.original_bg)
+                status_label.pack(side=tk.LEFT, anchor='w')
 
         separator1 = ttk.Separator(self, orient='horizontal')
         separator1.grid(row=2, column=0, columnspan=2, sticky='ew', padx=10, pady=15)
@@ -204,29 +205,28 @@ class GameDetailView(tk.Frame):
 
 
     def _load_comments(self):
-        """Завантажує коментарі для поточної гри."""
         self.comments_listbox.delete(0, tk.END)
         if self.game_id is None:
-             print("Cannot load comments: game_id is None")
-             return
+            print("Cannot load comments: game_id is None")
+            return
 
         print(f"Loading comments for game_id: {self.game_id}")
         comments_data = []
         try:
-             if self.game_id == 1:
-                 comments_data = [('User1', 'Great game!', '2023-10-27'), ('User2', 'A bit buggy.', '2023-10-26')]
-             elif self.game_id == 2:
-                  comments_data = [('Tester', 'Nice graphics.', '2023-10-25')]
-             else:
-                  comments_data = [] 
-             print(f"Fetched comments: {comments_data}")
+            if self.game_id == 1:
+                comments_data = [('User1', 'Great game!', '2023-10-27'), ('User2', 'A bit buggy.', '2023-10-26')]
+            elif self.game_id == 2:
+                comments_data = [('Tester', 'Nice graphics.', '2023-10-25')]
+            else:
+                comments_data = [] 
+            print(f"Fetched comments: {comments_data}")
 
         except AttributeError:
-             print("DB manager does not have 'fetch_game_comments' method (using placeholder).")
-             comments_data = [("System", "Error loading comments (DB method missing).", "")]
+            print("DB manager does not have 'fetch_game_comments' method (using placeholder).")
+            comments_data = [("System", "Error loading comments (DB method missing).", "")]
         except Exception as e:
-             print(f"Error fetching comments from DB: {e}")
-             comments_data = [("System", f"Error loading comments: {e}", "")]
+            print(f"Error fetching comments from DB: {e}")
+            comments_data = [("System", f"Error loading comments: {e}", "")]
 
         if not comments_data:
             self.comments_listbox.insert(tk.END, self.no_comments_message)
@@ -257,8 +257,8 @@ class GameDetailView(tk.Frame):
             messagebox.showerror("Помилка", "Не вдалося визначити ID гри для коментаря.")
             return
         if self.user_id is None:
-             messagebox.showerror("Помилка", "Не вдалося визначити ID користувача.")
-             return
+            messagebox.showerror("Помилка", "Не вдалося визначити ID користувача.")
+            return
 
         print(f"Posting comment for game_id: {self.game_id}, user_id: {self.user_id}")
         success = False
@@ -267,12 +267,12 @@ class GameDetailView(tk.Frame):
             success = True 
 
             if success:
-                 print("Comment added successfully (simulated).")
-                 self.comment_entry.delete(0, tk.END)
-                 self._load_comments()
+                print("Comment added successfully (simulated).")
+                self.comment_entry.delete(0, tk.END)
+                self._load_comments()
             else:
-                 print("Failed to add comment (simulated).")
-                 messagebox.showerror("Помилка", "Не вдалося додати коментар.")
+                print("Failed to add comment (simulated).")
+                messagebox.showerror("Помилка", "Не вдалося додати коментар.")
 
         except AttributeError:
             print("DB manager does not have 'add_comment' method.")
@@ -282,7 +282,7 @@ class GameDetailView(tk.Frame):
             messagebox.showerror("Помилка бази даних", f"Не вдалося додати коментар:\n{e}")
 
     def _buy_game(self):
-        """Обробляє натискання кнопки 'Придбати'/'Отримати'."""
+        """Handles the 'Buy'/'Get' button click."""
         if self.game_id is None:
             messagebox.showerror("Помилка", "Не вдалося визначити ID гри.")
             return
@@ -292,31 +292,57 @@ class GameDetailView(tk.Frame):
 
         price = self.game_data.get('price')
         title = self.game_data.get('title', 'цієї гри')
-        action = "додати до бібліотеки" if isinstance(price, (int, float, decimal.Decimal)) and float(price) == 0.0 else "придбати"
-        price_text = "безкоштовно" if action == "додати до бібліотеки" else f"за {float(price):.2f}₴" if price else ""
+        is_free = False
+        price_numeric = Decimal('0.00')
+        try:
+            if price is not None and float(price) > 0.0:
+                 price_numeric = Decimal(str(price)).quantize(Decimal("0.01"))
+                 action = "придбати"
+                 price_text = f"за {price_numeric}₴"
+            else:
+                 is_free = True
+                 action = "додати до бібліотеки"
+                 price_text = "безкоштовно"
+        except (ValueError, TypeError, InvalidOperation):
+             messagebox.showerror("Помилка ціни", f"Некоректний формат ціни для гри: {price}")
+             return
 
         confirm = messagebox.askyesno("Підтвердження", f"Ви впевнені, що хочете {action} гру '{title}' {price_text}?")
 
         if confirm:
-            print(f"Attempting to '{action}' game_id: {self.game_id} for user_id: {self.user_id}")
+            print(f"Attempting to '{action}' game_id: {self.game_id} for user_id: {self.user_id} at price {price_numeric}")
             success = False
             try:
-                print(f"Simulating purchase/add: User {self.user_id}, Game {self.game_id}")
-                success = True # Імітуємо успіх
+                success = self.db_manager.purchase_game(self.user_id, self.game_id, price_numeric)
 
                 if success:
-                     messagebox.showinfo("Успіх", f"Гру '{title}' успішно додано до вашої бібліотеки!")
+                     messagebox.showinfo("Успіх", f"Гру '{title}' успішно {('додано до' if is_free else 'придбано та додано до')} вашої бібліотеки!")
+                     self._update_price_buy_area()
+
                 else:
-                    print(f"Failed to {action} game (simulated).")
-                    messagebox.showerror("Помилка", f"Не вдалося {action} гру.")
+                    messagebox.showerror("Помилка", f"Не вдалося {action} гру. Дивіться консоль для деталей.")
 
             except AttributeError:
-                 print(f"DB manager does not have 'purchase_game' method.")
-                 messagebox.showerror("Помилка", f"Функціонал покупки не реалізовано (DB method missing).")
+                 messagebox.showerror("Помилка", "Функціонал покупки/додавання гри не реалізовано (DB method missing).")
             except Exception as e:
-                 print(f"Error purchasing game in DB: {e}")
-                 messagebox.showerror("Помилка бази даних", f"Не вдалося {action} гру:\n{e}")
+                 messagebox.showerror("Помилка", f"Під час процесу покупки сталася помилка:\n{e}")
 
+
+    def _update_price_buy_area(self):
+        """Clears and rebuilds the content of the price_buy_frame."""
+        try:
+            info_frame = self.winfo_children()[2] 
+            price_buy_frame = info_frame.winfo_children()[1] 
+        except IndexError:
+            print("Error: Could not find price_buy_frame to update.")
+            return
+
+        for widget in price_buy_frame.winfo_children():
+            widget.destroy()
+
+        in_library_label = tk.Label(price_buy_frame, text="✔ У бібліотеці",
+                                    font=self.detail_font, background=self.original_bg, fg="green")
+        in_library_label.pack(side=tk.LEFT, anchor='w')
 
     def _load_image_internal(self, image_filename, full_path, size=(64, 64), is_placeholder=False):
         placeholder_to_return = self.placeholder_image_detail if size == self.detail_icon_size else self.placeholder_image_list
@@ -345,20 +371,19 @@ class GameDetailView(tk.Frame):
              return placeholder_to_return
 
     def _get_image(self, image_filename, size=(64, 64)):
-        """Отримує PhotoImage для заданого імені файлу та розміру."""
         placeholder_to_return = self.placeholder_image_detail if size == self.detail_icon_size else self.placeholder_image_list
 
         if not image_filename:
              return placeholder_to_return
-        if IMAGE_FOLDER is None:
+        if self.image_folder is None:
              print("IMAGE_FOLDER is not set, cannot load image.")
              return placeholder_to_return
 
         if os.path.isabs(image_filename) and os.path.exists(image_filename):
              full_path = image_filename
         else:
-             full_path = os.path.join(IMAGE_FOLDER, image_filename)
+             full_path = os.path.join(self.image_folder, image_filename)
 
-        is_placeholder = (image_filename == PLACEHOLDER_IMAGE_NAME)
+        is_placeholder = (image_filename == self.placeholder_name)
 
         return self._load_image_internal(image_filename, full_path, size=size, is_placeholder=is_placeholder)

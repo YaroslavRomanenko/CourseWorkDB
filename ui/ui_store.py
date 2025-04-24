@@ -248,7 +248,10 @@ class StoreWindow(tk.Tk):
             image_cache=self._image_references,
             placeholder_list=self.placeholder_image,
             placeholder_detail=self.placeholder_image_detail,
-            fonts=self.fonts, 
+            image_folder=self.image_folder,
+            placeholder_path=self.placeholder_image_path,
+            placeholder_name=self.placeholder_image_name,
+            fonts=self.fonts,
             colors=self.colors, 
             styles=self.styles,
             back_command=self._show_notebook_view

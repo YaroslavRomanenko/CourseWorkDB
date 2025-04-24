@@ -4,6 +4,7 @@ import bcrypt
 import json
 import os
 from tkinter import messagebox
+from decimal import Decimal, InvalidOperation
 
 class DatabaseManager:
 
@@ -199,20 +200,108 @@ class DatabaseManager:
             }
             return details
         else: return None
+        
+    def fetch_purchased_games(self, user_id):
+        query = """
+            SELECT DISTINCT
+                g.game_id,
+                g.title,
+                NULL AS genre, -- Placeholder for UI compatibility
+                g.price,       -- Current game price
+                g.image
+            FROM Games g
+            JOIN Purchases_Items pi ON g.game_id = pi.game_id
+            JOIN Purchases p ON pi.purchase_id = p.purchase_id
+            WHERE p.user_id = %s
+              AND p.status = 'Completed' -- Ensure the purchase was successful
+            ORDER BY g.title;
+        """
+        print(f"DB: Fetching purchased games for user_id {user_id}...")
+        try:
+            purchased_games = self.execute_query(query, (user_id,), fetch_all=True)
 
-        if game_tuple:
-            print(f"DB: Details found for game_id {game_id}.")
-            details = {
-                'game_id': game_tuple[0],
-                'title': game_tuple[1],
-                'description': game_tuple[2],
-                'price': game_tuple[3],
-                'image': game_tuple[4],
-                'status': game_tuple[5],
-                'release_date': game_tuple[6]
-            }
-            return details
-        else:
-            print(f"DB: No details found for game_id {game_id}.")
-            return None
+            if purchased_games is None:
+                print(f"DB: Error occurred while fetching purchased games for user_id {user_id}.")
+                return None
+            elif not purchased_games:
+                print(f"DB: No purchased games found for user_id {user_id}.")
+                return []
+            else:
+                print(f"DB: Found {len(purchased_games)} purchased games for user_id {user_id}.")
+                return purchased_games
+        except Exception as e:
+            print(f"DB: Unexpected error fetching purchased games for user_id {user_id}: {e}")
+            
+    def purchase_game(self, user_id, game_id, price_at_purchase):
+        conn = self.get_connection()
+        if not conn:
+            print("Cannot purchase game: No active database connection")
+            return False
+        try:
+            if price_at_purchase is None or float(price_at_purchase) == 0.0:
+                final_price = Decimal('0.00')
+            else:
+                final_price = Decimal(str(price_at_purchase)).quantize(Decimal("0.01"))
+        except (ValueError, TypeError, InvalidOperation):
+             print(f"Error: Invalid price format for purchase: {price_at_purchase}")
+             return False
+
+        purchase_id = None
+        try:
+            with conn:
+                with conn.cursor() as cur:
+                    purchase_query = sql.SQL("""
+                        INSERT INTO Purchases (user_id, total_amount, status)
+                        VALUES (%s, %s, %s)
+                        RETURNING purchase_id;
+                    """)
+                    cur.execute(purchase_query, (user_id, final_price, 'Completed'))
+                    result = cur.fetchone()
+
+                    if result and result[0]:
+                        purchase_id = result[0]
+                        print(f"DB: Created Purchases record with ID: {purchase_id}")
+                    else:
+                        print("DB: Failed to create Purchases record or retrieve purchase_id.")
+                        raise psycopg2.DatabaseError("Failed to create Purchases record") 
+
+                    item_query = sql.SQL("""
+                        INSERT INTO Purchases_Items (purchase_id, game_id, price_at_purchase)
+                        VALUES (%s, %s, %s);
+                    """)
+                    cur.execute(item_query, (purchase_id, game_id, final_price))
+
+                    if cur.rowcount != 1:
+                         print(f"DB: Failed to insert into Purchases_Items for purchase_id {purchase_id}, game_id {game_id}.")
+                         raise psycopg2.DatabaseError("Failed to insert purchase item")
+
+                    print(f"DB: Added game {game_id} to purchase {purchase_id} successfully.")
+
+            return True
+
+        except (Exception, psycopg2.Error) as error:
+            print(f"\nError during game purchase transaction: {error}")
+            if purchase_id:
+                 print(f"Transaction for purchase_id {purchase_id} rolled back.")
+            else:
+                 print("Transaction rolled back before Purchases record was fully created.")
+            return False
+        
+    def check_ownership(self, user_id, game_id):
+        query = """
+            SELECT EXISTS (
+                SELECT 1
+                FROM Purchases_Items pi
+                JOIN Purchases p ON pi.purchase_id = p.purchase_id
+                WHERE p.user_id = %s
+                  AND pi.game_id = %s
+                  AND p.status = 'Completed'
+            );
+        """
+        try:
+            result = self.execute_query(query, (user_id, game_id), fetch_one=True)
+            return result[0] if result else False
+        except Exception as e:
+            print(f"DB: Error checking ownership for user {user_id}, game {game_id}: {e}")
+            return False
     

@@ -18,7 +18,7 @@ class LibraryTab:
         self._game_widgets_library = []
 
         self.original_bg = colors.get('original_bg', "white")
-        self.hover_bg = "#f0f0f0"
+        self.hover_bg = colors.get('hover_bg', "#f0f0f0")
         self.list_icon_size = (48, 48)
         self.detail_icon_size = (300, 180)
 
@@ -27,19 +27,20 @@ class LibraryTab:
         self.title_font_detail = fonts.get('detail_title', ("Verdana", 14, "bold"))
         self.detail_font = fonts.get('detail', ("Verdana", 11))
 
-        self.paned_window = tk.PanedWindow(self.parent, orient=tk.HORIZONTAL, sashrelief=tk.RAISED, bg=self.original_bg)
-        self.paned_window.pack(fill=tk.BOTH, expand=True)
-
-        self.left_frame = tk.Frame(self.paned_window, width=250, bg=self.original_bg) 
+        self.paned_window = tk.PanedWindow(self.parent, orient=tk.HORIZONTAL, sashrelief=tk.FLAT, sashwidth=1, bg=self.original_bg)
+        
+        desired_left_width = 220
+        min_left_width = 200
+        self.left_frame = tk.Frame(self.paned_window, width=desired_left_width, bg=self.original_bg) 
         self.left_frame.grid_rowconfigure(0, weight=1)
         self.left_frame.grid_columnconfigure(0, weight=1)
-        self.paned_window.add(self.left_frame, minsize=200)
+        self.paned_window.add(self.left_frame, width=desired_left_width, minsize=min_left_width, stretch="never")
 
         self.library_canvas, self.library_list_frame = self._create_scrollable_list_frame(self.left_frame)
 
         self.right_frame = tk.Frame(self.paned_window, bg=self.original_bg, padx=15, pady=10)
         self.right_frame.grid_columnconfigure(0, weight=1)
-        self.paned_window.add(self.right_frame, minsize=400)
+        self.paned_window.add(self.right_frame, minsize=300, stretch="always")
 
         self._display_placeholder_details()
 
@@ -62,7 +63,11 @@ class LibraryTab:
         canvas_frame_id = canvas.create_window((0, 0), window=inner_frame, anchor="nw")
 
         def _on_inner_frame_configure(event=None): canvas.configure(scrollregion=canvas.bbox("all"))
-        def _on_inner_canvas_configure(event): canvas.itemconfig(canvas_frame_id, width=event.width)
+        def _on_inner_canvas_configure(event):
+            canvas_width = event.width
+            canvas.itemconfig(canvas_frame_id, width=event.width)
+            inner_frame.config(width=canvas_width)
+            
         def _on_inner_mousewheel(event):
             if event.num == 4: delta = -1
             elif event.num == 5: delta = 1
@@ -70,6 +75,7 @@ class LibraryTab:
                 try: delta = -1 if event.delta > 0 else 1
                 except AttributeError: return
             canvas.yview_scroll(delta, "units")
+            return "break"
 
         inner_frame.bind("<Configure>", _on_inner_frame_configure)
         canvas.bind('<Configure>', _on_inner_canvas_configure)
@@ -117,9 +123,9 @@ class LibraryTab:
             widget.bind("<Button-1>", click_handler)
             widget.bind("<Enter>", enter_handler)
             widget.bind("<Leave>", leave_handler)
-            widget.bind("<MouseWheel>", self.parent.master._on_mousewheel)
-            widget.bind("<Button-4>", self.parent.master._on_mousewheel)
-            widget.bind("<Button-5>", self.parent.master._on_mousewheel)
+            widget.bind("<MouseWheel>", self.parent.master.master._on_mousewheel)
+            widget.bind("<Button-4>", self.parent.master.master._on_mousewheel)
+            widget.bind("<Button-5>", self.parent.master.master._on_mousewheel)
 
 
         return entry_frame
