@@ -103,7 +103,12 @@ class StoreWindow(tk.Tk):
             user_id=self.current_user_id,
             image_cache=self._image_references,
             placeholder_list=self.placeholder_image,
-            placeholder_detail=self.placeholder_image_detail
+            placeholder_detail=self.placeholder_image_detail,
+            
+            fonts={'ui': self.ui_font,
+                   'list_title': ("Verdana", 11, "bold"),
+                   'detail_title': ("Verdana", 14, "bold"),
+                   'detail': self.detail_font}
         )
         
         self.library_view.paned_window.pack(fill=tk.BOTH, expand=True)

@@ -6,7 +6,7 @@ from functools import partial
 import decimal
 
 class LibraryTab:
-    def __init__(self, parent, db_manager, user_id, image_cache, placeholder_list, placeholder_detail):
+    def __init__(self, parent, db_manager, user_id, image_cache, placeholder_list, placeholder_detail, fonts):
         self.parent = parent
         self.db_manager = db_manager
         self.user_id = user_id
@@ -21,9 +21,10 @@ class LibraryTab:
         self.list_icon_size = (48, 48)
         self.detail_icon_size = (300, 180)
 
-        self.ui_font = ("Verdana", 10)
-        self.title_font_list = ("Verdana", 11, "bold")
-        self.title_font_detail = ("Verdana", 14, "bold")
+        self.ui_font = fonts.get('ui', ("Verdana", 10))
+        self.title_font_list = fonts.get('list_title', ("Verdana", 11, "bold"))
+        self.title_font_detail = fonts.get('detail_title', ("Verdana", 14, "bold"))
+        self.detail_font = fonts.get('detail', ("Verdana", 11))
 
         self.paned_window = tk.PanedWindow(self.parent, orient=tk.HORIZONTAL, sashrelief=tk.RAISED, bg=self.original_bg)
         self.paned_window.pack(fill=tk.BOTH, expand=True)
