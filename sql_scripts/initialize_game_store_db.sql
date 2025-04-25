@@ -26,7 +26,7 @@ CREATE INDEX idx_users_username ON Users(username);
 CREATE INDEX idx_users_email ON Users(email);
 
 
--- SELECT * FROM Users;
+SELECT * FROM Users;
 
 /* ### Developers ### */
 

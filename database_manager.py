@@ -170,7 +170,52 @@ class DatabaseManager:
                 return None # Пароль невірний
         else:
             print(f"User {username} not found.")
-            return None 
+            return None
+        
+    def register_user(self, username, email, password):
+        conn = self.get_connection()
+        if not conn:
+            messagebox.showerror("Помилка Бази Даних", "Не вдалося підключитися до бази даних для реєстрації.")
+            return False
+
+        try:
+            password_bytes = password.encode('utf-8')
+            salt = bcrypt.gensalt()
+            hashed_password_bytes = bcrypt.hashpw(password_bytes, salt)
+            hashed_password_str = hashed_password_bytes.decode('utf-8')
+        except Exception as e:
+            print(f"DB: Помилка хешування пароля для {username}: {e}")
+            messagebox.showerror("Помилка Реєстрації", f"Внутрішня помилка під час обробки пароля: {e}")
+            return False
+
+        query = sql.SQL("""
+            INSERT INTO Users (username, email, password_hash)
+            VALUES (%s, %s, %s);
+        """)
+        params = (username, email, hashed_password_str)
+
+        try:
+            with conn:
+                with conn.cursor() as cur:
+                    cur.execute(query, params)
+            return True
+
+        except psycopg2.IntegrityError as e:
+            print(f"DB: IntegrityError during registration for {username}: {e}")
+            if "users_username_key" in str(e).lower():
+                messagebox.showerror("Помилка Реєстрації", f"Користувач з іменем '{username}' вже існує.")
+            elif "users_email_key" in str(e).lower():
+                 messagebox.showerror("Помилка Реєстрації", f"Електронна пошта '{email}' вже використовується.")
+            else:
+                 messagebox.showerror("Помилка Реєстрації", f"Помилка цілісності даних: {e}")
+            return False
+
+        except (Exception, psycopg2.Error) as error:
+            print(f"\nDB: Error during user registration for '{username}': {error}")
+            print(f"Query: {query.as_string(conn) if conn else query}")
+            print(f"Parameters: {params}")
+            messagebox.showerror("Помилка Бази Даних", f"Не вдалося зареєструвати користувача:\n{error}")
+            return False
 
 
     def fetch_all_games(self):

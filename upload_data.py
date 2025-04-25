@@ -289,7 +289,7 @@ def main():
         elif command == 10:
             print("--- Deleting Data ---")
             
-            db_manager.clear_specified_table("games")
+            db_manager.clear_specified_table("users")
             
             print("--- The Data is Successfully Deleted ---")
             break;

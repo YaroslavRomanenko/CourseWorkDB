@@ -67,32 +67,51 @@ class RegistrationWindow(tk.Tk):
         
     def submit_registration(self):
         messagebox_title = "Реєстрація"
-        
-        username = self.login_entry.get()
-        email = self.email_entry.get()
+
+        username = self.login_entry.get().strip()
+        email = self.email_entry.get().strip()
         password = self.password_entry.get()
         password_repeat = self.password_repeat_entry.get()
-        
-        #--- Data Correctness Check ---#
-        if not all([username, email, password, password_repeat]): 
-            messagebox.showwarning(messagebox_title, "Заповніть усі поля", parent=self)
+
+        if not all([username, email, password, password_repeat]):
+            messagebox.showwarning(messagebox_title, "Будь ласка, заповніть усі поля.", parent=self)
             return
+
+        min_username_len = 4
+        max_username_len = 16
+        if not (min_username_len <= len(username) <= max_username_len):
+            messagebox.showwarning(
+                messagebox_title,
+                f"Логін повинен містити від {min_username_len} до {max_username_len} символів.\n"
+                f"Ваш логін має довжину: {len(username)}.",
+                parent=self
+            )
+            self.login_entry.focus_set()
+            return
+
         if "@" not in email or "." not in email:
-            messagebox.showwarning(messagebox_title, "Введіть дійсну адресу електронної пошти", parent=self)
+            messagebox.showwarning(messagebox_title, "Будь ласка, введіть дійсну адресу електронної пошти.", parent=self)
+            self.email_entry.focus_set()
             return
-        if len(password) < 8:
-            messagebox.showwarning(messagebox_title, "Пароль має бути більше, або дорівнювати 8 символам", parent=self)
-            return
-        if password != password_repeat:
-            messagebox.showerror(messagebox_title, "Паролі не співпадають", parent=self)
+
+        min_password_len = 8
+        if len(password) < min_password_len:
+            messagebox.showwarning(messagebox_title, f"Пароль повинен містити щонайменше {min_password_len} символів.", parent=self)
             self.password_entry.delete(0, tk.END)
             self.password_repeat_entry.delete(0, tk.END)
-            self.password_entry.focus_get()
+            self.password_entry.focus_set()
             return
-        
-        #--- Registration ---#
+
+        if password != password_repeat:
+            messagebox.showerror(messagebox_title, "Паролі не співпадають.", parent=self)
+            self.password_entry.delete(0, tk.END)
+            self.password_repeat_entry.delete(0, tk.END)
+            self.password_entry.focus_set()
+            return
+
+        print(f"UI: Attempting to register user: {username}")
         if self.db_manager.register_user(username, email, password):
-            messagebox.showinfo(messagebox_title, "Реєстрація успішна!", parent=self)
+            messagebox.showinfo(messagebox_title, "Реєстрація успішна! Тепер ви можете увійти.", parent=self)
             self.go_to_login()
         else:
             pass
