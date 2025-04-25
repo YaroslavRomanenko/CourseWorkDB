@@ -238,7 +238,7 @@ class GameDetailView(tk.Frame):
         if not self.reviews_frame:
             print("Error: reviews_frame is not initialized yet in _load_reviews.")
             return
-        
+
         for widget in self.reviews_frame.winfo_children():
             widget.destroy()
 
@@ -246,6 +246,9 @@ class GameDetailView(tk.Frame):
             print("Cannot load reviews: game_id is None")
             error_label = tk.Label(self.reviews_frame, text="Помилка: ID гри не визначено.", fg="red", bg=self.original_bg)
             error_label.pack(anchor='w', pady=5)
+            error_label.bind("<MouseWheel>", self._handle_mousewheel)
+            error_label.bind("<Button-4>", self._handle_mousewheel)
+            error_label.bind("<Button-5>", self._handle_mousewheel)
             return
 
         print(f"Loading reviews for game_id: {self.game_id}")
@@ -269,42 +272,60 @@ class GameDetailView(tk.Frame):
         if not reviews_data:
             no_reviews_label = tk.Label(self.reviews_frame, text=self.no_reviews_message, font=self.fonts.get('ui', ("Verdana", 10)), fg="grey", bg=self.original_bg)
             no_reviews_label.pack(anchor='w', pady=5)
+            no_reviews_label.bind("<MouseWheel>", self._handle_mousewheel)
+            no_reviews_label.bind("<Button-4>", self._handle_mousewheel)
+            no_reviews_label.bind("<Button-5>", self._handle_mousewheel)
         else:
             review_text_labels = []
+            all_review_widgets = []
             for review in reviews_data:
                 try:
-                    if isinstance(review, (list, tuple)) and len(review) >= 2: 
+                    if isinstance(review, (list, tuple)) and len(review) >= 2:
                         user = review[0]
                         text = review[1]
                         date = review[2] if len(review) > 2 else None
 
                         review_entry_frame = tk.Frame(self.reviews_frame, background=self.original_bg)
-                        review_entry_frame.pack(fill='x', pady=(5, 10)) 
+                        review_entry_frame.pack(fill='x', pady=(5, 10))
                         review_entry_frame.grid_columnconfigure(0, weight=1)
+                        all_review_widgets.append(review_entry_frame)
 
                         author_text = f"{user}" + (f" ({date})" if date else "")
-                        author_label = tk.Label(review_entry_frame, text=author_text, font=self.fonts.get('comment_author', ("Verdana", 9, "bold")), anchor='w', bg=self.original_bg)
+                        author_label = tk.Label(review_entry_frame, text=author_text, font=self.review_author_font, anchor='w', bg=self.original_bg)
                         author_label.grid(row=0, column=0, sticky='w')
+                        all_review_widgets.append(author_label)
 
-                        review_text_label = tk.Label(review_entry_frame, text=text, font=self.fonts.get('comment_text', ("Verdana", 9)), anchor='nw', justify=tk.LEFT, bg=self.original_bg)
+                        review_text_label = tk.Label(review_entry_frame, text=text, font=self.review_text_font, anchor='nw', justify=tk.LEFT, bg=self.original_bg)
                         review_text_label.grid(row=1, column=0, sticky='ew')
-                        review_text_labels.append(review_text_label) 
-                        
+                        review_text_labels.append(review_text_label)
+                        all_review_widgets.append(review_text_label)
+
                     else:
                         print(f"Skipping invalid review data format: {review}")
                 except Exception as e:
                      print(f"Error processing review '{review}': {e}")
-                     error_label = tk.Label(self.reviews_frame, text="[Помилка відображення рецензії]", fg="red", bg=self.original_bg)
-                     error_label.pack(anchor='w', pady=2)
-                    
+
+            for widget in all_review_widgets:
+                 if widget and widget.winfo_exists():
+                    try:
+                         widget.bind("<MouseWheel>", self._handle_mousewheel)
+                         widget.bind("<Button-4>", self._handle_mousewheel)
+                         widget.bind("<Button-5>", self._handle_mousewheel)
+                    except tk.TclError as e:
+                         print(f"Warning: Could not bind scroll to review widget {widget}: {e}")
+
+
             def _update_review_wraplengths(event):
-                width = event.width - 10
-                if width < 20: width = 10
-                for lbl in review_text_labels:
-                    lbl.config(wraplength=width)
-                    
-            self.reviews_frame.unbind('<Configure>')
-            self.reviews_frame.bind('<Configure>', _update_review_wraplengths)
+                if self.reviews_frame and self.reviews_frame.winfo_exists():
+                    width = self.reviews_frame.winfo_width() - 10
+                    if width < 20: width = 10
+                    for lbl in review_text_labels:
+                        if lbl and lbl.winfo_exists():
+                           lbl.config(wraplength=width)
+
+            if self.reviews_frame:
+                self.reviews_frame.unbind('<Configure>')
+                self.reviews_frame.bind('<Configure>', _update_review_wraplengths)
 
     def _post_review(self):
         """Handles posting a new review."""
