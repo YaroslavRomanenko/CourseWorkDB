@@ -7,24 +7,26 @@ from decimal import Decimal, InvalidOperation
 class GameDetailView(tk.Frame):
     def __init__(self, parent, db_manager, user_id, game_id, game_data,
                  image_cache, placeholder_list, placeholder_detail,
-                 image_folder, placeholder_path, placeholder_name,
-                 fonts, colors, styles, back_command, **kwargs):
+                 image_folder, placeholder_image_path, placeholder_image_name,
+                 fonts, colors, styles,
+                 scroll_target_canvas, 
+                 **kwargs):
         super().__init__(parent, bg=colors.get('original_bg', 'white'), **kwargs)
 
         self.db_manager = db_manager
         self.user_id = user_id
         self.game_id = game_id
         self.game_data = game_data
-        self._image_references = image_cache 
+        self._image_references = image_cache
         self.placeholder_image_list = placeholder_list
         self.placeholder_image_detail = placeholder_detail
         self.image_folder = image_folder
-        self.placeholder_path = placeholder_path
-        self.placeholder_name = placeholder_name
+        self.placeholder_path = placeholder_image_path
+        self.placeholder_name = placeholder_image_name
         self.fonts = fonts
         self.colors = colors
         self.styles = styles
-        self.back_command = back_command 
+        self.scroll_target_canvas = scroll_target_canvas 
 
         self.ui_font = self.fonts.get('ui', ("Verdana", 10))
         self.title_font = self.fonts.get('title', ("Verdana", 16, "bold"))
@@ -33,14 +35,17 @@ class GameDetailView(tk.Frame):
         self.review_author_font = self.fonts.get('review_author', ("Verdana", 9, "bold"))
         self.review_text_font = self.fonts.get('review_text', ("Verdana", 9))
         self.description_font = self.fonts.get('description', ("Verdana", 10))
-        self.original_bg = self.colors.get('original_bg', 'white')
-        self.no_reviews_message = " Рецензій ще немає."
         self.review_input_font = self.fonts.get('review_input', ("Verdana", 10))
 
+        self.original_bg = self.colors.get('original_bg', 'white')
+        self.no_reviews_message = " Рецензій ще немає."
         self.detail_icon_size = (160, 160)
-
         self.custom_button_style = self.styles.get('custom_button', 'TButton')
-        
+
+        self.title_label = None
+        self.desc_content_label = None
+        self.genres_content_label = None
+        self.platforms_content_label = None
         self.reviews_frame = None
         self.price_buy_frame = None
         self.review_text_widget = None
@@ -67,14 +72,20 @@ class GameDetailView(tk.Frame):
             if title_available_width < 20: title_available_width = 10
             self.title_label.config(wraplength=title_available_width)
 
+    def _handle_mousewheel(self, event):
+        if not self.scroll_target_canvas:
+            return
+        if event.num == 4: delta = -1
+        elif event.num == 5: delta = 1
+        else:
+            try: delta = -1 if event.delta > 0 else 1
+            except AttributeError: return
+        self.scroll_target_canvas.yview_scroll(delta, "units")
+        return "break"
+
     def _setup_ui(self):
         self.grid_columnconfigure(0, weight=1)
-
         current_row = 0
-
-        back_button = ttk.Button(self, text="< Назад", command=self.back_command, style=self.custom_button_style)
-        back_button.grid(row=current_row, column=0, pady=(5, 15), padx=5, sticky='w')
-        current_row += 1
 
         top_info_frame = tk.Frame(self, bg=self.original_bg)
         top_info_frame.grid(row=current_row, column=0, sticky='ew', padx=10)
@@ -188,6 +199,9 @@ class GameDetailView(tk.Frame):
             borderwidth=1, relief=tk.SOLID, highlightthickness=0
         )
         self.review_text_widget.grid(row=current_row, column=0, sticky='ew', padx=10, pady=(0, 5))
+        self.review_text_widget.bind("<MouseWheel>", self._handle_mousewheel)
+        self.review_text_widget.bind("<Button-4>", self._handle_mousewheel)
+        self.review_text_widget.bind("<Button-5>", self._handle_mousewheel)
         current_row += 1
         post_review_button = ttk.Button(
             self, text="Надіслати рецензію", command=self._post_review,
@@ -195,6 +209,28 @@ class GameDetailView(tk.Frame):
         )
         post_review_button.grid(row=current_row, column=0, sticky='e', padx=10, pady=(0, 10))
         current_row += 1
+
+        widgets_to_bind_scroll = [
+            self, top_info_frame, icon_label, info_frame, self.title_label,
+            self.price_buy_frame, desc_label, self.desc_content_label,
+            genres_label, self.genres_content_label, platforms_label,
+            self.platforms_content_label, reviews_label, self.reviews_frame,
+            write_review_label, post_review_button
+        ]
+
+        if self.price_buy_frame:
+             for child in self.price_buy_frame.winfo_children():
+                  if isinstance(child, (tk.Label, tk.Frame, ttk.Button)):
+                     widgets_to_bind_scroll.append(child)
+
+        for widget in widgets_to_bind_scroll:
+             if widget and widget.winfo_exists():
+                 try: 
+                     widget.bind("<MouseWheel>", self._handle_mousewheel)
+                     widget.bind("<Button-4>", self._handle_mousewheel)
+                     widget.bind("<Button-5>", self._handle_mousewheel)
+                 except tk.TclError as e:
+                      print(f"Warning: Could not bind scroll to {widget}: {e}")
 
         self.after_idle(self._update_wraplengths)
 

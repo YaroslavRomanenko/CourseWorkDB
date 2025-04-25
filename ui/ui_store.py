@@ -18,11 +18,16 @@ class StoreWindow(tk.Tk):
         self.placeholder_image = None
         self.placeholder_image_detail = None
         self._game_widgets_store = []
-        
+
         self.image_folder = image_folder
         self.placeholder_image_path = placeholder_image_path
         self.placeholder_image_name = placeholder_image_name
 
+        self.detail_area_frame = None
+        self.detail_back_button = None
+        self.detail_frame_container = None
+        self.detail_canvas = None
+        self.detail_scrollbar = None
         self.detail_view_instance = None
 
         self.original_bg = "white"
@@ -36,16 +41,6 @@ class StoreWindow(tk.Tk):
         self.detail_icon_size = (160, 160)
         self.list_icon_size = (64, 64)
 
-        self._load_placeholders(list_size=self.list_icon_size, detail_size=self.detail_icon_size)
-
-        self.width = 850
-        self.height = 700
-        center_window(self, self.width, self.height)
-        self.title("Universal Games")
-        self.protocol("WM_DELETE_WINDOW", self.on_close)
-        self.grid_rowconfigure(1, weight=1)
-        self.grid_columnconfigure(0, weight=1)
-
         self.fonts = {
             'ui': ("Verdana", 10),
             'title': ("Verdana", 16, "bold"),
@@ -56,8 +51,11 @@ class StoreWindow(tk.Tk):
             'list_title': ("Verdana", 12, "bold"),
             'library_list_title': ("Verdana", 11, "bold"),
             'library_detail_title': ("Verdana", 14, "bold"),
+            'review_author': ("Verdana", 9, "bold"),
+            'review_text': ("Verdana", 9),
+            'review_input': ("Verdana", 10)
         }
-        
+
         self.styles = {'custom_button': 'NoFocus.TButton'}
         self.colors = {
             'original_bg': self.original_bg,
@@ -67,6 +65,7 @@ class StoreWindow(tk.Tk):
             'no_comments_fg': self.no_comments_fg,
             'comment_fg': self.comment_fg,
             'no_comments_message': self.no_comments_message,
+            'no_reviews_message': " Рецензій ще немає."
         }
 
         self._load_placeholders(list_size=self.list_icon_size, detail_size=self.detail_icon_size)
@@ -79,30 +78,21 @@ class StoreWindow(tk.Tk):
         self.grid_rowconfigure(1, weight=1)
         self.grid_columnconfigure(0, weight=1)
 
-
         app_title_label = tk.Label(self, text="Universal Games", font=("Verdana", 18, "bold"))
         app_title_label.grid(row=0, column=0, pady=(10,5))
 
-
         style = ttk.Style(self)
         try:
-
             self.custom_button_style = 'NoFocus.TButton'
             style.configure(self.custom_button_style, focuscolor=style.lookup('TButton', 'background'))
-
             style.configure('TNotebook.Tab', font=self.fonts['ui'], padding=[5, 2], focusthickness=0)
-            style.map('TNotebook.Tab', focuscolor=[('focus', style.lookup('TNotebook', 'background'))]) 
+            style.map('TNotebook.Tab', focuscolor=[('focus', style.lookup('TNotebook', 'background'))])
         except tk.TclError as e:
             print(f"Помилка налаштування стилів ttk: {e}")
-            self.custom_button_style = 'TButton' 
-
-        self.detail_canvas = None
-        self.detail_scrollbar = None
-        self.detail_frame_container = None
-        self.detail_view_instance = None
+            self.custom_button_style = 'TButton'
 
         self.notebook = ttk.Notebook(self)
-        self.notebook.bind("<FocusIn>", self._unfocus_notebook) 
+        self.notebook.bind("<FocusIn>", self._unfocus_notebook)
 
         self.store_tab_frame = ttk.Frame(self.notebook)
         self.notebook.add(self.store_tab_frame, text='Магазин')
@@ -113,29 +103,29 @@ class StoreWindow(tk.Tk):
 
         self.library_tab_frame = ttk.Frame(self.notebook)
         self.notebook.add(self.library_tab_frame, text='Бібліотека')
-        
+
         self.library_view = LibraryTab(
             parent=self.library_tab_frame,
             db_manager=self.db_manager,
             user_id=self.current_user_id,
-            image_cache=self._image_references, 
-            placeholder_list=self.placeholder_image, 
+            image_cache=self._image_references,
+            placeholder_list=self.placeholder_image,
             placeholder_detail=self.placeholder_image_detail,
             image_folder_path=self.image_folder,
-            fonts={ 
+            fonts={
                 'ui': self.fonts['ui'],
                 'list_title': self.fonts['library_list_title'],
                 'detail_title': self.fonts['library_detail_title'],
                 'detail': self.fonts['detail']
             },
-            colors=self.colors 
+            colors=self.colors
         )
         self.library_view.paned_window.pack(fill=tk.BOTH, expand=True)
 
         refresh_button = ttk.Button(self, text="Оновити поточну вкладку", command=self.refresh_current_tab, style=self.custom_button_style)
         refresh_button.grid(row=2, column=0, pady=10)
 
-        self.notebook.grid(row=1, column=0, sticky='nsew') 
+        self.notebook.grid(row=1, column=0, sticky='nsew')
 
         self.load_games_store()
 
@@ -212,44 +202,67 @@ class StoreWindow(tk.Tk):
 
 
     def _show_notebook_view(self):
-        """Показує вкладки, ховає детальний вигляд."""
-        if self.detail_frame_container:
-            self.detail_frame_container.destroy()
+        if self.detail_area_frame:
+            self.detail_area_frame.destroy()
+            self.detail_area_frame = None
+            self.detail_back_button = None
             self.detail_frame_container = None
             self.detail_canvas = None
             self.detail_scrollbar = None
-            self.detail_view_instance = None 
+            self.detail_view_instance = None
         self.notebook.grid(row=1, column=0, sticky='nsew')
-        self.title("Universal Games") 
+        self.title("Universal Games")
         
     def _show_detail_view(self, game_id, event=None):
         self.notebook.grid_remove()
 
-        if self.detail_view_instance:
-            self.detail_view_instance.destroy()
-            self.detail_view_instance = None
+        if self.detail_area_frame:
+            self.detail_area_frame.destroy()
+            self.detail_area_frame = None
+            self.detail_back_button = None
 
         try:
             game_details = self.db_manager.fetch_game_details(game_id)
-            
             if not game_details:
+                messagebox.showwarning("Не знайдено", f"Гра з ID {game_id} не знайдена.")
                 self._show_notebook_view()
                 return
+        except AttributeError:
+             messagebox.showerror("Помилка", "Функція отримання деталей гри ще не реалізована в DB Manager.")
+             self._show_notebook_view()
+             return
         except Exception as e:
             messagebox.showerror("Помилка бази даних", f"Не вдалося завантажити деталі гри:\n{e}")
             self._show_notebook_view()
             return
 
-        self.detail_frame_container = tk.Frame(self, bg=self.original_bg)
-        self.detail_frame_container.grid(row=1, column=0, sticky='nsew', padx=5, pady=5)
+        self.detail_area_frame = tk.Frame(self, bg=self.original_bg)
+        self.detail_area_frame.grid(row=1, column=0, sticky='nsew')
+        self.detail_area_frame.grid_rowconfigure(0, weight=0)
+        self.detail_area_frame.grid_rowconfigure(1, weight=1)
+        self.detail_area_frame.grid_columnconfigure(0, weight=1)
+
+        self.detail_back_button = ttk.Button(
+            self.detail_area_frame,
+            text="< Назад",
+            command=self._show_notebook_view,
+            style=self.custom_button_style
+        )
+        self.detail_back_button.grid(row=0, column=0, pady=(5, 10), padx=5, sticky='w')
+
+        self.detail_frame_container = tk.Frame(self.detail_area_frame, bg=self.original_bg)
+        self.detail_frame_container.grid(row=1, column=0, sticky='nsew')
         self.detail_frame_container.grid_rowconfigure(0, weight=1)
         self.detail_frame_container.grid_columnconfigure(0, weight=1)
 
         self.detail_canvas = tk.Canvas(self.detail_frame_container, borderwidth=0, background=self.original_bg, highlightthickness=0)
         self.detail_scrollbar = ttk.Scrollbar(self.detail_frame_container, orient="vertical", command=self.detail_canvas.yview)
-        
+        self.detail_canvas.configure(yscrollcommand=self.detail_scrollbar.set)
+        self.detail_scrollbar.pack(side="right", fill="y")
+        self.detail_canvas.pack(side="left", fill="both", expand=True)
+
         self.detail_view_instance = GameDetailView(
-            parent=self.detail_canvas, 
+            parent=self.detail_canvas,
             db_manager=self.db_manager,
             user_id=self.current_user_id,
             game_id=game_id,
@@ -258,34 +271,36 @@ class StoreWindow(tk.Tk):
             placeholder_list=self.placeholder_image,
             placeholder_detail=self.placeholder_image_detail,
             image_folder=self.image_folder,
-            placeholder_path=self.placeholder_image_path,
-            placeholder_name=self.placeholder_image_name,
+            placeholder_image_path=self.placeholder_image_path,
+            placeholder_image_name=self.placeholder_image_name,
             fonts=self.fonts,
-            colors=self.colors, 
+            colors=self.colors,
             styles=self.styles,
-            back_command=self._show_notebook_view
+            scroll_target_canvas=self.detail_canvas
         )
-        self.detail_canvas.configure(yscrollcommand=self.detail_scrollbar.set)
-
-        self.detail_scrollbar.pack(side="right", fill="y")
-        self.detail_canvas.pack(side="left", fill="both", expand=True)
         detail_canvas_window_id = self.detail_canvas.create_window((0, 0), window=self.detail_view_instance, anchor="nw")
-        
+
         def _on_detail_frame_configure(event=None):
-             self.detail_canvas.configure(scrollregion=self.detail_canvas.bbox("all"))
+            if self.detail_canvas and self.detail_canvas.winfo_exists():
+                 self.detail_canvas.configure(scrollregion=self.detail_canvas.bbox("all"))
 
         def _on_detail_canvas_configure(event):
              canvas_width = event.width
-             self.detail_canvas.itemconfig(detail_canvas_window_id, width=canvas_width)
-             self.detail_view_instance.config(width=canvas_width)
+             if self.detail_canvas and self.detail_canvas.winfo_exists():
+                 self.detail_canvas.itemconfig(detail_canvas_window_id, width=canvas_width)
+             if self.detail_view_instance and self.detail_view_instance.winfo_exists():
+                  self.detail_view_instance.config(width=canvas_width)
+                  self.detail_view_instance._update_wraplengths()
 
-        self.detail_view_instance.bind("<Configure>", _on_detail_frame_configure)
-        self.detail_canvas.bind('<Configure>', _on_detail_canvas_configure)
+        if self.detail_view_instance:
+            self.detail_view_instance.bind("<Configure>", _on_detail_frame_configure)
+        if self.detail_canvas:
+            self.detail_canvas.bind('<Configure>', _on_detail_canvas_configure)
 
-        for widget in [self.detail_canvas, self.detail_view_instance]:
-            widget.bind("<MouseWheel>", self._on_mousewheel)
-            widget.bind("<Button-4>", self._on_mousewheel)
-            widget.bind("<Button-5>", self._on_mousewheel)
+        if self.detail_canvas:
+            self.detail_canvas.bind("<MouseWheel>", self._on_mousewheel)
+            self.detail_canvas.bind("<Button-4>", self._on_mousewheel)
+            self.detail_canvas.bind("<Button-5>", self._on_mousewheel)
 
         self.title(f"Universal Games - {game_details.get('title', 'Деталі гри')}")
 
