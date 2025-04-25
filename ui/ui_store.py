@@ -96,6 +96,11 @@ class StoreWindow(tk.Tk):
             print(f"Помилка налаштування стилів ttk: {e}")
             self.custom_button_style = 'TButton' 
 
+        self.detail_canvas = None
+        self.detail_scrollbar = None
+        self.detail_frame_container = None
+        self.detail_view_instance = None
+
         self.notebook = ttk.Notebook(self)
         self.notebook.bind("<FocusIn>", self._unfocus_notebook) 
 
@@ -208,15 +213,16 @@ class StoreWindow(tk.Tk):
 
     def _show_notebook_view(self):
         """Показує вкладки, ховає детальний вигляд."""
-        if self.detail_view_instance:
-            self.detail_view_instance.destroy() 
-            self.detail_view_instance = None
+        if self.detail_frame_container:
+            self.detail_frame_container.destroy()
+            self.detail_frame_container = None
+            self.detail_canvas = None
+            self.detail_scrollbar = None
+            self.detail_view_instance = None 
         self.notebook.grid(row=1, column=0, sticky='nsew')
         self.title("Universal Games") 
         
     def _show_detail_view(self, game_id, event=None):
-        """Показує детальний вигляд гри, ховає вкладки."""
-
         self.notebook.grid_remove()
 
         if self.detail_view_instance:
@@ -225,22 +231,25 @@ class StoreWindow(tk.Tk):
 
         try:
             game_details = self.db_manager.fetch_game_details(game_id)
-        except AttributeError:
-             messagebox.showerror("Помилка", "Функція отримання деталей гри ще не реалізована в DB Manager.")
-             self._show_notebook_view()
-             return
+            
+            if not game_details:
+                self._show_notebook_view()
+                return
         except Exception as e:
             messagebox.showerror("Помилка бази даних", f"Не вдалося завантажити деталі гри:\n{e}")
             self._show_notebook_view()
             return
 
-        if not game_details:
-            messagebox.showwarning("Не знайдено", f"Гра з ID {game_id} не знайдена.")
-            self._show_notebook_view()
-            return
+        self.detail_frame_container = tk.Frame(self, bg=self.original_bg)
+        self.detail_frame_container.grid(row=1, column=0, sticky='nsew', padx=5, pady=5)
+        self.detail_frame_container.grid_rowconfigure(0, weight=1)
+        self.detail_frame_container.grid_columnconfigure(0, weight=1)
 
+        self.detail_canvas = tk.Canvas(self.detail_frame_container, borderwidth=0, background=self.original_bg, highlightthickness=0)
+        self.detail_scrollbar = ttk.Scrollbar(self.detail_frame_container, orient="vertical", command=self.detail_canvas.yview)
+        
         self.detail_view_instance = GameDetailView(
-            parent=self, 
+            parent=self.detail_canvas, 
             db_manager=self.db_manager,
             user_id=self.current_user_id,
             game_id=game_id,
@@ -256,7 +265,28 @@ class StoreWindow(tk.Tk):
             styles=self.styles,
             back_command=self._show_notebook_view
         )
-        self.detail_view_instance.grid(row=1, column=0, sticky='nsew', padx=10, pady=5)
+        self.detail_canvas.configure(yscrollcommand=self.detail_scrollbar.set)
+
+        self.detail_scrollbar.pack(side="right", fill="y")
+        self.detail_canvas.pack(side="left", fill="both", expand=True)
+        detail_canvas_window_id = self.detail_canvas.create_window((0, 0), window=self.detail_view_instance, anchor="nw")
+        
+        def _on_detail_frame_configure(event=None):
+             self.detail_canvas.configure(scrollregion=self.detail_canvas.bbox("all"))
+
+        def _on_detail_canvas_configure(event):
+             canvas_width = event.width
+             self.detail_canvas.itemconfig(detail_canvas_window_id, width=canvas_width)
+             self.detail_view_instance.config(width=canvas_width)
+
+        self.detail_view_instance.bind("<Configure>", _on_detail_frame_configure)
+        self.detail_canvas.bind('<Configure>', _on_detail_canvas_configure)
+
+        for widget in [self.detail_canvas, self.detail_view_instance]:
+            widget.bind("<MouseWheel>", self._on_mousewheel)
+            widget.bind("<Button-4>", self._on_mousewheel)
+            widget.bind("<Button-5>", self._on_mousewheel)
+
         self.title(f"Universal Games - {game_details.get('title', 'Деталі гри')}")
 
     def _load_placeholders(self, list_size=(64, 64), detail_size=(160, 160)):
@@ -335,7 +365,10 @@ class StoreWindow(tk.Tk):
     
     def _on_mousewheel(self, event):
         active_canvas = None
-        if self.notebook.winfo_ismapped():
+
+        if self.detail_canvas and self.detail_frame_container and self.detail_frame_container.winfo_ismapped():
+            active_canvas = self.detail_canvas
+        elif self.notebook.winfo_ismapped():
             try:
                 current_tab_index = self.notebook.index(self.notebook.select())
                 if current_tab_index == 0:
@@ -343,13 +376,10 @@ class StoreWindow(tk.Tk):
                 elif current_tab_index == 1:
                     if hasattr(self, 'library_view') and hasattr(self.library_view, 'library_canvas'):
                        active_canvas = self.library_view.library_canvas
-                    else: return
-            except tk.TclError:
-                 return
-        elif self.detail_view_instance and self.detail_view_instance.winfo_ismapped():
-             return
+            except (tk.TclError, AttributeError):
+                pass
         else:
-             return
+            return 
 
         if not active_canvas: return
 
