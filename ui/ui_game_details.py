@@ -4,6 +4,8 @@ import os
 from PIL import Image, ImageTk
 from decimal import Decimal, InvalidOperation
 
+from .ui_utils import setup_text_widget_editing
+
 class GameDetailView(tk.Frame):
     def __init__(self, parent, db_manager, user_id, game_id, game_data,
                  image_cache, placeholder_list, placeholder_detail,
@@ -199,6 +201,8 @@ class GameDetailView(tk.Frame):
             borderwidth=1, relief=tk.SOLID, highlightthickness=0
         )
         self.review_text_widget.grid(row=current_row, column=0, sticky='ew', padx=10, pady=(0, 5))
+        setup_text_widget_editing(self.review_text_widget)
+        
         self.review_text_widget.bind("<MouseWheel>", self._handle_mousewheel)
         self.review_text_widget.bind("<Button-4>", self._handle_mousewheel)
         self.review_text_widget.bind("<Button-5>", self._handle_mousewheel)

@@ -1,6 +1,7 @@
 import tkinter as tk
 from tkinter import messagebox, ttk
 from .ui_utils import center_window
+from .ui_utils import setup_text_widget_editing
 
 class RegistrationWindow(tk.Tk):
     def __init__(self, db_manager, open_login_func):
@@ -26,9 +27,16 @@ class RegistrationWindow(tk.Tk):
         self.entry_width = 30
         
         self.login_entry = tk.Entry(self, width=self.entry_width, font=self.ui_font)
+        setup_text_widget_editing(self.login_entry)
+        
         self.email_entry = tk.Entry(self, width=self.entry_width, font=self.ui_font)
+        setup_text_widget_editing(self.email_entry)
+        
         self.password_entry = tk.Entry(self, width=self.entry_width, font=self.ui_font, show="*")
+        setup_text_widget_editing(self.password_entry)
+        
         self.password_repeat_entry = tk.Entry(self, width=self.entry_width, font=self.ui_font, show="*")
+        setup_text_widget_editing(self.password_repeat_entry)
         
         # Buttons #
         self.buttons_width = 12
