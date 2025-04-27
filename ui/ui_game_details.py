@@ -31,6 +31,16 @@ class GameDetailView(tk.Frame):
         self.styles = styles
         self.scroll_target_canvas = scroll_target_canvas
 
+        self.genre_names = []
+        self.platform_names = []
+        if self.game_id is not None:
+            try:
+                self.genre_names = self.db_manager.fetch_game_genres(self.game_id)
+                self.platform_names = self.db_manager.fetch_game_platforms(self.game_id)
+            except Exception as e:
+                print(f"Error fetching genres/platforms during GameDetailView init: {e}")
+                traceback.print_exc()
+
         self.ui_font = self.fonts.get('ui', ("Verdana", 10))
         self.title_font = self.fonts.get('title', ("Verdana", 16, "bold"))
         self.detail_font = self.fonts.get('detail', ("Verdana", 11))
@@ -55,6 +65,8 @@ class GameDetailView(tk.Frame):
 
         self._setup_ui()
         self._load_reviews()
+
+        self.bind("<Configure>", lambda e: self.after_idle(lambda: self._update_wraplengths(e.width)))
 
     def _update_wraplengths(self, container_width):
         try:
@@ -172,7 +184,6 @@ class GameDetailView(tk.Frame):
         top_info_frame = tk.Frame(self, bg=self.original_bg)
         top_info_frame.grid(row=current_row, column=0, sticky='ew', padx=10, pady=5)
         top_info_frame.grid_columnconfigure(1, weight=1)
-
         icon_label = tk.Label(top_info_frame, background=self.original_bg)
         tk_detail_image = self._get_image(self.game_data.get('image'), size=self.detail_icon_size)
         if tk_detail_image:
@@ -181,22 +192,17 @@ class GameDetailView(tk.Frame):
         else:
             icon_label.config(text="Фото?", font=self.ui_font, width=20, height=10, relief="solid", borderwidth=1)
         icon_label.grid(row=0, column=0, rowspan=2, padx=(0, 20), pady=0, sticky='nw')
-
         info_frame = tk.Frame(top_info_frame, background=self.original_bg)
         info_frame.grid(row=0, column=1, rowspan=2, sticky='nsew', pady=0)
         info_frame.grid_columnconfigure(0, weight=1)
-
         self.title_label = tk.Label(info_frame, text=self.game_data.get('title', 'Назва невідома'),
                                     font=self.title_font, background=self.original_bg,
                                     justify=tk.LEFT, anchor='nw',
                                     wraplength=initial_wraplength)
         self.title_label.grid(row=0, column=0, sticky='nw', pady=(0, 5))
-
         self.price_buy_frame = tk.Frame(info_frame, background=self.original_bg)
         self.price_buy_frame.grid(row=1, column=0, sticky='nw', pady=(10, 0))
-
         self._build_price_buy_content()
-
         current_row += 1
         separator1 = ttk.Separator(self, orient='horizontal')
         separator1.grid(row=current_row, column=0, sticky='ew', padx=10, pady=(15, 10))
@@ -218,7 +224,7 @@ class GameDetailView(tk.Frame):
         genres_label = tk.Label(self, text="Жанри:", font=("Verdana", 12, "bold"), background=self.original_bg)
         genres_label.grid(row=current_row, column=0, sticky='w', padx=10, pady=(0, 5))
         current_row += 1
-        genres_text = self.game_data.get('genres', 'Не вказано')
+        genres_text = ", ".join(self.genre_names) if self.genre_names else "Не вказано"
         self.genres_content_label = tk.Label(self, text=genres_text, font=self.description_font,
                                              justify=tk.LEFT, anchor='nw', bg=self.original_bg,
                                              wraplength=initial_wraplength)
@@ -231,7 +237,7 @@ class GameDetailView(tk.Frame):
         platforms_label = tk.Label(self, text="Платформи:", font=("Verdana", 12, "bold"), background=self.original_bg)
         platforms_label.grid(row=current_row, column=0, sticky='w', padx=10, pady=(0, 5))
         current_row += 1
-        platforms_text = self.game_data.get('platforms', 'Не вказано')
+        platforms_text = ", ".join(self.platform_names) if self.platform_names else "Не вказано"
         self.platforms_content_label = tk.Label(self, text=platforms_text, font=self.description_font,
                                                 justify=tk.LEFT, anchor='nw', bg=self.original_bg,
                                                 wraplength=initial_wraplength)
@@ -244,7 +250,6 @@ class GameDetailView(tk.Frame):
         reviews_label = tk.Label(self, text="Рецензії:", font=("Verdana", 12, "bold"), background=self.original_bg)
         reviews_label.grid(row=current_row, column=0, sticky='w', padx=10, pady=(5, 5))
         current_row += 1
-
         self.reviews_display_text = scrolledtext.ScrolledText(
             self, height=10, wrap=tk.WORD, font=self.review_text_font,
             relief=tk.SOLID, borderwidth=1, state=tk.DISABLED, padx=5, pady=5,
@@ -254,7 +259,6 @@ class GameDetailView(tk.Frame):
         self.reviews_display_text.grid(row=current_row, column=0, sticky='nsew', padx=10, pady=(0, 10))
         self.grid_rowconfigure(current_row, weight=1)
         setup_text_widget_editing(self.reviews_display_text)
-
         self.reviews_display_text.bind("<MouseWheel>", self._handle_mousewheel)
         self.reviews_display_text.bind("<Button-4>", self._handle_mousewheel)
         self.reviews_display_text.bind("<Button-5>", self._handle_mousewheel)
@@ -264,13 +268,11 @@ class GameDetailView(tk.Frame):
              text_widget_inside.bind("<Button-4>", self._handle_mousewheel)
              text_widget_inside.bind("<Button-5>", self._handle_mousewheel)
         except: pass
-
         current_row += 1
 
         separator5 = ttk.Separator(self, orient='horizontal')
         separator5.grid(row=current_row, column=0, sticky='ew', padx=10, pady=10)
         current_row += 1
-
         write_review_label = tk.Label(self, text="Написати рецензію:", font=("Verdana", 12, "bold"), background=self.original_bg)
         write_review_label.grid(row=current_row, column=0, sticky='w', padx=10, pady=(5, 5))
         current_row += 1
@@ -282,7 +284,6 @@ class GameDetailView(tk.Frame):
         )
         self.review_text_widget.grid(row=current_row, column=0, sticky='ew', padx=10, pady=(0, 5))
         setup_text_widget_editing(self.review_text_widget)
-
         self.review_text_widget.bind("<MouseWheel>", self._handle_mousewheel)
         self.review_text_widget.bind("<Button-4>", self._handle_mousewheel)
         self.review_text_widget.bind("<Button-5>", self._handle_mousewheel)
@@ -292,9 +293,7 @@ class GameDetailView(tk.Frame):
              text_widget_inside_input.bind("<Button-4>", self._handle_mousewheel)
              text_widget_inside_input.bind("<Button-5>", self._handle_mousewheel)
         except: pass
-
         current_row += 1
-
         post_review_button = ttk.Button(
             self, text="Надіслати рецензію", command=self._post_review,
             style=self.custom_button_style
@@ -311,7 +310,6 @@ class GameDetailView(tk.Frame):
             write_review_label, post_review_button,
             separator1, separator2, separator3, separator4, separator5
         ]
-
         if self.price_buy_frame:
              for child in self.price_buy_frame.winfo_children():
                   widgets_to_bind_scroll.append(child)

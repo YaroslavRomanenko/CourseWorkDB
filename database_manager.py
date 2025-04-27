@@ -426,4 +426,41 @@ class DatabaseManager:
             messagebox.showerror("Помилка Бази Даних", f"Не вдалося додати коментар:\n{error}")
             return False
         
+    def fetch_game_genres(self, game_id):
+        conn = self.get_connection()
+        if not conn or game_id is None:
+            return []
+
+        query = sql.SQL("""
+            SELECT g.name
+            FROM Genres g
+            JOIN Game_Genres gg ON g.genre_id = gg.genre_id
+            WHERE gg.game_id = %s
+            ORDER BY g.name;
+        """)
+        try:
+            results = self.execute_query(query, (game_id,), fetch_all=True)
+            return [row[0] for row in results] if results else []
+        except Exception as e:
+            print(f"DB: Error fetching genres for game_id {game_id}: {e}")
+            return []
+        
+    def fetch_game_platforms(self, game_id):
+        conn = self.get_connection()
+        if not conn or game_id is None:
+            return []
+
+        query = sql.SQL("""
+            SELECT p.name
+            FROM Platforms p
+            JOIN Game_Platforms gp ON p.platform_id = gp.platform_id
+            WHERE gp.game_id = %s
+            ORDER BY p.name;
+        """)
+        try:
+            results = self.execute_query(query, (game_id,), fetch_all=True)
+            return [row[0] for row in results] if results else []
+        except Exception as e:
+            print(f"DB: Error fetching platforms for game_id {game_id}: {e}")
+            return []
         
