@@ -349,4 +349,61 @@ class DatabaseManager:
         except Exception as e:
             print(f"DB: Error checking ownership for user {user_id}, game {game_id}: {e}")
             return False
+        
+    def add_or_update_review(self, user_id, game_id, review_text, rating=None):
+        conn = self.get_connection()
+        if not conn:
+            messagebox.showerror("Помилка Бази Даних", "Не вдалося підключитися до бази даних.")
+            return False
+
+        query = sql.SQL("""
+            INSERT INTO Reviews (user_id, game_id, review_text, rating, review_date)
+            VALUES (%s, %s, %s, %s, CURRENT_TIMESTAMP)
+            ON CONFLICT (user_id, game_id)
+            DO UPDATE SET
+                review_text = EXCLUDED.review_text,
+                rating = EXCLUDED.rating,
+                review_date = CURRENT_TIMESTAMP;
+        """)
+        params = (user_id, game_id, review_text, rating)
+
+        try:
+            with conn:
+                with conn.cursor() as cur:
+                    cur.execute(query, params)
+            print(f"DB: Review for game {game_id} by user {user_id} saved/updated successfully.")
+            return True
+
+        except (Exception, psycopg2.Error) as error:
+            print(f"\nDB: Error saving/updating review for game {game_id}, user {user_id}: {error}")
+            print(f"Query: {query.as_string(conn) if conn else query}")
+            print(f"Parameters: {params}")
+            messagebox.showerror("Помилка Бази Даних", f"Не вдалося зберегти рецензію:\n{error}")
+            return False
     
+    def fetch_game_reviews(self, game_id):
+        conn = self.get_connection()
+        if not conn:
+            print("DB Error: Cannot fetch reviews - no connection.")
+            return None
+
+        query = sql.SQL("""
+            SELECT u.username, r.review_text, r.review_date
+            FROM Reviews r
+            JOIN Users u ON r.user_id = u.user_id
+            WHERE r.game_id = %s
+            ORDER BY r.review_date DESC;
+        """)
+        params = (game_id,)
+
+        try:
+            reviews_data = self.execute_query(query, params, fetch_all=True)
+            if reviews_data is None:
+                 print(f"DB: execute_query returned None while fetching reviews for game {game_id}.")
+                 return None
+            print(f"DB: Fetched {len(reviews_data)} reviews for game_id {game_id}.")
+            return reviews_data
+
+        except (Exception, psycopg2.Error) as error:
+            print(f"DB: Error fetching reviews for game {game_id}: {error}")
+            return None

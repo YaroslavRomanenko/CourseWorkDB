@@ -282,27 +282,28 @@ class StoreWindow(tk.Tk):
 
         def _on_detail_frame_configure(event=None):
             if self.detail_canvas and self.detail_canvas.winfo_exists():
-                 self.detail_canvas.configure(scrollregion=self.detail_canvas.bbox("all"))
+                 try:
+                     self.detail_canvas.after_idle(lambda: self.detail_canvas.configure(scrollregion=self.detail_canvas.bbox("all")))
+                 except tk.TclError:
+                     pass
 
         def _on_detail_canvas_configure(event):
              canvas_width = event.width
+             print(f"DEBUG: Canvas <Configure> event. Width: {canvas_width}")
+
              if self.detail_canvas and self.detail_canvas.winfo_exists():
                  self.detail_canvas.itemconfig(detail_canvas_window_id, width=canvas_width)
+
              if self.detail_view_instance and self.detail_view_instance.winfo_exists():
-                  self.detail_view_instance.config(width=canvas_width)
-                  self.detail_view_instance._update_wraplengths()
+                  self.detail_view_instance.after_idle(lambda w=canvas_width: self.detail_view_instance._update_wraplengths(container_width=w))
+                  print(f"DEBUG: Scheduled _update_wraplengths with width {canvas_width}")
+
 
         if self.detail_view_instance:
             self.detail_view_instance.bind("<Configure>", _on_detail_frame_configure)
+
         if self.detail_canvas:
             self.detail_canvas.bind('<Configure>', _on_detail_canvas_configure)
-
-        if self.detail_canvas:
-            self.detail_canvas.bind("<MouseWheel>", self._on_mousewheel)
-            self.detail_canvas.bind("<Button-4>", self._on_mousewheel)
-            self.detail_canvas.bind("<Button-5>", self._on_mousewheel)
-
-        self.title(f"Universal Games - {game_details.get('title', 'Деталі гри')}")
 
     def _load_placeholders(self, list_size=(64, 64), detail_size=(160, 160)):
         """Завантажує зображення-заповнювачі."""
