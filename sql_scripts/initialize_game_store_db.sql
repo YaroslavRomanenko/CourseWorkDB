@@ -164,6 +164,8 @@ CREATE TABLE Purchases (
 CREATE INDEX idx_purchases_user_id ON Purchases(user_id);
 CREATE INDEX idx_purchases_purchase_date ON Purchases(purchase_date);
 
+SELECT * FROM Purchases
+
 CREATE TABLE Purchases_Items (
     purchase_item_id SERIAL PRIMARY KEY,
     purchase_id INT NOT NULL,
@@ -185,6 +187,8 @@ CREATE TABLE Purchases_Items (
 CREATE INDEX idx_purchaseitems_purchase_id ON Purchases_Items(purchase_id);
 CREATE INDEX idx_purchaseitems_game_id ON Purchases_Items(game_id);
 
+SELECT * FROM Purchases_Items
+
 CREATE TABLE Reviews (
     review_id SERIAL PRIMARY KEY,
     user_id INT NOT NULL,
@@ -192,8 +196,6 @@ CREATE TABLE Reviews (
     rating SMALLINT NULL,
     review_text TEXT NULL,
     review_date TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP,
-
-    CONSTRAINT uq_user_game_review UNIQUE (user_id, game_id),
 
     CONSTRAINT fk_review_user
         FOREIGN KEY (user_id) REFERENCES Users (user_id)

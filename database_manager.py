@@ -357,13 +357,8 @@ class DatabaseManager:
             return False
 
         query = sql.SQL("""
-            INSERT INTO Reviews (user_id, game_id, review_text, rating, review_date)
-            VALUES (%s, %s, %s, %s, CURRENT_TIMESTAMP)
-            ON CONFLICT (user_id, game_id)
-            DO UPDATE SET
-                review_text = EXCLUDED.review_text,
-                rating = EXCLUDED.rating,
-                review_date = CURRENT_TIMESTAMP;
+            INSERT INTO reviews (user_id, game_id, review_text, rating, review_date)
+            VALUES (%s, %s, %s, %s, CURRENT_TIMESTAMP);
         """)
         params = (user_id, game_id, review_text, rating)
 
@@ -371,39 +366,64 @@ class DatabaseManager:
             with conn:
                 with conn.cursor() as cur:
                     cur.execute(query, params)
-            print(f"DB: Review for game {game_id} by user {user_id} saved/updated successfully.")
+            print(f"DB: Review for game {game_id} by user {user_id} added successfully.")
             return True
 
         except (Exception, psycopg2.Error) as error:
-            print(f"\nDB: Error saving/updating review for game {game_id}, user {user_id}: {error}")
+            print(f"\nDB: Error adding review for game {game_id}, user {user_id}: {error}")
             print(f"Query: {query.as_string(conn) if conn else query}")
             print(f"Parameters: {params}")
-            messagebox.showerror("Помилка Бази Даних", f"Не вдалося зберегти рецензію:\n{error}")
+            messagebox.showerror("Помилка Бази Даних", f"Не вдалося додати рецензію:\n{error}")
             return False
     
     def fetch_game_reviews(self, game_id):
         conn = self.get_connection()
-        if not conn:
-            print("DB Error: Cannot fetch reviews - no connection.")
-            return None
-
+        if not conn: return None
         query = sql.SQL("""
-            SELECT u.username, r.review_text, r.review_date
-            FROM Reviews r
-            JOIN Users u ON r.user_id = u.user_id
-            WHERE r.game_id = %s
-            ORDER BY r.review_date DESC;
+            SELECT r.review_id, u.username, r.review_text, r.review_date
+            FROM reviews r JOIN users u ON r.user_id = u.user_id
+            WHERE r.game_id = %s ORDER BY r.review_date DESC;
         """)
-        params = (game_id,)
-
         try:
-            reviews_data = self.execute_query(query, params, fetch_all=True)
-            if reviews_data is None:
-                 print(f"DB: execute_query returned None while fetching reviews for game {game_id}.")
-                 return None
-            print(f"DB: Fetched {len(reviews_data)} reviews for game_id {game_id}.")
+            reviews_data = self.execute_query(query, (game_id,), fetch_all=True)
             return reviews_data
-
-        except (Exception, psycopg2.Error) as error:
+        except Exception as error:
             print(f"DB: Error fetching reviews for game {game_id}: {error}")
             return None
+        
+    def fetch_review_comments(self, review_id):
+        conn = self.get_connection()
+        if not conn: return None
+        query = sql.SQL("""
+            SELECT u.username, rc.comment_text, rc.comment_date
+            FROM reviewcomments rc JOIN users u ON rc.user_id = u.user_id
+            WHERE rc.review_id = %s ORDER BY rc.comment_date ASC;
+        """)
+        try:
+            comments_data = self.execute_query(query, (review_id,), fetch_all=True)
+            return comments_data
+        except Exception as error:
+            print(f"DB: Error fetching comments for review {review_id}: {error}")
+            return None
+        
+    def add_review_comment(self, review_id, user_id, comment_text):
+        conn = self.get_connection()
+        if not conn:
+            messagebox.showerror("Помилка Бази Даних", "Не вдалося підключитися до бази даних.")
+            return False
+        query = sql.SQL("""
+            INSERT INTO reviewcomments (review_id, user_id, comment_text, comment_date)
+            VALUES (%s, %s, %s, CURRENT_TIMESTAMP);
+        """)
+        params = (review_id, user_id, comment_text)
+        try:
+            with conn:
+                with conn.cursor() as cur:
+                    cur.execute(query, params)
+            return True
+        except (Exception, psycopg2.Error) as error:
+            print(f"\nDB: Error adding comment to review {review_id} by user {user_id}: {error}")
+            messagebox.showerror("Помилка Бази Даних", f"Не вдалося додати коментар:\n{error}")
+            return False
+        
+        
