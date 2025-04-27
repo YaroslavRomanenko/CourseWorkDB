@@ -6,6 +6,8 @@ DROP TABLE IF EXISTS Games;
 DROP TABLE IF EXISTS Developers_Games;
 DROP TABLE IF EXISTS Reviews;
 DROP TABLE IF EXISTS ReviewComments;
+DROP TABLE IF EXISTS Game_Platforms;
+DROP TABLE IF EXISTS Developers_Games;
 
 DROP TYPE IF EXISTS studio_role_type;
 DROP TYPE IF EXISTS game_status;

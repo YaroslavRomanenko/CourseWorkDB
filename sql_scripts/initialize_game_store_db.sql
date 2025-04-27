@@ -48,7 +48,7 @@ CREATE TABLE Developers (
 );
 
 
--- SELECT * FROM Developers;
+SELECT * FROM Developers;
 
 /* ### Games_Studios ### */
 
@@ -113,11 +113,7 @@ CREATE TABLE Games (
 CREATE INDEX idx_games_title ON Games(title);
 CREATE INDEX idx_games_status ON Games(status);
 
--- SELECT * FROM Games;
-
-/* SELECT game_id, title, created_at, updated_at
-FROM Games
-WHERE created_at IS NULL AND updated_at IS NULL; */
+SELECT * FROM Games;
 
 /* ### Developers_Games ### */
 
@@ -138,6 +134,8 @@ CREATE TABLE Developers_Games (
 		ON DELETE CASCADE
 		ON UPDATE CASCADE
 );
+
+SELECT * FROM Developers_Games;
 
 CREATE TYPE purchase_status AS ENUM (
     'Pending',
@@ -193,7 +191,6 @@ CREATE TABLE Reviews (
     review_id SERIAL PRIMARY KEY,
     user_id INT NOT NULL,
     game_id INT NOT NULL,
-    rating SMALLINT NULL,
     review_text TEXT NULL,
     review_date TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP,
 
@@ -206,9 +203,10 @@ CREATE TABLE Reviews (
         ON DELETE CASCADE
         ON UPDATE CASCADE
 );
-
 CREATE INDEX idx_reviews_user_id ON Reviews(user_id);
 CREATE INDEX idx_reviews_game_id ON Reviews(game_id);
+
+SELECT * FROM Reviews;
 
 CREATE TABLE ReviewComments (
     comment_id SERIAL PRIMARY KEY, 
@@ -226,9 +224,10 @@ CREATE TABLE ReviewComments (
         ON DELETE CASCADE
         ON UPDATE CASCADE
 );
-
 CREATE INDEX idx_reviewcomments_review_id ON ReviewComments(review_id);
 CREATE INDEX idx_reviewcomments_user_id ON ReviewComments(user_id);
+
+SELECT * FROM ReviewComments;
 
 CREATE TABLE Platforms (
     platform_id SERIAL PRIMARY KEY,
@@ -236,13 +235,13 @@ CREATE TABLE Platforms (
 );
 CREATE INDEX idx_platforms_name ON Platforms(name);
 
+SELECT * FROM Platforms;
+
 CREATE TABLE Game_Platforms (
-    game_platform_id SERIAL PRIMARY KEY,
     game_id INT NOT NULL,
     platform_id INT NOT NULL,
-    system_requirements TEXT NULL,
 
-    CONSTRAINT uq_game_platform UNIQUE (game_id, platform_id),
+    CONSTRAINT pk_game_platform PRIMARY KEY (game_id, platform_id),
 	
     CONSTRAINT fk_gameplatform_game
         FOREIGN KEY (game_id) REFERENCES Games (game_id)
@@ -256,12 +255,15 @@ CREATE TABLE Game_Platforms (
 CREATE INDEX idx_gameplatforms_game_id ON Game_Platforms(game_id);
 CREATE INDEX idx_gameplatforms_platform_id ON Game_Platforms(platform_id);
 
+SELECT * FROM Game_Platforms;
+
 CREATE TABLE Genres (
     genre_id SERIAL PRIMARY KEY,
-    name VARCHAR(30) UNIQUE NOT NULL,
-    description TEXT NULL
+    name VARCHAR(30) UNIQUE NOT NULL
 );
 CREATE INDEX idx_genres_name ON Genres(name);
+
+SELECT * FROM Genres;
 
 CREATE TABLE Game_Genres (
     game_id INT NOT NULL,
@@ -280,6 +282,8 @@ CREATE TABLE Game_Genres (
 );
 CREATE INDEX idx_gamegenres_game_id ON Game_Genres(game_id);
 CREATE INDEX idx_gamegenres_genre_id ON Game_Genres(genre_id);
+
+SELECT * FROM Game_Genres;
 
 CREATE TABLE Developers_Games (
     developer_id INT NOT NULL,
@@ -302,3 +306,5 @@ CREATE TABLE Developers_Games (
 
 CREATE INDEX idx_devgames_developer_id ON Developers_Games(developer_id);
 CREATE INDEX idx_devgames_game_id ON Developers_Games(game_id);
+
+SELECT * FROM Developers_Games;

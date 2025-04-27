@@ -9,6 +9,11 @@ def main():
     print("2. Insert Studios Data")
     print("3. Insert Developers Data")
     print("4. Insert Games Data")
+    print("5. Insert Genres Data")
+    print("6. Insert Platforms Data")
+    print("7. Insert Game-Genre Links")
+    print("8. Insert Game-Platform Links")
+    print("9. Insert Developer-Game Links")
     print("10. Delete Specified Data")
     print("-------------------------")
     print("\nChoose and Enter the command: ", end="")
@@ -16,22 +21,26 @@ def main():
     command = 0
     while True:
         try:
-            command = int(input())
-        except:
+            raw_input = input()
+            if not raw_input: continue
+            command = int(raw_input)
+        except ValueError:
             print("You've wrote a wrong command! Try again: ", end="")
             continue
+        except EOFError:
+            print("Input stream closed. Exiting")
     
         if command == 1:
             users_data = [
                 # --- Terraria --- #
-                ("Redigit", "redigit@gmail.com", hash_password("Redigit"), "2009-06-17"),
-                ("Cenx", "Cenx@gmail.com", hash_password("Cenx"), "2013-08-05"),
+                ("Redigit", "redigit@gmail.com", hash_password("Redigit"), "2009-06-17"), # have special rights in the game page
+                ("Cenx", "Cenx@gmail.com", hash_password("Cenx"), "2013-08-05"), # have special rights in the game page
                 ("Loki", "Loki@gmail.com", hash_password("Loki"), "2012-07-02"),
                 ("FoodBarbarian", "FoodBarbarian@gmail.com", hash_password("FoodBarbarian"), "2014-09-03"),
                 
                 # --- Don't Starve Together  --- #
                 ("MatthewMarteinsson", "MatthewMarteinsson@gmail.com", hash_password("MatthewMarteinsson"), "2011-03-26"),
-                ("BryceDoig", "BryceDoig@gmail.com", hash_password("BryceDoig"), "2013-05-11"),
+                ("BryceDoig", "BryceDoig@gmail.com", hash_password("BryceDoig"), "2013-05-11"), 
                 ("AlexSavin", "AlexSavin@gmail.com", hash_password("AlexSavin"), "2014-03-21"),
                 
                 # --- Astroneer --- #
@@ -158,20 +167,20 @@ def main():
         elif command == 3:
             developers_data = [
                 # --- Terraria --- #
-                (1, 1, "redigit@gmail.com"),
-                (2, 1, "Cenx@gmail.com"),
+                (1, 1, "redigit@gmail.com"), # have special rights in the game page
+                (2, 1, "Cenx@gmail.com"), # have special rights in the game page
                 (3, 1, "Loki@gmail.com"),
                 (4, 1, "FoodBarbarian@gmail.com"),
                 
                 # --- Don't Starve Together  --- #
                 (5, 2, "MatthewMarteinsson@gmail.com"),
-                (6, 2, "BryceDoig@gmail.com"),
+                (6, 2, "BryceDoig@gmail.com"), # have special rights in the game page
                 (7, 2, "AlexSavin@gmail.com"),
                 
                 # --- Astroneer --- #
                 (8, 3, "AaronBiddlecom@gmail.com"),
                 (9, 3, "AdamBromell@gmail.com"),
-                (10, 3, "AndreMaguire@gmail.com"),
+                (10, 3, "AndreMaguire@gmail.com"), # have special rights in the game page
                 
                 # --- Factorio --- #
                 (11, 4, "MichalKovarik@gmail.com"),
@@ -206,7 +215,7 @@ def main():
                 (29, 10, "ClementMarcou@gmail.com"),
                 
                 # --- The Elder Scrolls VI --- #
-                (30, 11, "CraigLafferty@gmail.com"),
+                (30, 11, "CraigLafferty@gmail.com"), # have special rights in the game page
                 (31, 11, "MarkLampert@gmail.com"),
                 (32, 11, "AshleyCheng@gmail.com"),
                 
@@ -286,10 +295,75 @@ def main():
             
             print("--- The Data is Successfully Inserted ---")
             break;
+        
+        elif command == 5:
+            genre_names = [
+                ("Sandbox"), ("Adventure"), ("RPG"), ("Survival"), ("Indie"), ("Exploration"),
+                ("Simulation"), ("Strategy"), ("Management"), ("Automation"), ("Farming Sim"),
+                ("Turn-Based Strategy"), ("4X"), ("Shooter"), ("Team-Based"), ("PvP"), ("Action"),
+                ("Action Roguelike"), ("Open World"), ("Space Sim"), ("MMO"), ("Sci-Fi"),
+                ("Grand Strategy"), ("Platformer"), ("Rhythm"), ("Music"), ("WWII")
+            ]
+            
+            genres_data = [(name,) for name in genre_names]
+            
+            print("--- Inserting Genres Data ---")
+            insert_query = "INSERT INTO Genres (name) VALUES (%s);"
+            db_manager.execute_many_query(insert_query, genres_data)
+            break
+        
+        elif command == 6:
+            platform_names = [
+                ("PC"), ("macOS"), ("Linux"), ("Mobile")
+            ]
+            
+            platforms_data = [(name,) for name in platform_names]
+            
+            print("--- Inserting Platforms Data ---")
+            insert_query = "INSERT INTO Platforms (name) VALUES (%s);"
+            db_manager.execute_many_query(insert_query, platforms_data)
+            break
+        
+        elif command == 7:
+            game_genres = [
+                (1, 1), (1, 2), (1, 3), (1, 5), (2, 4), (2, 1), (2, 2), (2, 5),
+                (3, 1), (3, 6), (3, 2), (3, 5), (4, 7), (4, 8), (4, 9), (4, 10), (4, 5), (5, 7), (5, 3),
+                (5, 11), (5, 5), (6, 8), (6, 12), (6, 13), (7, 14), (7, 15), (7, 16), (7, 17), (8, 18), (8, 3), (8, 17), (8, 5),
+                (10, 3), (10, 19), (10, 17), (10, 2), (11, 7), (11, 20), (11, 21), (11, 22), (11, 17), (11, 14), (12, 17), (12, 3), (13, 8),
+                (13, 23), (13, 7), (13, 27), (14, 24), (14, 25), (14, 17), (14, 26), (14, 5)
+            ]
+            
+            print("--- Inserting Game_Genres Data ---")
+            insert_query = "INSERT INTO Game_Genres (game_id, genre_id) VALUES (%s, %s);"
+            db_manager.execute_many_query(insert_query, game_genres)
+            break
+        
+        elif command == 8:
+            game_platforms = [
+                (1, 1), (1, 2), (1, 3), (1, 4), (2, 1), (2, 2), (2, 3), (3, 1), (4, 1), (4, 2), (4, 3), (5, 1), (5, 2), (5, 3), (5, 4), (6, 1),
+                (6, 2), (6, 3), (7, 1), (8, 1), (10, 1), (11, 1), (13, 1), (13, 2), (13, 3), (14, 1), (14, 4)
+            ]
+            
+            print("--- Inserting Game_Platforms Data ---")
+            insert_query = "INSERT INTO Game_Platforms (game_id, platform_id) VALUES (%s, %s);"
+            db_manager.execute_many_query(insert_query, game_platforms)
+            break
+        
+        elif command == 9:
+            developer_games = [
+                (1, 1), (2, 1), (6, 2), (10, 3), (12, 4), (14, 5), (16, 6),
+                (22, 7), (24, 8), (28, 9), (30, 10), (34, 11), (35, 12), (38, 13), (40, 14)
+            ]
+            
+            print("--- Inserting Developers_Games Data ---")
+            insert_query = "INSERT INTO Developers_Games (developer_id, game_id) VALUES (%s, %s);"
+            db_manager.execute_many_query(insert_query, developer_games)
+            break
+            
         elif command == 10:
             print("--- Deleting Data ---")
             
-            db_manager.clear_specified_table("users")
+            db_manager.clear_specified_table("game_g1enres")
             
             print("--- The Data is Successfully Deleted ---")
             break;
