@@ -3,6 +3,7 @@ from tkinter import ttk, messagebox, scrolledtext, simpledialog
 import os
 from PIL import Image, ImageTk
 from decimal import Decimal, InvalidOperation
+from functools import partial
 import traceback
 
 from .ui_utils import setup_text_widget_editing, center_window
@@ -13,6 +14,7 @@ class GameDetailView(tk.Frame):
                  image_folder, placeholder_image_path, placeholder_image_name,
                  fonts, colors, styles,
                  scroll_target_canvas,
+                 store_window_ref,
                  **kwargs):
         super().__init__(parent, bg=colors.get('original_bg', 'white'), **kwargs)
 
@@ -30,32 +32,57 @@ class GameDetailView(tk.Frame):
         self.colors = colors
         self.styles = styles
         self.scroll_target_canvas = scroll_target_canvas
+        self.store_window_ref = store_window_ref
 
         self.genre_names = []
         self.platform_names = []
+        self.developer_names = []
+        self.publisher_names = []
         if self.game_id is not None:
             try:
                 self.genre_names = self.db_manager.fetch_game_genres(self.game_id)
                 self.platform_names = self.db_manager.fetch_game_platforms(self.game_id)
+                self.developer_names = self.db_manager.fetch_game_studios_by_role(self.game_id, 'Developer')
+                self.publisher_names = self.db_manager.fetch_game_studios_by_role(self.game_id, 'Publisher')
+            except AttributeError as ae:
+                print(f"AttributeError fetching game details (maybe method missing?): {ae}")
             except Exception as e:
-                print(f"Error fetching genres/platforms during GameDetailView init: {e}")
+                print(f"Error fetching genres/platforms/studios during GameDetailView init: {e}")
                 traceback.print_exc()
 
         self.ui_font = self.fonts.get('ui', ("Verdana", 10))
         self.title_font = self.fonts.get('title', ("Verdana", 16, "bold"))
+        self.info_font = self.fonts.get('detail', ("Verdana", 10))
         self.detail_font = self.fonts.get('detail', ("Verdana", 11))
+        self.dev_pub_font = self.fonts.get('comment', ("Verdana", 9))
+        dev_pub_tuple = list(self.fonts.get('comment', ("Verdana", 9)))
+        if len(dev_pub_tuple) == 2: dev_pub_tuple.append("bold")
+        elif len(dev_pub_tuple) > 2: dev_pub_tuple[2] = f"{dev_pub_tuple[2]} bold".replace(" normal","").strip()
+        self.dev_pub_bold_font = tuple(dev_pub_tuple)
+        link_font_tuple = list(self.dev_pub_font)
+        if len(link_font_tuple) == 2: link_font_tuple.append("underline")
+        elif len(link_font_tuple) > 2: link_font_tuple[2] = f"{link_font_tuple[2]} underline".replace(" normal","").strip()
+        self.dev_pub_link_font = tuple(link_font_tuple)
+
         self.price_font = self.fonts.get('price', ("Verdana", 12))
         self.review_author_font = self.fonts.get('review_author', ("Verdana", 9, "bold"))
         self.review_text_font = self.fonts.get('review_text', ("Verdana", 9))
         self.description_font = self.fonts.get('description', ("Verdana", 10))
         self.review_input_font = self.fonts.get('review_input', ("Verdana", 10))
+        self.section_header_font = ("Verdana", 12, "bold")
 
         self.original_bg = self.colors.get('original_bg', 'white')
+        self.link_fg = self.colors.get('link_fg', 'blue')
         self.no_reviews_message = " Рецензій ще немає."
         self.detail_icon_size = (160, 160)
         self.custom_button_style = self.styles.get('custom_button', 'TButton')
 
         self.title_label = None
+        self.info_developer_prefix_label = None
+        self.info_developer_names_label = None
+        self.info_publisher_prefix_label = None
+        self.info_publisher_names_label = None
+        self.dev_pub_frame = None
         self.desc_content_label = None
         self.genres_content_label = None
         self.platforms_content_label = None
@@ -70,42 +97,48 @@ class GameDetailView(tk.Frame):
 
     def _update_wraplengths(self, container_width):
         try:
-            if not self.winfo_exists():
-                return
-
+            if not self.winfo_exists(): return
             if not isinstance(container_width, (int, float)) or container_width <= 1:
                 try:
                     self.update_idletasks()
                     container_width = self.winfo_width()
                     if container_width <= 1: return
-                except Exception:
-                    return
+                except Exception: return
 
-            print(f"DEBUG: (_update_wraplengths) Running with container_width: {container_width}")
             min_content_width = 100
-
             content_wraplength = max(min_content_width, container_width - 20)
-            print(f"DEBUG: Calculated content_wraplength: {content_wraplength}")
 
-            for label_widget in [self.desc_content_label, self.genres_content_label, self.platforms_content_label]:
+            for label_widget in [self.desc_content_label, self.genres_content_label,
+                                 self.platforms_content_label]:
                 if label_widget and label_widget.winfo_exists():
-                    label_widget.config(wraplength=content_wraplength)
+                    current_wl = label_widget.cget("wraplength")
+                    if current_wl != content_wraplength:
+                        label_widget.config(wraplength=content_wraplength)
 
-            if self.title_label and self.title_label.winfo_exists():
-                title_wraplength = content_wraplength
-                try:
-                    icon_width = self.detail_icon_size[0]
-                    left_offset = 10 + icon_width + 20
-                    right_offset = 10
-                    info_frame_effective_width = container_width - left_offset - right_offset
-                    title_wraplength = max(min_content_width, info_frame_effective_width)
-                    print(f"DEBUG: Calculated title_wraplength: {title_wraplength}")
-                except Exception as e:
-                    print(f"DEBUG: Error calculating title wraplength, using content_wraplength: {e}")
+            info_frame_wraplength = content_wraplength
+            prefix_col_width_approx = 80
+            try:
+                icon_width = self.detail_icon_size[0]
+                info_frame_base_width = max(min_content_width, container_width - 10 - icon_width - 20 - 10)
+                if self.title_label and self.title_label.winfo_exists():
+                     current_wl = self.title_label.cget("wraplength")
+                     if current_wl != info_frame_base_width:
+                         self.title_label.config(wraplength=info_frame_base_width)
 
-                self.title_label.config(wraplength=title_wraplength)
+                names_wraplength = max(min_content_width, info_frame_base_width - prefix_col_width_approx)
+                for label_widget in [self.info_developer_names_label, self.info_publisher_names_label]:
+                    if label_widget and label_widget.winfo_exists():
+                         current_wl = label_widget.cget("wraplength")
+                         if current_wl != names_wraplength:
+                             label_widget.config(wraplength=names_wraplength)
 
-            print("DEBUG: (_update_wraplengths) Finished applying configurations.")
+            except Exception as e:
+                print(f"DEBUG: Error calculating info_frame_wraplength/names_wraplength: {e}")
+                fallback_wl = max(min_content_width, container_width - 10 - (self.detail_icon_size[0] if self.detail_icon_size else 160) - 20 - 10)
+                for label_widget in [self.title_label, self.info_developer_names_label, self.info_publisher_names_label]:
+                    if label_widget and label_widget.winfo_exists():
+                         label_widget.config(wraplength=fallback_wl)
+
 
         except tk.TclError as e:
             pass
@@ -132,43 +165,48 @@ class GameDetailView(tk.Frame):
 
     def _update_wraplengths(self, container_width):
         try:
-            if not self.winfo_exists():
-                return
-
+            if not self.winfo_exists(): return
             if not isinstance(container_width, (int, float)) or container_width <= 1:
                 try:
                     self.update_idletasks()
                     container_width = self.winfo_width()
-                    if container_width <= 1:
-                        return
-                except Exception:
-                     return
+                    if container_width <= 1: return
+                except Exception: return
 
             min_content_width = 100
-
             content_wraplength = max(min_content_width, container_width - 20)
 
-            for label_widget in [self.desc_content_label, self.genres_content_label, self.platforms_content_label]:
+            for label_widget in [self.desc_content_label, self.genres_content_label,
+                                 self.platforms_content_label]:
                 if label_widget and label_widget.winfo_exists():
                     current_wl = label_widget.cget("wraplength")
                     if current_wl != content_wraplength:
                         label_widget.config(wraplength=content_wraplength)
 
-            if self.title_label and self.title_label.winfo_exists():
-                title_wraplength = content_wraplength
-                try:
-                    icon_width = self.detail_icon_size[0]
-                    left_padding = 10
-                    icon_padding = 20
-                    right_padding = 10
-                    info_frame_effective_width = container_width - left_padding - icon_width - icon_padding - right_padding
-                    title_wraplength = max(min_content_width, info_frame_effective_width)
-                except Exception as e:
-                    print(f"DEBUG: Error calculating title wraplength, using content_wraplength: {e}")
+            info_frame_wraplength = content_wraplength
+            prefix_col_width_approx = 80
+            try:
+                icon_width = self.detail_icon_size[0]
+                info_frame_base_width = max(min_content_width, container_width - 10 - icon_width - 20 - 10)
+                if self.title_label and self.title_label.winfo_exists():
+                     current_wl = self.title_label.cget("wraplength")
+                     if current_wl != info_frame_base_width:
+                         self.title_label.config(wraplength=info_frame_base_width)
 
-                current_wl = self.title_label.cget("wraplength")
-                if current_wl != title_wraplength:
-                    self.title_label.config(wraplength=title_wraplength)
+                names_wraplength = max(min_content_width, info_frame_base_width - prefix_col_width_approx)
+                for label_widget in [self.info_developer_names_label, self.info_publisher_names_label]:
+                    if label_widget and label_widget.winfo_exists():
+                         current_wl = label_widget.cget("wraplength")
+                         if current_wl != names_wraplength:
+                             label_widget.config(wraplength=names_wraplength)
+
+            except Exception as e:
+                print(f"DEBUG: Error calculating info_frame_wraplength/names_wraplength: {e}")
+                fallback_wl = max(min_content_width, container_width - 10 - (self.detail_icon_size[0] if self.detail_icon_size else 160) - 20 - 10)
+                for label_widget in [self.title_label, self.info_developer_names_label, self.info_publisher_names_label]:
+                    if label_widget and label_widget.winfo_exists():
+                         label_widget.config(wraplength=fallback_wl)
+
 
         except tk.TclError as e:
             pass
@@ -182,8 +220,9 @@ class GameDetailView(tk.Frame):
         initial_wraplength = 10000
 
         top_info_frame = tk.Frame(self, bg=self.original_bg)
-        top_info_frame.grid(row=current_row, column=0, sticky='ew', padx=10, pady=5)
+        top_info_frame.grid(row=current_row, column=0, sticky='new', padx=10, pady=5)
         top_info_frame.grid_columnconfigure(1, weight=1)
+
         icon_label = tk.Label(top_info_frame, background=self.original_bg)
         tk_detail_image = self._get_image(self.game_data.get('image'), size=self.detail_icon_size)
         if tk_detail_image:
@@ -191,24 +230,84 @@ class GameDetailView(tk.Frame):
             icon_label.image = tk_detail_image
         else:
             icon_label.config(text="Фото?", font=self.ui_font, width=20, height=10, relief="solid", borderwidth=1)
-        icon_label.grid(row=0, column=0, rowspan=2, padx=(0, 20), pady=0, sticky='nw')
+        icon_label.grid(row=0, column=0, rowspan=3, padx=(0, 20), pady=0, sticky='nw')
+
         info_frame = tk.Frame(top_info_frame, background=self.original_bg)
-        info_frame.grid(row=0, column=1, rowspan=2, sticky='nsew', pady=0)
+        info_frame.grid(row=0, column=1, rowspan=3, sticky='nsew', pady=0)
         info_frame.grid_columnconfigure(0, weight=1)
+
+        info_row = 0
+
         self.title_label = tk.Label(info_frame, text=self.game_data.get('title', 'Назва невідома'),
                                     font=self.title_font, background=self.original_bg,
                                     justify=tk.LEFT, anchor='nw',
                                     wraplength=initial_wraplength)
-        self.title_label.grid(row=0, column=0, sticky='nw', pady=(0, 5))
+        self.title_label.grid(row=info_row, column=0, sticky='nw', pady=(0, 10))
+        info_row += 1
+
         self.price_buy_frame = tk.Frame(info_frame, background=self.original_bg)
-        self.price_buy_frame.grid(row=1, column=0, sticky='nw', pady=(10, 0))
+        self.price_buy_frame.grid(row=info_row, column=0, sticky='nw', pady=(0, 10))
         self._build_price_buy_content()
+        info_row += 1
+
+        self.dev_pub_frame = tk.Frame(info_frame, background=self.original_bg)
+        self.dev_pub_frame.grid(row=info_row, column=0, sticky='nw')
+        self.dev_pub_frame.grid_columnconfigure(0, weight=0)
+        self.dev_pub_frame.grid_columnconfigure(1, weight=1)
+        dev_pub_row = 0
+
+        developer_text = ", ".join(self.developer_names) if self.developer_names else ""
+        if developer_text:
+            self.info_developer_prefix_label = tk.Label(self.dev_pub_frame, text="Розробник:",
+                                                        font=self.dev_pub_bold_font, background=self.original_bg,
+                                                        justify=tk.LEFT, anchor='nw')
+            self.info_developer_prefix_label.grid(row=dev_pub_row, column=0, sticky='nw', padx=(0, 5))
+
+            self.info_developer_names_label = tk.Label(self.dev_pub_frame, text=developer_text,
+                                                       font=self.dev_pub_link_font,
+                                                       fg=self.link_fg,
+                                                       cursor="hand2",
+                                                       background=self.original_bg,
+                                                       justify=tk.LEFT, anchor='nw',
+                                                       wraplength=initial_wraplength)
+            self.info_developer_names_label.grid(row=dev_pub_row, column=1, sticky='nw')
+            self.info_developer_names_label.bind("<Button-1>",
+                partial(self._on_studio_click, studio_names=self.developer_names)
+            )
+            dev_pub_row += 1
+        else:
+            self.info_developer_prefix_label = None
+            self.info_developer_names_label = None
+
+        publisher_text = ", ".join(self.publisher_names) if self.publisher_names else ""
+        if publisher_text:
+            self.info_publisher_prefix_label = tk.Label(self.dev_pub_frame, text="Видавець:",
+                                                        font=self.dev_pub_bold_font, background=self.original_bg,
+                                                        justify=tk.LEFT, anchor='nw')
+            self.info_publisher_prefix_label.grid(row=dev_pub_row, column=0, sticky='nw', padx=(0, 5))
+
+            self.info_publisher_names_label = tk.Label(self.dev_pub_frame, text=publisher_text,
+                                                       font=self.dev_pub_link_font,
+                                                       fg=self.link_fg,
+                                                       cursor="hand2",
+                                                       background=self.original_bg,
+                                                       justify=tk.LEFT, anchor='nw',
+                                                       wraplength=initial_wraplength)
+            self.info_publisher_names_label.grid(row=dev_pub_row, column=1, sticky='nw')
+            self.info_publisher_names_label.bind("<Button-1>",
+                partial(self._on_studio_click, studio_names=self.publisher_names)
+            )
+            dev_pub_row += 1
+        else:
+            self.info_publisher_prefix_label = None
+            self.info_publisher_names_label = None
+
         current_row += 1
         separator1 = ttk.Separator(self, orient='horizontal')
         separator1.grid(row=current_row, column=0, sticky='ew', padx=10, pady=(15, 10))
 
         current_row += 1
-        desc_label = tk.Label(self, text="Опис:", font=("Verdana", 12, "bold"), background=self.original_bg)
+        desc_label = tk.Label(self, text="Опис:", font=self.section_header_font, background=self.original_bg)
         desc_label.grid(row=current_row, column=0, sticky='w', padx=10, pady=(0, 5))
         current_row += 1
         description = self.game_data.get('description', 'Опис відсутній.')
@@ -221,7 +320,7 @@ class GameDetailView(tk.Frame):
         separator2 = ttk.Separator(self, orient='horizontal')
         separator2.grid(row=current_row, column=0, sticky='ew', padx=10, pady=10)
         current_row += 1
-        genres_label = tk.Label(self, text="Жанри:", font=("Verdana", 12, "bold"), background=self.original_bg)
+        genres_label = tk.Label(self, text="Жанри:", font=self.section_header_font, background=self.original_bg)
         genres_label.grid(row=current_row, column=0, sticky='w', padx=10, pady=(0, 5))
         current_row += 1
         genres_text = ", ".join(self.genre_names) if self.genre_names else "Не вказано"
@@ -234,7 +333,7 @@ class GameDetailView(tk.Frame):
         separator3 = ttk.Separator(self, orient='horizontal')
         separator3.grid(row=current_row, column=0, sticky='ew', padx=10, pady=10)
         current_row += 1
-        platforms_label = tk.Label(self, text="Платформи:", font=("Verdana", 12, "bold"), background=self.original_bg)
+        platforms_label = tk.Label(self, text="Платформи:", font=self.section_header_font, background=self.original_bg)
         platforms_label.grid(row=current_row, column=0, sticky='w', padx=10, pady=(0, 5))
         current_row += 1
         platforms_text = ", ".join(self.platform_names) if self.platform_names else "Не вказано"
@@ -247,7 +346,7 @@ class GameDetailView(tk.Frame):
         separator4 = ttk.Separator(self, orient='horizontal')
         separator4.grid(row=current_row, column=0, sticky='ew', padx=10, pady=10)
         current_row += 1
-        reviews_label = tk.Label(self, text="Рецензії:", font=("Verdana", 12, "bold"), background=self.original_bg)
+        reviews_label = tk.Label(self, text="Рецензії:", font=self.section_header_font, background=self.original_bg)
         reviews_label.grid(row=current_row, column=0, sticky='w', padx=10, pady=(5, 5))
         current_row += 1
         self.reviews_display_text = scrolledtext.ScrolledText(
@@ -259,21 +358,18 @@ class GameDetailView(tk.Frame):
         self.reviews_display_text.grid(row=current_row, column=0, sticky='nsew', padx=10, pady=(0, 10))
         self.grid_rowconfigure(current_row, weight=1)
         setup_text_widget_editing(self.reviews_display_text)
-        self.reviews_display_text.bind("<MouseWheel>", self._handle_mousewheel)
-        self.reviews_display_text.bind("<Button-4>", self._handle_mousewheel)
-        self.reviews_display_text.bind("<Button-5>", self._handle_mousewheel)
+        self._bind_mousewheel_to_children(self.reviews_display_text)
         try:
              text_widget_inside = self.reviews_display_text.nametowidget(self.reviews_display_text.winfo_children()[0])
-             text_widget_inside.bind("<MouseWheel>", self._handle_mousewheel)
-             text_widget_inside.bind("<Button-4>", self._handle_mousewheel)
-             text_widget_inside.bind("<Button-5>", self._handle_mousewheel)
+             self._bind_mousewheel_to_children(text_widget_inside)
         except: pass
-        current_row += 1
 
+        current_row += 1
         separator5 = ttk.Separator(self, orient='horizontal')
         separator5.grid(row=current_row, column=0, sticky='ew', padx=10, pady=10)
+
         current_row += 1
-        write_review_label = tk.Label(self, text="Написати рецензію:", font=("Verdana", 12, "bold"), background=self.original_bg)
+        write_review_label = tk.Label(self, text="Написати рецензію:", font=self.section_header_font, background=self.original_bg)
         write_review_label.grid(row=current_row, column=0, sticky='w', padx=10, pady=(5, 5))
         current_row += 1
         self.review_text_widget = scrolledtext.ScrolledText(
@@ -284,15 +380,12 @@ class GameDetailView(tk.Frame):
         )
         self.review_text_widget.grid(row=current_row, column=0, sticky='ew', padx=10, pady=(0, 5))
         setup_text_widget_editing(self.review_text_widget)
-        self.review_text_widget.bind("<MouseWheel>", self._handle_mousewheel)
-        self.review_text_widget.bind("<Button-4>", self._handle_mousewheel)
-        self.review_text_widget.bind("<Button-5>", self._handle_mousewheel)
+        self._bind_mousewheel_to_children(self.review_text_widget)
         try:
              text_widget_inside_input = self.review_text_widget.nametowidget(self.review_text_widget.winfo_children()[0])
-             text_widget_inside_input.bind("<MouseWheel>", self._handle_mousewheel)
-             text_widget_inside_input.bind("<Button-4>", self._handle_mousewheel)
-             text_widget_inside_input.bind("<Button-5>", self._handle_mousewheel)
+             self._bind_mousewheel_to_children(text_widget_inside_input)
         except: pass
+
         current_row += 1
         post_review_button = ttk.Button(
             self, text="Надіслати рецензію", command=self._post_review,
@@ -302,6 +395,9 @@ class GameDetailView(tk.Frame):
 
         widgets_to_bind_scroll = [
             self, top_info_frame, icon_label, info_frame, self.title_label,
+            self.dev_pub_frame,
+            self.info_developer_prefix_label, self.info_developer_names_label,
+            self.info_publisher_prefix_label, self.info_publisher_names_label,
             self.price_buy_frame,
             desc_label, self.desc_content_label,
             genres_label, self.genres_content_label,
@@ -314,15 +410,7 @@ class GameDetailView(tk.Frame):
              for child in self.price_buy_frame.winfo_children():
                   widgets_to_bind_scroll.append(child)
 
-        for widget in widgets_to_bind_scroll:
-             if widget and widget.winfo_exists():
-                 if widget not in [self.reviews_display_text, self.review_text_widget]:
-                     try:
-                         widget.bind("<MouseWheel>", self._handle_mousewheel)
-                         widget.bind("<Button-4>", self._handle_mousewheel)
-                         widget.bind("<Button-5>", self._handle_mousewheel)
-                     except tk.TclError as e:
-                          print(f"Warning: Could not bind scroll to {widget}: {e}")
+        self._bind_mousewheel_to_children(widgets_to_bind_scroll)
 
     def _post_review(self):
         if not self.review_text_widget:
@@ -605,9 +693,7 @@ class GameDetailView(tk.Frame):
         if is_owned:
             owned_label = tk.Label(self.price_buy_frame, text="✔ У бібліотеці", font=self.detail_font, bg=self.original_bg, fg="green")
             owned_label.pack(side=tk.LEFT, anchor='w')
-            owned_label.bind("<MouseWheel>", self._handle_mousewheel)
-            owned_label.bind("<Button-4>", self._handle_mousewheel)
-            owned_label.bind("<Button-5>", self._handle_mousewheel)
+            self._bind_mousewheel_to_children(owned_label)
         else:
             price = self.game_data.get('price')
             price_text_raw = "N/A"
@@ -628,20 +714,16 @@ class GameDetailView(tk.Frame):
                 except (ValueError, TypeError, InvalidOperation):
                     price_text_raw = "N/A"
 
-            price_label = tk.Label(self.price_buy_frame, text=price_text_raw, font=self.detail_font, bg=self.original_bg)
+            price_label = tk.Label(self.price_buy_frame, text=price_text_raw, font=self.price_font, bg=self.original_bg)
             price_label.pack(side=tk.LEFT, anchor='w')
-            price_label.bind("<MouseWheel>", self._handle_mousewheel)
-            price_label.bind("<Button-4>", self._handle_mousewheel)
-            price_label.bind("<Button-5>", self._handle_mousewheel)
+            self._bind_mousewheel_to_children(price_label)
 
             if can_buy:
                  button_text = "Отримати" if is_free else "Придбати"
                  buy_button = ttk.Button(self.price_buy_frame, text=button_text, style=self.custom_button_style, command=self._buy_game)
                  buy_button.pack(side=tk.LEFT, padx=(15, 0), anchor='w')
-                 buy_button.bind("<MouseWheel>", self._handle_mousewheel)
-                 buy_button.bind("<Button-4>", self._handle_mousewheel)
-                 buy_button.bind("<Button-5>", self._handle_mousewheel)
-
+                 self._bind_mousewheel_to_children(buy_button)
+                 
     def _load_image_internal(self, image_filename, full_path, size=(64, 64), is_placeholder=False):
         placeholder_to_return = self.placeholder_image_detail if size == self.detail_icon_size else self.placeholder_image_list
 
@@ -713,9 +795,20 @@ class GameDetailView(tk.Frame):
 
         for widget in widgets:
             if widget and widget.winfo_exists():
-                try:
-                    widget.bind("<MouseWheel>", self._handle_mousewheel)
-                    widget.bind("<Button-4>", self._handle_mousewheel)
-                    widget.bind("<Button-5>", self._handle_mousewheel)
-                except tk.TclError as e:
-                    print(f"Warning: Could not bind scroll to widget {widget}: {e}")
+                if not isinstance(widget, scrolledtext.ScrolledText):
+                    try:
+                        widget.bind("<MouseWheel>", self._handle_mousewheel)
+                        widget.bind("<Button-4>", self._handle_mousewheel)
+                        widget.bind("<Button-5>", self._handle_mousewheel)
+                    except tk.TclError as e:
+                        print(f"Warning: Could not bind scroll to widget {widget}: {e}")
+                        
+    def _on_studio_click(self, event, studio_names):
+        if not studio_names:
+            return
+        target_studio_name = studio_names[0]
+        print(f"Clicked on studio link for: {target_studio_name}")
+        if self.store_window_ref and hasattr(self.store_window_ref, 'switch_to_tab'):
+            self.store_window_ref.switch_to_tab(2, data=target_studio_name)
+        else:
+            print("Error: Cannot switch tabs. Reference to StoreWindow or method is missing.")

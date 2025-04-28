@@ -464,3 +464,61 @@ class DatabaseManager:
             print(f"DB: Error fetching platforms for game_id {game_id}: {e}")
             return []
         
+    def fetch_game_studios_by_role(self, game_id, role):
+        conn = self.get_connection()
+        if not conn or game_id is None:
+            print(f"DB: Cannot fetch studios for game {game_id}, role {role}. Connection or game_id missing.")
+            return []
+
+        valid_roles = ['Developer', 'Publisher']
+        if role not in valid_roles:
+             print(f"DB: Invalid role '{role}' requested for game {game_id}.")
+             return []
+
+        query = sql.SQL("""
+            SELECT s.name
+            FROM Studios s
+            JOIN Game_Studios gs ON s.studio_id = gs.studio_id
+            WHERE gs.game_id = %s AND gs.role = %s
+            ORDER BY s.name;
+        """)
+        try:
+            params = (game_id, role)
+            results = self.execute_query(query, params, fetch_all=True)
+            studio_names = [row[0] for row in results] if results else []
+            print(f"DB: Fetched {len(studio_names)} {role}(s) for game {game_id}: {studio_names}")
+            return studio_names
+        except Exception as e:
+            print(f"DB: Error fetching {role} studios for game_id {game_id}: {e}")
+            return []
+        
+          
+    def fetch_studio_details_by_name(self, studio_name):
+        conn = self.get_connection()
+        if not conn or not studio_name:
+            return None
+
+        query = sql.SQL("""
+            SELECT studio_id, name, website_url, logo, country, description, established_date
+            FROM Studios
+            WHERE name = %s;
+        """)
+        try:
+            studio_tuple = self.execute_query(query, (studio_name,), fetch_one=True)
+            if studio_tuple:
+                details = {
+                    'studio_id': studio_tuple[0], 'name': studio_tuple[1], 'website_url': studio_tuple[2],
+                    'logo': studio_tuple[3], 'country': studio_tuple[4], 'description': studio_tuple[5],
+                    'established_date': studio_tuple[6]
+                }
+                print(f"DB: Fetched details for studio: {studio_name}")
+                return details
+            else:
+                print(f"DB: Studio not found: {studio_name}")
+                return None
+        except Exception as e:
+            print(f"DB: Error fetching studio details for '{studio_name}': {e}")
+            return None
+
+    
+        

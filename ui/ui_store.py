@@ -4,10 +4,12 @@ import os
 from PIL import Image, ImageTk
 from functools import partial
 import decimal
+import traceback
 
 from .ui_utils import center_window
 from .ui_library import LibraryTab
 from .ui_game_details import GameDetailView
+from .ui_studio_details import StudioDetailView
 
 class StoreWindow(tk.Tk):
     def __init__(self, db_manager, user_id, image_folder, placeholder_image_path, placeholder_image_name):
@@ -18,6 +20,7 @@ class StoreWindow(tk.Tk):
         self.placeholder_image = None
         self.placeholder_image_detail = None
         self._game_widgets_store = []
+        self.studio_view = None
 
         self.image_folder = image_folder
         self.placeholder_image_path = placeholder_image_path
@@ -55,7 +58,6 @@ class StoreWindow(tk.Tk):
             'review_text': ("Verdana", 9),
             'review_input': ("Verdana", 10)
         }
-
         self.styles = {'custom_button': 'NoFocus.TButton'}
         self.colors = {
             'original_bg': self.original_bg,
@@ -65,7 +67,8 @@ class StoreWindow(tk.Tk):
             'no_comments_fg': self.no_comments_fg,
             'comment_fg': self.comment_fg,
             'no_comments_message': self.no_comments_message,
-            'no_reviews_message': " Рецензій ще немає."
+            'no_reviews_message': " Рецензій ще немає.",
+            'link_fg': 'blue'
         }
 
         self._load_placeholders(list_size=self.list_icon_size, detail_size=self.detail_icon_size)
@@ -98,39 +101,37 @@ class StoreWindow(tk.Tk):
         self.notebook.add(self.store_tab_frame, text='Магазин')
         self.store_tab_frame.grid_rowconfigure(0, weight=1)
         self.store_tab_frame.grid_columnconfigure(0, weight=1)
-
         self.store_canvas, self.store_list_frame = self._create_scrollable_list_frame(self.store_tab_frame)
 
         self.library_tab_frame = ttk.Frame(self.notebook)
         self.notebook.add(self.library_tab_frame, text='Бібліотека')
-
         self.library_view = LibraryTab(
-            parent=self.library_tab_frame,
-            db_manager=self.db_manager,
-            user_id=self.current_user_id,
-            image_cache=self._image_references,
-            placeholder_list=self.placeholder_image,
-            placeholder_detail=self.placeholder_image_detail,
-            image_folder_path=self.image_folder,
-            fonts={
-                'ui': self.fonts['ui'],
-                'list_title': self.fonts['library_list_title'],
-                'detail_title': self.fonts['library_detail_title'],
-                'detail': self.fonts['detail']
-            },
-            colors=self.colors
+             parent=self.library_tab_frame, db_manager=self.db_manager, user_id=self.current_user_id,
+             image_cache=self._image_references, placeholder_list=self.placeholder_image,
+             placeholder_detail=self.placeholder_image_detail, image_folder_path=self.image_folder,
+             fonts=self.fonts, colors=self.colors
         )
         self.library_view.paned_window.pack(fill=tk.BOTH, expand=True)
+
+        self.studio_tab_frame = ttk.Frame(self.notebook)
+        self.notebook.add(self.studio_tab_frame, text='Студії')
+        self.studio_view = StudioDetailView(
+            parent=self.studio_tab_frame,
+            db_manager=self.db_manager,
+            user_id=self.current_user_id,
+            fonts=self.fonts,
+            colors=self.colors,
+            styles=self.styles
+        )
+        self.studio_view.pack(fill=tk.BOTH, expand=True)
 
         refresh_button = ttk.Button(self, text="Оновити поточну вкладку", command=self.refresh_current_tab, style=self.custom_button_style)
         refresh_button.grid(row=2, column=0, pady=10)
 
         self.notebook.grid(row=1, column=0, sticky='nsew')
-
         self.load_games_store()
 
     def _unfocus_notebook(self, event):
-        """Забирає фокус з Notebook, щоб уникнути рамки навколо вкладки."""
         self.after_idle(self.focus_set)
 
     def _create_scrollable_list_frame(self, parent):
@@ -177,29 +178,37 @@ class StoreWindow(tk.Tk):
         return canvas, inner_frame
 
     def refresh_current_tab(self):
-        """Оновлює вміст поточної активної вкладки."""
-        if self.detail_view_instance and self.detail_view_instance.winfo_ismapped():
-             print("Refreshing Detail View...")
+        if self.detail_view_instance and self.detail_area_frame and self.detail_area_frame.winfo_ismapped():
+             print("Refreshing Game Detail View...")
              game_id = self.detail_view_instance.game_id
              self._show_detail_view(game_id)
              return
 
-        try:
-            selected_tab_index = self.notebook.index(self.notebook.select())
-            if selected_tab_index == 0: 
-                print("Refreshing Store Tab...")
-                self.load_games_store()
-            elif selected_tab_index == 1:
-                print("Refreshing Library Tab...")
-                if hasattr(self, 'library_view'):
-                    self.library_view.load_library_games()
-                else:
-                    print("Library view not initialized.")
-        except tk.TclError:
-            print("Could not get selected tab (Notebook might not be visible).")
-        except AttributeError as e:
-            print(f"Error refreshing tab: {e}")
-
+        elif self.notebook.winfo_ismapped():
+            try:
+                selected_tab_index = self.notebook.index(self.notebook.select())
+                if selected_tab_index == 0:
+                    print("Refreshing Store Tab...")
+                    self.load_games_store()
+                elif selected_tab_index == 1:
+                    print("Refreshing Library Tab...")
+                    if hasattr(self, 'library_view') and self.library_view:
+                        self.library_view.load_library_games()
+                    else:
+                        print("Library view not initialized or available.")
+                elif selected_tab_index == 2:
+                    print("Refreshing Studio Tab...")
+                    if hasattr(self, 'studio_view') and self.studio_view:
+                        self.studio_view.refresh_content()
+                    else:
+                        print("Studio view not initialized or available.")
+            except tk.TclError:
+                print("Could not get selected tab (Notebook might not be visible).")
+            except AttributeError as e:
+                print(f"Error refreshing tab: {e}")
+                traceback.print_exc()
+        else:
+             print("No active view to refresh.")
 
     def _show_notebook_view(self):
         if self.detail_area_frame:
@@ -215,26 +224,26 @@ class StoreWindow(tk.Tk):
         
     def _show_detail_view(self, game_id, event=None):
         self.notebook.grid_remove()
-
         if self.detail_area_frame:
             self.detail_area_frame.destroy()
             self.detail_area_frame = None
             self.detail_back_button = None
+            self.detail_frame_container = None
+            self.detail_canvas = None
+            self.detail_scrollbar = None
+            self.detail_view_instance = None
 
         try:
             game_details = self.db_manager.fetch_game_details(game_id)
             if not game_details:
                 messagebox.showwarning("Не знайдено", f"Гра з ID {game_id} не знайдена.")
-                self._show_notebook_view()
-                return
+                self._show_notebook_view(); return
         except AttributeError:
              messagebox.showerror("Помилка", "Функція отримання деталей гри ще не реалізована в DB Manager.")
-             self._show_notebook_view()
-             return
+             self._show_notebook_view(); return
         except Exception as e:
             messagebox.showerror("Помилка бази даних", f"Не вдалося завантажити деталі гри:\n{e}")
-            self._show_notebook_view()
-            return
+            self._show_notebook_view(); return
 
         self.detail_area_frame = tk.Frame(self, bg=self.original_bg)
         self.detail_area_frame.grid(row=1, column=0, sticky='nsew')
@@ -243,10 +252,7 @@ class StoreWindow(tk.Tk):
         self.detail_area_frame.grid_columnconfigure(0, weight=1)
 
         self.detail_back_button = ttk.Button(
-            self.detail_area_frame,
-            text="< Назад",
-            command=self._show_notebook_view,
-            style=self.custom_button_style
+            self.detail_area_frame, text="< Назад", command=self._show_notebook_view, style=self.custom_button_style
         )
         self.detail_back_button.grid(row=0, column=0, pady=(5, 10), padx=5, sticky='w')
 
@@ -262,51 +268,27 @@ class StoreWindow(tk.Tk):
         self.detail_canvas.pack(side="left", fill="both", expand=True)
 
         self.detail_view_instance = GameDetailView(
-            parent=self.detail_canvas,
-            db_manager=self.db_manager,
-            user_id=self.current_user_id,
-            game_id=game_id,
-            game_data=game_details,
-            image_cache=self._image_references,
-            placeholder_list=self.placeholder_image,
-            placeholder_detail=self.placeholder_image_detail,
-            image_folder=self.image_folder,
-            placeholder_image_path=self.placeholder_image_path,
-            placeholder_image_name=self.placeholder_image_name,
-            fonts=self.fonts,
-            colors=self.colors,
-            styles=self.styles,
-            scroll_target_canvas=self.detail_canvas
+            parent=self.detail_canvas, db_manager=self.db_manager, user_id=self.current_user_id, game_id=game_id,
+            game_data=game_details, image_cache=self._image_references, placeholder_list=self.placeholder_image,
+            placeholder_detail=self.placeholder_image_detail, image_folder=self.image_folder,
+            placeholder_image_path=self.placeholder_image_path, placeholder_image_name=self.placeholder_image_name,
+            fonts=self.fonts, colors=self.colors, styles=self.styles,
+            scroll_target_canvas=self.detail_canvas, store_window_ref=self
         )
         detail_canvas_window_id = self.detail_canvas.create_window((0, 0), window=self.detail_view_instance, anchor="nw")
-
+        
         def _on_detail_frame_configure(event=None):
             if self.detail_canvas and self.detail_canvas.winfo_exists():
-                 try:
-                     self.detail_canvas.after_idle(lambda: self.detail_canvas.configure(scrollregion=self.detail_canvas.bbox("all")))
-                 except tk.TclError:
-                     pass
-
+                 try: self.detail_canvas.after_idle(lambda: self.detail_canvas.configure(scrollregion=self.detail_canvas.bbox("all")))
+                 except tk.TclError: pass
         def _on_detail_canvas_configure(event):
              canvas_width = event.width
-             print(f"DEBUG: Canvas <Configure> event. Width: {canvas_width}")
-
-             if self.detail_canvas and self.detail_canvas.winfo_exists():
-                 self.detail_canvas.itemconfig(detail_canvas_window_id, width=canvas_width)
-
-             if self.detail_view_instance and self.detail_view_instance.winfo_exists():
-                  self.detail_view_instance.after_idle(lambda w=canvas_width: self.detail_view_instance._update_wraplengths(container_width=w))
-                  print(f"DEBUG: Scheduled _update_wraplengths with width {canvas_width}")
-
-
-        if self.detail_view_instance:
-            self.detail_view_instance.bind("<Configure>", _on_detail_frame_configure)
-
-        if self.detail_canvas:
-            self.detail_canvas.bind('<Configure>', _on_detail_canvas_configure)
+             if self.detail_canvas and self.detail_canvas.winfo_exists(): self.detail_canvas.itemconfig(detail_canvas_window_id, width=canvas_width)
+             if self.detail_view_instance and self.detail_view_instance.winfo_exists(): self.detail_view_instance.after_idle(lambda w=canvas_width: self.detail_view_instance._update_wraplengths(container_width=w))
+        if self.detail_view_instance: self.detail_view_instance.bind("<Configure>", _on_detail_frame_configure)
+        if self.detail_canvas: self.detail_canvas.bind('<Configure>', _on_detail_canvas_configure)
 
     def _load_placeholders(self, list_size=(64, 64), detail_size=(160, 160)):
-        """Завантажує зображення-заповнювачі."""
         print("Loading placeholders...")
         if self.placeholder_image_path and os.path.exists(self.placeholder_image_path):
             self.placeholder_image = self._load_image_internal(
@@ -528,6 +510,111 @@ class StoreWindow(tk.Tk):
             self.library_view.load_library_games()
         else:
             print("Warning: Library view is not initialized yet, cannot refresh.")
+
+    def switch_to_tab(self, tab_name_or_id, data=None):
+        try:
+            self.notebook.select(tab_name_or_id)
+            if self.detail_area_frame and self.detail_area_frame.winfo_ismapped():
+                self._show_notebook_view()
+
+            current_tab_index = self.notebook.index(self.notebook.select())
+            if current_tab_index == 2 and data is not None:
+                 if self.studio_view and hasattr(self.studio_view, 'display_studio_info'):
+                     print(f"Switching to Studio tab and passing data: {data}")
+                     self.studio_view.display_studio_info(data)
+                 else:
+                      print("Warning: Studio view or display_studio_info method not available.")
+
+        except tk.TclError as e:
+            print(f"Error switching to tab '{tab_name_or_id}': {e}")
+        except Exception as e:
+            print(f"Unexpected error during tab switch: {e}")
+            traceback.print_exc()
+            
+    def _show_studio_detail_view(self, studio_name):
+        self.notebook.grid_remove()
+        if self.detail_area_frame:
+            self.detail_area_frame.destroy()
+            self.detail_area_frame = None
+            self.detail_back_button = None
+            self.detail_frame_container = None
+            self.detail_canvas = None
+            self.detail_scrollbar = None
+            self.detail_view_instance = None
+
+        if self.studio_detail_area_frame:
+            self.studio_detail_area_frame.destroy()
+            self.studio_detail_area_frame = None
+            self.studio_detail_back_button = None
+            self.studio_detail_frame_container = None
+            self.studio_detail_canvas = None
+            self.studio_detail_scrollbar = None
+            self.studio_detail_view_instance = None
+
+        print(f"Attempting to show details for studio: {studio_name}")
+
+        self.studio_detail_area_frame = tk.Frame(self, bg=self.original_bg)
+        self.studio_detail_area_frame.grid(row=1, column=0, sticky='nsew')
+        self.studio_detail_area_frame.grid_rowconfigure(0, weight=0)
+        self.studio_detail_area_frame.grid_rowconfigure(1, weight=1)
+        self.studio_detail_area_frame.grid_columnconfigure(0, weight=1)
+
+        self.studio_detail_back_button = ttk.Button(
+            self.studio_detail_area_frame,
+            text="< Назад",
+            command=self._show_notebook_view,
+            style=self.custom_button_style
+        )
+        self.studio_detail_back_button.grid(row=0, column=0, pady=(5, 10), padx=5, sticky='w')
+
+        self.studio_detail_frame_container = tk.Frame(self.studio_detail_area_frame, bg=self.original_bg)
+        self.studio_detail_frame_container.grid(row=1, column=0, sticky='nsew')
+        self.studio_detail_frame_container.grid_rowconfigure(0, weight=1)
+        self.studio_detail_frame_container.grid_columnconfigure(0, weight=1)
+
+        self.studio_detail_canvas = tk.Canvas(self.studio_detail_frame_container, borderwidth=0, background=self.original_bg, highlightthickness=0)
+        self.studio_detail_scrollbar = ttk.Scrollbar(self.studio_detail_frame_container, orient="vertical", command=self.studio_detail_canvas.yview)
+        self.studio_detail_canvas.configure(yscrollcommand=self.studio_detail_scrollbar.set)
+        self.studio_detail_scrollbar.pack(side="right", fill="y")
+        self.studio_detail_canvas.pack(side="left", fill="both", expand=True)
+
+        try:
+            from .ui_studio_details import StudioDetailView
+        except ImportError:
+            messagebox.showerror("Помилка", "Не вдалося знайти файл ui_studio_details.py")
+            self._show_notebook_view()
+            return
+
+        self.studio_detail_view_instance = StudioDetailView(
+            parent=self.studio_detail_canvas,
+            db_manager=self.db_manager,
+            studio_name=studio_name,
+            fonts=self.fonts,
+            colors=self.colors,
+            styles=self.styles,
+            scroll_target_canvas=self.studio_detail_canvas,
+            store_window_ref=self
+        )
+        studio_canvas_window_id = self.studio_detail_canvas.create_window((0, 0), window=self.studio_detail_view_instance, anchor="nw")
+
+        def _on_studio_detail_frame_configure(event=None):
+            if self.studio_detail_canvas and self.studio_detail_canvas.winfo_exists():
+                try:
+                    self.studio_detail_canvas.after_idle(lambda: self.studio_detail_canvas.configure(scrollregion=self.studio_detail_canvas.bbox("all")))
+                except tk.TclError: pass
+
+        def _on_studio_detail_canvas_configure(event):
+            canvas_width = event.width
+            if self.studio_detail_canvas and self.studio_detail_canvas.winfo_exists():
+                self.studio_detail_canvas.itemconfig(studio_canvas_window_id, width=canvas_width)
+
+        if self.studio_detail_view_instance:
+            self.studio_detail_view_instance.bind("<Configure>", _on_studio_detail_frame_configure)
+        if self.studio_detail_canvas:
+            self.studio_detail_canvas.bind('<Configure>', _on_studio_detail_canvas_configure)
+
+        self.title(f"Студія: {studio_name}")
+
 
     def on_close(self):
         self._image_references.clear()

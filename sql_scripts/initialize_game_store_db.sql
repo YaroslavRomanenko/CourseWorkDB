@@ -74,15 +74,13 @@ CREATE TABLE Game_Studios (
 CREATE INDEX idx_gamestudios_game_id ON Game_Studios(game_id);
 CREATE INDEX idx_gamestudios_studio_id ON Game_Studios(studio_id);
 
+SELECT * FROM Game_Studios;
+
 /* ### studio_role_type ### */
 
 CREATE TYPE studio_role_type AS ENUM (
 	'Developer',
-    'Publisher',
-    'Co-Developer',
-    'Porting Studio',
-    'Support Studio',
-    'Other'
+    'Publisher'
 );
 
 /* ### game_status ### */

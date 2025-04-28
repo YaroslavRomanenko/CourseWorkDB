@@ -14,7 +14,8 @@ def main():
     print("7. Insert Game-Genre Links")
     print("8. Insert Game-Platform Links")
     print("9. Insert Developer-Game Links")
-    print("10. Delete Specified Data")
+    print("10. Insert Game-Studio Links")
+    print("11. Delete Specified Data")
     print("-------------------------")
     print("\nChoose and Enter the command: ", end="")
     
@@ -361,6 +362,20 @@ def main():
             break
             
         elif command == 10:
+            game_studios = [
+                (1, 1, 'Developer'), (1, 1, 'Publisher'), (2, 2, 'Developer'), (2, 2, 'Publisher'), (3, 3, 'Developer'), (3, 3, 'Publisher'),
+                (4, 4, 'Developer'), (4, 4, 'Publisher'), (5, 5, 'Developer'), (5, 5, 'Publisher'), (6, 6, 'Developer'), (6, 7, 'Publisher'),
+                (7, 8, 'Developer'), (7, 8, 'Publisher'), (8, 9, 'Developer'), (8, 9, 'Publisher'), (9, 10, 'Developer'), (9, 10, 'Publisher'),
+                (10, 11, 'Developer'), (10, 11, 'Publisher'), (11, 12, 'Developer'), (11, 12, 'Publisher'), (12, 13, 'Developer'), (12, 13, 'Publisher'),
+                (13, 14, 'Developer'), (13, 14, 'Publisher'), (14, 15, 'Developer'), (14, 15, 'Publisher')
+            ]
+            
+            print("--- Inserting Game_Studios Data ---")
+            insert_query = "INSERT INTO Game_Studios (game_id, studio_id, role) VALUES (%s, %s, %s);"
+            db_manager.execute_many_query(insert_query, game_studios)
+            break
+            
+        elif command == 11:
             print("--- Deleting Data ---")
             
             db_manager.clear_specified_table("game_g1enres")
