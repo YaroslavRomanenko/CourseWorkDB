@@ -565,5 +565,37 @@ class DatabaseManager:
             print(f"DB: User info not found for user_id {user_id}.")
             return None
 
+          
+    def delete_user_account(self, user_id):
+        conn = self.get_connection()
+        if not conn:
+            messagebox.showerror("Помилка Бази Даних", "Немає активного підключення до бази даних.")
+            return False
+
+        query = sql.SQL("DELETE FROM Users WHERE user_id = %s;")
+        params = (user_id,)
+
+        try:
+            print(f"DB: Attempting to delete user account with ID: {user_id}")
+            with conn:
+                with conn.cursor() as cur:
+                    cur.execute(query, params)
+                    if cur.rowcount == 1:
+                        print(f"DB: Successfully deleted user account with ID: {user_id}")
+                        return True
+                    else:
+                        print(f"DB: User account with ID: {user_id} not found for deletion.")
+                        messagebox.showerror("Помилка видалення", f"Користувача з ID {user_id} не знайдено.")
+                        return False
+        except psycopg2.Error as db_error:
+            print(f"\nDB: Error deleting user account {user_id}: {db_error}")
+            messagebox.showerror("Помилка Бази Даних", f"Не вдалося видалити акаунт:\n{db_error}")
+            return False
+        except Exception as e:
+            print(f"\nDB: Unexpected error deleting user account {user_id}: {e}")
+            traceback.print_exc()
+            messagebox.showerror("Неочікувана Помилка", f"Сталася неочікувана помилка під час видалення акаунту:\n{e}")
+            return False
+
     
         

@@ -1,5 +1,5 @@
 import tkinter as tk
-from tkinter import ttk, messagebox
+from tkinter import ttk, messagebox, simpledialog
 import os
 from PIL import Image, ImageTk
 from functools import partial
@@ -13,7 +13,7 @@ from .ui_studio_details import StudioDetailView
 
 class StoreWindow(tk.Tk):
     def __init__(self, db_manager, user_id, image_folder, studio_logo_folder,
-                 placeholder_image_path, placeholder_image_name):
+                 placeholder_image_path, placeholder_image_name, open_login_func):
         super().__init__()
         self.db_manager = db_manager
         self.current_user_id = user_id
@@ -28,6 +28,7 @@ class StoreWindow(tk.Tk):
         self.studio_logo_folder = studio_logo_folder
         self.placeholder_image_path = placeholder_image_path
         self.placeholder_image_name = placeholder_image_name
+        self.open_login_callback = open_login_func
 
         self.detail_area_frame = None
         self.detail_back_button = None
@@ -92,7 +93,7 @@ class StoreWindow(tk.Tk):
             'input_bg': 'white',
             'input_fg': 'black',
             'user_panel_text_fg': 'black',
-            'user_panel_bg': '#e0e0e0',
+            'user_panel_bg': '#ededed',
             'username_fg': '#67c1f5'
         }
 
@@ -717,7 +718,7 @@ class StoreWindow(tk.Tk):
                                   fg=panel_fg,
                                   bg=frame['bg'], cursor="hand2")
         self.username_label.pack(side=tk.LEFT, padx=(5, 2))
-        self.username_label.bind("<Button-1>", self._on_username_click)
+        self.username_label.bind("<Button-1>", self._on_dropdown_click)
 
         arrow_fg = '#555555'
         arrow_label = tk.Label(frame, text="▼", font=(self.fonts['ui'][0], 8),
@@ -748,10 +749,6 @@ class StoreWindow(tk.Tk):
             self.balance_label.config(text=f"{self.current_balance:.2f}₴")
         print(f"StoreWindow: Display updated - {self.username}, Balance: {self.current_balance:.2f}₴")
 
-    def _on_username_click(self, event=None):
-        print(f"Clicked on username: {self.username}")
-        messagebox.showinfo("Профіль", "Функція керування профілем ще не реалізована.", parent=self)
-
     def _on_dropdown_click(self, event=None):
         if self.user_dropdown_menu:
             try:
@@ -759,14 +756,16 @@ class StoreWindow(tk.Tk):
                 self.user_dropdown_menu = None
             except tk.TclError:
                 self.user_dropdown_menu = None
-            return "break" # <-- Додано, щоб зупинити тут, якщо меню закрили
+            return "break"
 
-        print("Clicked on dropdown arrow - creating menu")
+        print("Clicked on dropdown arrow/username - creating menu")
         self.user_dropdown_menu = tk.Menu(self, tearoff=0)
         self.user_dropdown_menu.add_command(label="Налаштування акаунту (неактивно)")
         self.user_dropdown_menu.add_command(label="Додати кошти (неактивно)")
         self.user_dropdown_menu.add_separator()
-        self.user_dropdown_menu.add_command(label="Вийти (неактивно)")
+        self.user_dropdown_menu.add_command(label="Видалити акаунт", command=self._delete_account, foreground="red")
+        self.user_dropdown_menu.add_separator()
+        self.user_dropdown_menu.add_command(label="Вийти", command=self._logout)
         self.user_dropdown_menu.bind("<Unmap>", self._on_menu_unmap, add='+')
 
         widget = event.widget
@@ -800,6 +799,76 @@ class StoreWindow(tk.Tk):
             except Exception as e:
                 print(f"Error in _on_global_click: {e}")
                 self.user_dropdown_menu = None
+
+    def _logout(self):
+        if messagebox.askyesno("Вихід", "Ви впевнені, що хочете вийти з акаунту?", parent=self):
+            print("Logging out...")
+            self.destroy()
+            if self.open_login_callback:
+                self.open_login_callback()
+            else:
+                print("Error: Login callback function is not set in StoreWindow.")
+                messagebox.showerror("Помилка", "Не вдалося повернутися до вікна входу.")
+
+    def _delete_account(self):
+        print(f"Attempting to delete account for user: {self.username} (ID: {self.current_user_id})")
+
+        confirm1 = messagebox.askyesno(
+            "Видалення Акаунту",
+            f"ПОПЕРЕДЖЕННЯ!\n\nВи впевнені, що хочете видалити акаунт '{self.username}'?\n\n"
+            "ЦЯ ДІЯ НЕЗВОРОТНЯ!\n"
+            "Будуть видалені всі ваші покупки, рецензії та коментарі.",
+            icon='warning',
+            parent=self
+        )
+
+        if not confirm1:
+            print("Account deletion cancelled (first confirmation).")
+            return
+
+        try:
+            entered_username = simpledialog.askstring(
+                "Підтвердження Видалення",
+                f"Для підтвердження видалення акаунту '{self.username}', "
+                "будь ласка, введіть ваше ім'я користувача ще раз:",
+                parent=self
+            )
+        except Exception as e:
+             print(f"Error showing confirmation dialog: {e}")
+             return
+
+        if entered_username is None:
+             print("Account deletion cancelled (second confirmation - Cancel button).")
+             return
+
+        if entered_username != self.username:
+            print("Account deletion cancelled (second confirmation - wrong username).")
+            messagebox.showerror("Помилка", "Введене ім'я користувача не співпадає. Видалення скасовано.", parent=self)
+            return
+
+        print(f"Proceeding with account deletion for user: {self.username} (ID: {self.current_user_id})")
+        success = False
+        try:
+            success = self.db_manager.delete_user_account(self.current_user_id)
+        except AttributeError:
+             messagebox.showerror("Помилка", "Функція видалення акаунту не реалізована в DB Manager.", parent=self)
+             return
+        except Exception as e:
+             print(f"UI Error calling delete_user_account: {e}")
+             traceback.print_exc()
+             messagebox.showerror("Неочікувана Помилка", f"Сталася неочікувана помилка під час спроби видалення:\n{e}", parent=self)
+             return
+
+        if success:
+            messagebox.showinfo("Успіх", f"Акаунт '{self.username}' було успішно видалено.", parent=self)
+            print("Logging out after account deletion...")
+            if self.open_login_callback:
+                self.open_login_callback()
+            else:
+                print("Error: Login callback function is not set in StoreWindow.")
+            self.after(10, self.destroy)
+        else:
+            print(f"Failed to delete account for user: {self.username} (ID: {self.current_user_id})")
 
     def on_close(self):
         self._image_references.clear()

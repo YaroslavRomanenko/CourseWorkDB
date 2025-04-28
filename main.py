@@ -42,6 +42,7 @@ def start_store_window(user_id):
     store_app = StoreWindow(
         db_manager=db_manager,
         user_id=user_id,
+        open_login_func=start_login_window,
         image_folder=IMAGE_FOLDER_PATH,
         studio_logo_folder=STUDIO_LOGO_FOLDER_PATH, 
         placeholder_image_path=PLACEHOLDER_IMG_PATH,
