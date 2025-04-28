@@ -808,7 +808,7 @@ class GameDetailView(tk.Frame):
             return
         target_studio_name = studio_names[0]
         print(f"Clicked on studio link for: {target_studio_name}")
-        if self.store_window_ref and hasattr(self.store_window_ref, 'switch_to_tab'):
-            self.store_window_ref.switch_to_tab(2, data=target_studio_name)
+        if self.store_window_ref and hasattr(self.store_window_ref, '_show_studio_detail_view'):
+            self.store_window_ref._show_studio_detail_view(target_studio_name)
         else:
-            print("Error: Cannot switch tabs. Reference to StoreWindow or method is missing.")
+            print("Error: Cannot show studio details. Reference to StoreWindow or method is missing.")
