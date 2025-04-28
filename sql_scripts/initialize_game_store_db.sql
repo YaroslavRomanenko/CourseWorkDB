@@ -11,7 +11,7 @@ CREATE TABLE Studios (
 );
 CREATE INDEX idx_studios_name ON Studios(name);
 
--- SELECT * FROM Studios;
+SELECT * FROM Studios;
 
 /* ### Users ### */
 
@@ -46,7 +46,6 @@ CREATE TABLE Developers (
 		REFERENCES Studios (studio_id)
 		ON DELETE RESTRICT
 );
-
 
 SELECT * FROM Developers;
 

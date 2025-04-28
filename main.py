@@ -16,6 +16,7 @@ except NameError:
 CONFIG_PATH = os.path.join(BASE_DIR, 'config.json')
 RESOURCES_DIR = os.path.join(BASE_DIR, 'resources')
 IMAGE_FOLDER_PATH = os.path.join(RESOURCES_DIR, 'games_icons')
+STUDIO_LOGO_FOLDER_PATH = os.path.join(RESOURCES_DIR, 'studios_icons')
 PLACEHOLDER_IMG_NAME = 'placeholder.png'
 PLACEHOLDER_IMG_PATH = os.path.join(IMAGE_FOLDER_PATH, PLACEHOLDER_IMG_NAME)
 
@@ -40,7 +41,9 @@ def start_store_window(user_id):
     print(f"Opening Store Window for user_id: {user_id}...")
     store_app = StoreWindow(
         db_manager=db_manager,
-        user_id=user_id, image_folder=IMAGE_FOLDER_PATH,
+        user_id=user_id,
+        image_folder=IMAGE_FOLDER_PATH,
+        studio_logo_folder=STUDIO_LOGO_FOLDER_PATH, 
         placeholder_image_path=PLACEHOLDER_IMG_PATH,
         placeholder_image_name=PLACEHOLDER_IMG_NAME
     )
@@ -51,6 +54,13 @@ def start_store_window(user_id):
     
 if __name__ == '__main__':
     print("Application Starting...")
+    if not os.path.exists(IMAGE_FOLDER_PATH):
+        print(f"Warning: Game image folder not found: {IMAGE_FOLDER_PATH}")
+    if not os.path.exists(STUDIO_LOGO_FOLDER_PATH):
+        print(f"Warning: Studio logo folder not found: {STUDIO_LOGO_FOLDER_PATH}")
+    if not os.path.exists(PLACEHOLDER_IMG_PATH):
+        print(f"Warning: Placeholder image not found: {PLACEHOLDER_IMG_PATH}")
+        
     start_login_window()
     print("Application Closing Down...")
     db_manager.close_connection()

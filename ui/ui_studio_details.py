@@ -9,7 +9,7 @@ class StudioDetailView(tk.Frame):
     def __init__(self, parent, db_manager, studio_name,
                  fonts, colors, styles,
                  scroll_target_canvas, store_window_ref,
-                 image_cache, placeholder_detail, image_folder, # Added image params
+                 image_cache, placeholder_detail, studio_logo_folder,
                  **kwargs):
         super().__init__(parent, bg=colors.get('original_bg', 'white'), **kwargs)
 
@@ -23,7 +23,7 @@ class StudioDetailView(tk.Frame):
 
         self._image_references = image_cache
         self.placeholder_image_detail = placeholder_detail
-        self.image_folder = image_folder
+        self.logo_folder = studio_logo_folder 
         self.studio_logo_size = (128, 128)
 
         self.studio_details = None
@@ -124,7 +124,7 @@ class StudioDetailView(tk.Frame):
             current_row += 1
             description = self.studio_details.get('description', 'Опис відсутній.')
             self.description_content_label = tk.Label(self, text=description,
-                                                      font=self.fonts.get('description', ("Verdana", 10)),
+                                                      font=self.fonts.get('detail', ("Verdana", 10)),
                                                       bg=self.colors.get('original_bg', 'white'),
                                                       wraplength=initial_wraplength, justify=tk.LEFT, anchor='nw')
             self.description_content_label.grid(row=current_row, column=0, sticky='ew', padx=10, pady=(0, 10))
@@ -331,15 +331,15 @@ class StudioDetailView(tk.Frame):
 
         if not image_filename:
             return placeholder_to_return
-        if self.image_folder is None:
-            print("StudioDetailView: IMAGE_FOLDER is not set, cannot load image.")
+        if self.logo_folder is None:
+            print("StudioDetailView: LOGO_FOLDER is not set, cannot load image.")
             return placeholder_to_return
 
-        full_path = os.path.join(self.image_folder, image_filename)
+        full_path = os.path.join(self.logo_folder, image_filename)
 
         is_placeholder_request = False
-        if hasattr(self.store_window_ref, 'placeholder_image_path') and hasattr(self.store_window_ref, 'placeholder_image_name'):
-             is_placeholder_request = (image_filename == self.store_window_ref.placeholder_image_name)
+        if hasattr(self.store_window_ref, 'placeholder_image_name'):
+            is_placeholder_request = (image_filename == self.store_window_ref.placeholder_image_name)
 
 
         return self._load_image_internal(image_filename, full_path, size=size, is_placeholder=is_placeholder_request)

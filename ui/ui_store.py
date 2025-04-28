@@ -12,7 +12,7 @@ from .ui_game_details import GameDetailView
 from .ui_studio_details import StudioDetailView
 
 class StoreWindow(tk.Tk):
-    def __init__(self, db_manager, user_id, image_folder, placeholder_image_path, placeholder_image_name):
+    def __init__(self, db_manager, user_id, image_folder, studio_logo_folder, placeholder_image_path, placeholder_image_name):
         super().__init__()
         self.db_manager = db_manager
         self.current_user_id = user_id
@@ -22,6 +22,7 @@ class StoreWindow(tk.Tk):
         self._game_widgets_store = []
 
         self.image_folder = image_folder
+        self.studio_logo_folder = studio_logo_folder
         self.placeholder_image_path = placeholder_image_path
         self.placeholder_image_name = placeholder_image_name
 
@@ -138,7 +139,8 @@ class StoreWindow(tk.Tk):
         self.library_view = LibraryTab(
              parent=self.library_tab_frame, db_manager=self.db_manager, user_id=self.current_user_id,
              image_cache=self._image_references, placeholder_list=self.placeholder_image,
-             placeholder_detail=self.placeholder_image_detail, image_folder_path=self.image_folder,
+             placeholder_detail=self.placeholder_image_detail,
+             image_folder_path=self.image_folder,
              fonts=self.fonts, colors=self.colors
         )
         self.library_view.paned_window.pack(fill=tk.BOTH, expand=True)
@@ -418,7 +420,7 @@ class StoreWindow(tk.Tk):
         if not image_filename:
             return placeholder_to_return
         if self.image_folder is None:
-             print("GetImage: IMAGE_FOLDER is not set, cannot load image.")
+             print("GetImage (StoreWindow): IMAGE_FOLDER is not set.")
              return placeholder_to_return
 
         full_path = os.path.join(self.image_folder, image_filename)
@@ -669,7 +671,7 @@ class StoreWindow(tk.Tk):
             store_window_ref=self,
             image_cache=self._image_references,
             placeholder_detail=self.placeholder_image_detail,
-            image_folder=self.image_folder
+            studio_logo_folder=self.studio_logo_folder 
         )
         studio_canvas_window_id = self.studio_detail_canvas.create_window((0, 0), window=self.studio_detail_view_instance, anchor="nw")
 

@@ -114,13 +114,13 @@ def main():
             
             studios_data = [
                 # --- Terraria --- #
-                ("Re-Logic", "https://re-logic.com/", "re-logic_icon_1.jpg", "United States", "Best known for the Terraria franchise - the revolutionary 2D Sandbox Adventure that has entertained millions of gamers worldwide - Re-Logic seeks to showcase and evolve the limits of what Indie gaming can be!", "2011-01-24"),
+                ("Re-Logic", "https://re-logic.com/", "re-logic_icon_1.png", "United States", "Best known for the Terraria franchise - the revolutionary 2D Sandbox Adventure that has entertained millions of gamers worldwide - Re-Logic seeks to showcase and evolve the limits of what Indie gaming can be!", "2011-01-24"),
                 
                 # --- Don't Starve Together --- #
                 ("Klei", "https://www.klei.com/", "klei_icon_2.jpg", "Canada", "It Rhymes With Play", "2005-07-01"),
                 
                 # --- Astroneer --- #
-                ("System Era Softworks", "https://www.systemera.net/", "system_era_softworks_icon_3.jpg", "United States", "System Era Softworks is a small development studio led by veteran game developers headquartered in Seattle, Washington. We are currently working on our first game, Astroneer.", "2014-03-07"),
+                ("System Era Softworks", "https://www.systemera.net/", "system_era_softworks_icon_3.png", "United States", "System Era Softworks is a small development studio led by veteran game developers headquartered in Seattle, Washington. We are currently working on our first game, Astroneer.", "2014-03-07"),
                 
                 # --- Factorio --- #
                 ("Wube Software", None, "wube_software_icon_4.jpg", "Czech Republic", "Wube Software is a team of passionate professionals dedicated to creating exceptional games.", "2014-09-03"),
@@ -134,7 +134,7 @@ def main():
                 ("2K", "https://2k.com/", "2k_icon_7.jpg", "United States", "2K develops and publishes critically-acclaimed franchises such as BioShock, Borderlands, Sid Meier’s Civilization, XCOM, WWE 2K, and NBA 2K.", "2005-01-25"),
                 
                 # --- Marvel Rivals --- #
-                ("NetEaseGames", "https://www.neteasegames.com/", "net_ease_games_icon_8.jpg", "China", "NetEase Games is the gaming division of NetEase, Inc., a major Chinese tech company. It focuses on developing and publishing video games across various platforms, including mobile, PC, and consoles.", "2001-09-08"),
+                ("NetEaseGames", "https://www.neteasegames.com/", "net_ease_games_icon_8.png", "China", "NetEase Games is the gaming division of NetEase, Inc., a major Chinese tech company. It focuses on developing and publishing video games across various platforms, including mobile, PC, and consoles.", "2001-09-08"),
                 
                 # --- Hades II --- #
                 ("Supergiant Games", "https://www.supergiantgames.com/", "supergiant_games_icon_9.jpg", "United States", "We make games that spark your imagination like the games you played as a kid.", "2009-07-27"),
@@ -143,7 +143,7 @@ def main():
                 ("Blizzard Entertainment", "https://www.blizzard.com/en-us/", "blizzard_entertainment_icon_10.jpg", "United States", "Dedicated to creating the most epic entertainment experiences... ever.", "1991-02-08"),
                 
                 # --- The Elder Scrolls VI --- #
-                ("Bethesda Softworks", "https://bethesda.net/en/dashboard", "bethesda_softworks_icon_11.jpg", "United States", "Bethesda Softworks is an award-winning development team renowned worldwide for its groundbreaking work on the The Elder Scrolls and Fallout series.", "1986-06-28"),
+                ("Bethesda Softworks", "https://bethesda.net/en/dashboard", "bethesda_softworks_icon_11.png", "United States", "Bethesda Softworks is an award-winning development team renowned worldwide for its groundbreaking work on the The Elder Scrolls and Fallout series.", "1986-06-28"),
                 
                 # --- Star citizen --- #
                 ("Cloud Imperium Games Corporation", "https://cloudimperiumgames.com/", "cloud_imperium_games_corporation_icon_12.jpg", "United States", "We never settle and we're never daunted.", "2012-03-17"),
@@ -378,7 +378,7 @@ def main():
         elif command == 11:
             print("--- Deleting Data ---")
             
-            db_manager.clear_specified_table("game_g1enres")
+            db_manager.clear_specified_table("studios")
             
             print("--- The Data is Successfully Deleted ---")
             break;
