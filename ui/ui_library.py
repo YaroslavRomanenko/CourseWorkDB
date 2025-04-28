@@ -28,10 +28,12 @@ class LibraryTab:
         self.detail_font = fonts.get('detail', ("Verdana", 11))
 
         self.paned_window = tk.PanedWindow(self.parent, orient=tk.HORIZONTAL, sashrelief=tk.FLAT, sashwidth=1, bg=self.original_bg)
-        
-        desired_left_width = 220
-        min_left_width = 200
-        self.left_frame = tk.Frame(self.paned_window, width=desired_left_width, bg=self.original_bg) 
+
+        desired_left_width = 280
+        min_left_width = 240
+        min_right_width = 520
+
+        self.left_frame = tk.Frame(self.paned_window, width=desired_left_width, bg=self.original_bg)
         self.left_frame.grid_rowconfigure(0, weight=1)
         self.left_frame.grid_columnconfigure(0, weight=1)
         self.paned_window.add(self.left_frame, width=desired_left_width, minsize=min_left_width, stretch="never")
@@ -40,12 +42,10 @@ class LibraryTab:
 
         self.right_frame = tk.Frame(self.paned_window, bg=self.original_bg, padx=15, pady=10)
         self.right_frame.grid_columnconfigure(0, weight=1)
-        self.paned_window.add(self.right_frame, minsize=300, stretch="always")
+        self.paned_window.add(self.right_frame, minsize=min_right_width, stretch="always")
 
         self._display_placeholder_details()
-
         self.load_library_games()
-
 
     def _create_scrollable_list_frame(self, parent):
         canvas_scrollbar_frame = tk.Frame(parent, bg=self.original_bg)
@@ -54,38 +54,65 @@ class LibraryTab:
         canvas_scrollbar_frame.grid_columnconfigure(0, weight=1)
 
         canvas = tk.Canvas(canvas_scrollbar_frame, borderwidth=0, background=self.original_bg, highlightthickness=0)
-        scrollbar = ttk.Scrollbar(canvas_scrollbar_frame, orient="vertical", command=canvas.yview)
+        scrollbar = ttk.Scrollbar(canvas_scrollbar_frame, orient="vertical")
         inner_frame = tk.Frame(canvas, background=self.original_bg)
 
+        def _limited_canvas_yview(*args):
+            canvas.yview(*args)
+            current_top, _ = canvas.yview()
+            if current_top < 0.0001:
+                canvas.yview_moveto(0.0)
+            scrollbar.set(*canvas.yview())
+
+        def _on_inner_mousewheel(event):
+            if event.num == 4: delta = -1 
+            elif event.num == 5: delta = 1
+            else:
+                try: delta = -1 if event.delta > 0 else 1
+                except AttributeError: return 
+
+            canvas.yview_scroll(delta, "units")
+
+            current_top, _ = canvas.yview()
+            if current_top < 0.0001:
+                canvas.yview_moveto(0.0)
+            scrollbar.set(*canvas.yview())
+
+            return "break" 
+
+        scrollbar.config(command=_limited_canvas_yview)
         canvas.configure(yscrollcommand=scrollbar.set)
+
         scrollbar.pack(side="right", fill="y")
         canvas.pack(side="left", fill="both", expand=True)
         canvas_frame_id = canvas.create_window((0, 0), window=inner_frame, anchor="nw")
 
-        def _on_inner_frame_configure(event=None): canvas.configure(scrollregion=canvas.bbox("all"))
+        def _on_inner_frame_configure(event=None):
+            canvas.configure(scrollregion=canvas.bbox("all"))
+            _, view_bottom = canvas.yview()
+            bbox = canvas.bbox("all")
+            content_height = bbox[3] - bbox[1] if bbox else 0
+            canvas_height = canvas.winfo_height()
+            if content_height > canvas_height:
+                 scrollbar.set(*canvas.yview())
+
+
         def _on_inner_canvas_configure(event):
             canvas_width = event.width
             canvas.itemconfig(canvas_frame_id, width=event.width)
             inner_frame.config(width=canvas_width)
-            
-        def _on_inner_mousewheel(event):
-            if event.num == 4: delta = -1
-            elif event.num == 5: delta = 1
-            else:
-                try: delta = -1 if event.delta > 0 else 1
-                except AttributeError: return
-            canvas.yview_scroll(delta, "units")
-            return "break"
+            _on_inner_frame_configure() 
+
 
         inner_frame.bind("<Configure>", _on_inner_frame_configure)
         canvas.bind('<Configure>', _on_inner_canvas_configure)
+
         inner_frame.bind("<MouseWheel>", _on_inner_mousewheel)
         inner_frame.bind("<Button-4>", _on_inner_mousewheel)
         inner_frame.bind("<Button-5>", _on_inner_mousewheel)
         canvas.bind("<MouseWheel>", _on_inner_mousewheel)
         canvas.bind("<Button-4>", _on_inner_mousewheel)
         canvas.bind("<Button-5>", _on_inner_mousewheel)
-
 
         return canvas, inner_frame
 
@@ -104,7 +131,7 @@ class LibraryTab:
         except (ValueError, TypeError): print(f"...: {game_data}"); return None
 
         entry_frame = tk.Frame(parent, background=self.original_bg, cursor="hand2")
-        entry_frame.pack(fill=tk.X, pady=1)
+        entry_frame.pack(fill=tk.X, pady=0)
 
         icon_label = tk.Label(entry_frame, background=self.original_bg)
         tk_image = self._get_image(image_filename, size=self.list_icon_size)
@@ -123,10 +150,6 @@ class LibraryTab:
             widget.bind("<Button-1>", click_handler)
             widget.bind("<Enter>", enter_handler)
             widget.bind("<Leave>", leave_handler)
-            widget.bind("<MouseWheel>", self.parent.master.master._on_mousewheel)
-            widget.bind("<Button-4>", self.parent.master.master._on_mousewheel)
-            widget.bind("<Button-5>", self.parent.master.master._on_mousewheel)
-
 
         return entry_frame
 
@@ -167,14 +190,13 @@ class LibraryTab:
              detail_img_label.image = tk_detail_image
         else:
              detail_img_label.config(text="Немає зображення", font=self.ui_font, width=40, height=10)
-        detail_img_label.pack(pady=(0, 15)) 
-        
+        detail_img_label.pack(pady=(0, 15))
+
         title_label = tk.Label(self.right_frame, text=game_data.get('title', '...'), font=self.title_font_detail, bg=self.original_bg)
         title_label.pack(pady=(0, 20))
 
         play_button = ttk.Button(self.right_frame, text="Грати", command=partial(self._play_game, game_id))
         play_button.pack(pady=10)
-        
 
     def _play_game(self, game_id):
         print(f"Attempting to 'Play' game with ID: {game_id}")
@@ -186,19 +208,23 @@ class LibraryTab:
         self._game_widgets_library = []
         try:
             games_data = self.db_manager.fetch_purchased_games(self.user_id)
-        except AttributeError: tk.Label(self.library_list_frame, text="...", fg="orange").pack(pady=20); print("DB: fetch_purchased_games..."); return
-        except Exception as e: tk.Label(self.library_list_frame, text="...", fg="red").pack(pady=20); print(f"...: {e}"); return
+        except AttributeError:
+            tk.Label(self.library_list_frame, text="...", fg="orange").pack(pady=20); print("DB: fetch_purchased_games..."); return
+        except Exception as e:
+            tk.Label(self.library_list_frame, text="...", fg="red").pack(pady=20); print(f"...: {e}"); return
 
         if games_data is None: tk.Label(self.library_list_frame, text="...", fg="red").pack(pady=20); print("DB: Failed fetch (Library)."); return
         if not games_data: tk.Label(self.library_list_frame, text="Ваша бібліотека порожня").pack(pady=20)
         else:
             for game in games_data:
-                 if len(game) < 5: print(f"...: {game}"); continue
+                 if len(game) < 5: print(f"...: Invalid data format {game}"); continue
                  game_widget = self._create_library_entry(self.library_list_frame, game)
                  if game_widget: self._game_widgets_library.append(game_widget)
 
         self.library_list_frame.update_idletasks()
         self.library_canvas.configure(scrollregion=self.library_canvas.bbox("all"))
+        self.library_canvas.yview_moveto(0.0)
+        self.after(10, lambda: self.library_canvas.master.winfo_children()[1].set(*self.library_canvas.yview()))
 
     def _load_image_internal(self, image_filename, full_path, size=(64, 64)):
         placeholder = self.placeholder_image_detail if size == self.detail_icon_size else self.placeholder_image_list
@@ -206,12 +232,27 @@ class LibraryTab:
         cache_key = f"{image_filename}_{size[0]}x{size[1]}"
         if cache_key in self._image_references: return self._image_references[cache_key]
         if full_path and os.path.exists(full_path):
-            try: img = Image.open(full_path); img = img.resize(size, Image.Resampling.LANCZOS); photo_img = ImageTk.PhotoImage(img); self._image_references[cache_key] = photo_img; return photo_img
-            except Exception as e: print(f"... '{full_path}' ...: {e}"); return placeholder
-        else: return placeholder
+            try:
+                img = Image.open(full_path)
+                if img.mode != 'RGBA': img = img.convert('RGBA')
+                img.thumbnail(size, Image.Resampling.LANCZOS)
+                photo_img = ImageTk.PhotoImage(img)
+                self._image_references[cache_key] = photo_img
+                return photo_img
+            except Exception as e:
+                print(f"... Error loading '{full_path}' ...: {e}")
+                self._image_references[cache_key] = placeholder
+                return placeholder
+        else:
+             self._image_references[cache_key] = placeholder 
+             return placeholder
 
     def _get_image(self, image_filename, size=(64, 64)):
         placeholder = self.placeholder_image_detail if size == self.detail_icon_size else self.placeholder_image_list
         if not image_filename: return placeholder
+        if not self.image_folder_path: return placeholder
         image_path = os.path.join(self.image_folder_path, image_filename)
         return self._load_image_internal(image_filename, image_path, size)
+    
+    def after(self, ms, func):
+        self.parent.after(ms, func)
