@@ -20,11 +20,11 @@ CREATE TABLE Users (
 	username VARCHAR(20) UNIQUE NOT NULL,
 	email VARCHAR(30) UNIQUE NOT NULL,
 	password_hash VARCHAR(64) NOT NULL,
-	registration_date TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP
+	registration_date TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP,
+	balance DECIMAL(10, 2) NOT NULL DEFAULT 0.00
 );
 CREATE INDEX idx_users_username ON Users(username);
 CREATE INDEX idx_users_email ON Users(email);
-
 
 SELECT * FROM Users;
 

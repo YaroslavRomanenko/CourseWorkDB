@@ -1,9 +1,13 @@
 import tkinter as tk
+import webbrowser
+from datetime import datetime
+from functools import partial
 from tkinter import ttk, messagebox, scrolledtext
 import traceback
 import os
 
 from PIL import Image, ImageTk
+from .ui_utils import setup_text_widget_editing, center_window
 
 class StudioDetailView(tk.Frame):
     def __init__(self, parent, db_manager, studio_name,
@@ -85,11 +89,13 @@ class StudioDetailView(tk.Frame):
         current_row = 0
         initial_wraplength = 10000
 
-        top_frame = tk.Frame(self, bg=self.colors.get('original_bg', 'white'))
+        bg_color = self.colors.get('original_bg', 'white')
+
+        top_frame = tk.Frame(self, bg=bg_color)
         top_frame.grid(row=current_row, column=0, sticky='new', padx=10, pady=10)
         top_frame.grid_columnconfigure(1, weight=1)
 
-        self.logo_label = tk.Label(top_frame, background=self.colors.get('original_bg', 'white'))
+        self.logo_label = tk.Label(top_frame, background=bg_color)
         logo_filename = self.studio_details.get('logo') if self.studio_details else None
         tk_logo_image = self._get_image(logo_filename, size=self.studio_logo_size)
 
@@ -106,7 +112,7 @@ class StudioDetailView(tk.Frame):
 
         self.studio_title_label = tk.Label(top_frame, text=display_name,
                                             font=self.fonts.get('title', ("Verdana", 16, "bold")),
-                                            bg=self.colors.get('original_bg', 'white'),
+                                            bg=bg_color,
                                             justify=tk.LEFT, anchor='nw')
         self.studio_title_label.grid(row=0, column=1, sticky='nw', pady=(0, 5))
 
@@ -118,58 +124,95 @@ class StudioDetailView(tk.Frame):
             current_row += 1
             desc_title_label = tk.Label(self, text="Опис:",
                                         font=self.fonts.get('section_header', ("Verdana", 12, "bold")),
-                                        bg=self.colors.get('original_bg', 'white'))
+                                        bg=bg_color)
             desc_title_label.grid(row=current_row, column=0, sticky='w', padx=10, pady=(0, 5))
 
             current_row += 1
             description = self.studio_details.get('description', 'Опис відсутній.')
             self.description_content_label = tk.Label(self, text=description,
                                                       font=self.fonts.get('detail', ("Verdana", 10)),
-                                                      bg=self.colors.get('original_bg', 'white'),
+                                                      bg=bg_color,
                                                       wraplength=initial_wraplength, justify=tk.LEFT, anchor='nw')
             self.description_content_label.grid(row=current_row, column=0, sticky='ew', padx=10, pady=(0, 10))
         elif self.studio_details is None:
              current_row += 1
              error_label = tk.Label(self, text=f"Не вдалося завантажити інформацію для студії '{self.studio_name}'.",
                                      font=self.fonts.get('detail'), fg='red',
-                                     bg=self.colors.get('original_bg', 'white'))
+                                     bg=bg_color)
              error_label.grid(row=current_row, column=0, sticky='nw', padx=10, pady=20)
-
 
         current_row += 1
         separator2 = ttk.Separator(self, orient='horizontal')
         separator2.grid(row=current_row, column=0, sticky='ew', padx=10, pady=10)
 
-        details_text_lines = []
+        current_row += 1
+        details_title_label = tk.Label(self, text="Деталі:",
+                                      font=self.fonts.get('section_header', ("Verdana", 12, "bold")),
+                                      bg=bg_color)
+        details_title_label.grid(row=current_row, column=0, sticky='w', padx=10, pady=(0, 5))
+
+        current_row += 1
+        details_frame = tk.Frame(self, bg=bg_color)
+        details_frame.grid(row=current_row, column=0, sticky='ew', padx=10, pady=(0, 5))
+        details_frame.grid_columnconfigure(1, weight=1)
+
+        details_row = 0
         if self.studio_details:
             if self.studio_details.get('country'):
-                details_text_lines.append(f"Країна: {self.studio_details['country']}")
-            if self.studio_details.get('established_date'):
-                date_str = str(self.studio_details['established_date'])
-                details_text_lines.append(f"Засновано: {date_str}")
-            if self.studio_details.get('website_url'):
-                 details_text_lines.append(f"Веб-сайт: {self.studio_details['website_url']}")
+                country_prefix = tk.Label(details_frame, text="Країна:", font=self.fonts.get('detail', ("Verdana", 10, "bold")), bg=bg_color, anchor='nw')
+                country_prefix.grid(row=details_row, column=0, sticky='nw', padx=(0,5))
+                country_value = tk.Label(details_frame, text=self.studio_details['country'], font=self.fonts.get('detail', ("Verdana", 10)), bg=bg_color, anchor='nw', justify=tk.LEFT)
+                country_value.grid(row=details_row, column=1, sticky='nw')
+                details_row += 1
 
-        if details_text_lines:
-            current_row += 1
-            details_title_label = tk.Label(self, text="Деталі:",
-                                          font=self.fonts.get('section_header', ("Verdana", 12, "bold")),
-                                          bg=self.colors.get('original_bg', 'white'))
-            details_title_label.grid(row=current_row, column=0, sticky='w', padx=10, pady=(0, 5))
+            date_val = self.studio_details.get('established_date')
+            if date_val:
+                formatted_date = str(date_val)
+                try:
+                    if isinstance(date_val, datetime):
+                        formatted_date = date_val.strftime('%d-%m-%Y')
+                    else:
+                        dt_obj = datetime.strptime(str(date_val), '%Y-%m-%d')
+                        formatted_date = dt_obj.strftime('%d-%m-%Y')
+                except (ValueError, TypeError) as e:
+                    print(f"Could not format date '{date_val}': {e}")
+                    formatted_date = str(date_val)
 
-            current_row += 1
-            self.details_content_label = tk.Label(self, text="\n".join(details_text_lines),
-                                                 font=self.fonts.get('detail', ("Verdana", 10)),
-                                                 bg=self.colors.get('original_bg', 'white'),
-                                                 justify=tk.LEFT, anchor='nw')
-            self.details_content_label.grid(row=current_row, column=0, sticky='ew', padx=10, pady=(0, 10))
+                date_prefix = tk.Label(details_frame, text="Засновано:", font=self.fonts.get('detail', ("Verdana", 10, "bold")), bg=bg_color, anchor='nw')
+                date_prefix.grid(row=details_row, column=0, sticky='nw', padx=(0,5))
+                date_value = tk.Label(details_frame, text=formatted_date, font=self.fonts.get('detail', ("Verdana", 10)), bg=bg_color, anchor='nw', justify=tk.LEFT)
+                date_value.grid(row=details_row, column=1, sticky='nw')
+                details_row += 1
 
-        widgets_to_bind = [self, top_frame, self.logo_label, self.studio_title_label, separator1, separator2]
+            website_url = self.studio_details.get('website_url')
+            if website_url:
+                website_prefix = tk.Label(details_frame, text="Веб-сайт:", font=self.fonts.get('detail', ("Verdana", 10, "bold")), bg=bg_color, anchor='nw')
+                website_prefix.grid(row=details_row, column=0, sticky='nw', padx=(0,5))
+
+                link_font_tuple = list(self.fonts.get('detail', ("Verdana", 10)))
+                if len(link_font_tuple) < 3 or "underline" not in link_font_tuple[2]:
+                    link_font_tuple.append("underline")
+                link_font = tuple(link_font_tuple)
+
+                website_link_label = tk.Label(details_frame, text=website_url,
+                                              font=link_font,
+                                              fg=self.colors.get('link_fg', 'blue'),
+                                              cursor="hand2",
+                                              bg=bg_color,
+                                              anchor='nw', justify=tk.LEFT)
+                website_link_label.grid(row=details_row, column=1, sticky='nw')
+                website_link_label.bind("<Button-1>", partial(self._open_website, website_url))
+
+                self._bind_mousewheel_to_children(website_link_label)
+                details_row += 1
+
+        widgets_to_bind = [self, top_frame, self.logo_label, self.studio_title_label, separator1, separator2, details_title_label, details_frame]
         if 'desc_title_label' in locals(): widgets_to_bind.append(desc_title_label)
         if self.description_content_label: widgets_to_bind.append(self.description_content_label)
-        if 'details_title_label' in locals(): widgets_to_bind.append(details_title_label)
-        if self.details_content_label: widgets_to_bind.append(self.details_content_label)
         if 'error_label' in locals(): widgets_to_bind.append(error_label)
+        for child in details_frame.winfo_children():
+            if child not in widgets_to_bind:
+                 widgets_to_bind.append(child)
 
         self._bind_mousewheel_to_children(widgets_to_bind)
         
@@ -343,3 +386,14 @@ class StudioDetailView(tk.Frame):
 
 
         return self._load_image_internal(image_filename, full_path, size=size, is_placeholder=is_placeholder_request)
+    
+    def _open_website(self, url, event=None):
+        if url:
+            try:
+                print(f"Opening website: {url}")
+                webbrowser.open_new_tab(url)
+            except Exception as e:
+                print(f"Error opening website {url}: {e}")
+                messagebox.showerror("Помилка", f"Не вдалося відкрити посилання:\n{url}\n\nПомилка: {e}", parent=self)
+        else:
+            print("No URL provided to open.")

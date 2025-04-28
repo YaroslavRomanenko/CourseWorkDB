@@ -1,11 +1,14 @@
 import tkinter as tk
-from tkinter import ttk, messagebox, scrolledtext, simpledialog
 import os
+import decimal
+
+from tkinter import ttk, messagebox, scrolledtext, simpledialog
 from PIL import Image, ImageTk
 from decimal import Decimal, InvalidOperation
 from functools import partial
 import traceback
 
+from datetime import datetime
 from .ui_utils import setup_text_widget_editing, center_window
 
 class GameDetailView(tk.Frame):
@@ -235,7 +238,6 @@ class GameDetailView(tk.Frame):
         info_frame = tk.Frame(top_info_frame, background=self.original_bg)
         info_frame.grid(row=0, column=1, rowspan=3, sticky='nsew', pady=0)
         info_frame.grid_columnconfigure(0, weight=1)
-
         info_row = 0
 
         self.title_label = tk.Label(info_frame, text=self.game_data.get('title', 'Назва невідома'),
@@ -319,6 +321,7 @@ class GameDetailView(tk.Frame):
         current_row += 1
         separator2 = ttk.Separator(self, orient='horizontal')
         separator2.grid(row=current_row, column=0, sticky='ew', padx=10, pady=10)
+
         current_row += 1
         genres_label = tk.Label(self, text="Жанри:", font=self.section_header_font, background=self.original_bg)
         genres_label.grid(row=current_row, column=0, sticky='w', padx=10, pady=(0, 5))
@@ -332,6 +335,7 @@ class GameDetailView(tk.Frame):
         current_row += 1
         separator3 = ttk.Separator(self, orient='horizontal')
         separator3.grid(row=current_row, column=0, sticky='ew', padx=10, pady=10)
+
         current_row += 1
         platforms_label = tk.Label(self, text="Платформи:", font=self.section_header_font, background=self.original_bg)
         platforms_label.grid(row=current_row, column=0, sticky='w', padx=10, pady=(0, 5))
@@ -343,8 +347,75 @@ class GameDetailView(tk.Frame):
         self.platforms_content_label.grid(row=current_row, column=0, sticky='ew', padx=10, pady=(0, 10))
 
         current_row += 1
+        separator_add = ttk.Separator(self, orient='horizontal')
+        separator_add.grid(row=current_row, column=0, sticky='ew', padx=10, pady=10)
+        current_row += 1
+        add_details_header = tk.Label(self, text="Додаткова інформація:", font=self.section_header_font, background=self.original_bg)
+        add_details_header.grid(row=current_row, column=0, sticky='w', padx=10, pady=(0, 5))
+
+        current_row += 1
+        add_details_frame = tk.Frame(self, bg=self.original_bg)
+        add_details_frame.grid(row=current_row, column=0, sticky='ew', padx=10, pady=(0, 10))
+        add_details_frame.grid_columnconfigure(1, weight=1)
+
+        add_details_row = 0
+        detail_prefix_font = self.fonts.get('detail_bold', ("Verdana", 10, "bold"))
+        detail_value_font = self.fonts.get('detail', ("Verdana", 10))
+
+        status_val = self.game_data.get('status')
+        if status_val:
+            status_prefix = tk.Label(add_details_frame, text="Стан:", font=detail_prefix_font, bg=self.original_bg, anchor='nw')
+            status_prefix.grid(row=add_details_row, column=0, sticky='nw', padx=(0,5))
+            status_value = tk.Label(add_details_frame, text=status_val, font=detail_value_font, bg=self.original_bg, anchor='nw', justify=tk.LEFT)
+            status_value.grid(row=add_details_row, column=1, sticky='nw')
+            add_details_row += 1
+
+        release_date_val = self.game_data.get('release_date')
+        release_text = "Не вказано"
+        if release_date_val:
+            try:
+                release_text = release_date_val.strftime('%d-%m-%Y') if isinstance(release_date_val, datetime) else datetime.strptime(str(release_date_val), '%Y-%m-%d').strftime('%d-%m-%Y')
+            except (ValueError, TypeError):
+                release_text = str(release_date_val)
+
+        release_prefix = tk.Label(add_details_frame, text="Дата релізу:", font=detail_prefix_font, bg=self.original_bg, anchor='nw')
+        release_prefix.grid(row=add_details_row, column=0, sticky='nw', padx=(0,5))
+        release_value = tk.Label(add_details_frame, text=release_text, font=detail_value_font, bg=self.original_bg, anchor='nw', justify=tk.LEFT)
+        release_value.grid(row=add_details_row, column=1, sticky='nw')
+        add_details_row += 1
+
+        created_at_val = self.game_data.get('created_at')
+        created_text = "Не вказано"
+        if created_at_val:
+            try:
+                created_text = created_at_val.strftime('%d-%m-%Y') if isinstance(created_at_val, datetime) else datetime.strptime(str(created_at_val), '%Y-%m-%d').strftime('%d-%m-%Y')
+            except (ValueError, TypeError):
+                created_text = str(created_at_val)
+
+        created_prefix = tk.Label(add_details_frame, text="Дата створення:", font=detail_prefix_font, bg=self.original_bg, anchor='nw')
+        created_prefix.grid(row=add_details_row, column=0, sticky='nw', padx=(0,5))
+        created_value = tk.Label(add_details_frame, text=created_text, font=detail_value_font, bg=self.original_bg, anchor='nw', justify=tk.LEFT)
+        created_value.grid(row=add_details_row, column=1, sticky='nw')
+        add_details_row += 1
+
+        updated_at_val = self.game_data.get('updated_at')
+        updated_text = "Не вказано"
+        if updated_at_val:
+            try:
+                 updated_text = updated_at_val.strftime('%d-%m-%Y') if isinstance(updated_at_val, datetime) else datetime.strptime(str(updated_at_val), '%Y-%m-%d').strftime('%d-%m-%Y')
+            except (ValueError, TypeError):
+                 updated_text = str(updated_at_val)
+
+        updated_prefix = tk.Label(add_details_frame, text="Дата оновлення:", font=detail_prefix_font, bg=self.original_bg, anchor='nw')
+        updated_prefix.grid(row=add_details_row, column=0, sticky='nw', padx=(0,5))
+        updated_value = tk.Label(add_details_frame, text=updated_text, font=detail_value_font, bg=self.original_bg, anchor='nw', justify=tk.LEFT)
+        updated_value.grid(row=add_details_row, column=1, sticky='nw')
+        add_details_row += 1
+
+        current_row += 1
         separator4 = ttk.Separator(self, orient='horizontal')
         separator4.grid(row=current_row, column=0, sticky='ew', padx=10, pady=10)
+
         current_row += 1
         reviews_label = tk.Label(self, text="Рецензії:", font=self.section_header_font, background=self.original_bg)
         reviews_label.grid(row=current_row, column=0, sticky='w', padx=10, pady=(5, 5))
@@ -402,6 +473,7 @@ class GameDetailView(tk.Frame):
             desc_label, self.desc_content_label,
             genres_label, self.genres_content_label,
             platforms_label, self.platforms_content_label,
+            separator_add, add_details_header, add_details_frame,
             reviews_label,
             write_review_label, post_review_button,
             separator1, separator2, separator3, separator4, separator5
@@ -409,6 +481,9 @@ class GameDetailView(tk.Frame):
         if self.price_buy_frame:
              for child in self.price_buy_frame.winfo_children():
                   widgets_to_bind_scroll.append(child)
+        if 'add_details_frame' in locals():
+            for child in add_details_frame.winfo_children():
+                widgets_to_bind_scroll.append(child)
 
         self._bind_mousewheel_to_children(widgets_to_bind_scroll)
 
@@ -615,13 +690,13 @@ class GameDetailView(tk.Frame):
         price = self.game_data.get('price')
         title = self.game_data.get('title', 'цієї гри')
         is_free = False
-        price_numeric = Decimal('0.00')
+        price_numeric = decimal.Decimal('0.00')
 
         try:
             if price is not None:
                 price_float = float(price)
                 if price_float > 0.0:
-                     price_numeric = Decimal(str(price)).quantize(Decimal("0.01"))
+                     price_numeric = decimal.Decimal(str(price)).quantize(decimal.Decimal("0.01"))
                      action_verb = "придбати"
                      price_desc = f"за {price_numeric}₴"
                 else:
@@ -632,7 +707,7 @@ class GameDetailView(tk.Frame):
                  messagebox.showerror("Помилка", "Не вдалося визначити ціну для покупки.", parent=self)
                  return
 
-        except (ValueError, TypeError, InvalidOperation) as e:
+        except (ValueError, TypeError, decimal.InvalidOperation) as e:
              print(f"Error parsing price '{price}': {e}")
              messagebox.showerror("Помилка ціни", f"Некоректний формат ціни для гри: {price}", parent=self)
              return
@@ -653,9 +728,10 @@ class GameDetailView(tk.Frame):
                      action_past = "додано до" if is_free else "придбано та додано до"
                      messagebox.showinfo("Успіх", f"Гру '{title}' успішно {action_past} вашої бібліотеки!", parent=self)
                      self._build_price_buy_content()
-
-                else:
-                    print(f"UI: DBManager reported failure for purchase/add game {self.game_id}")
+                     if self.store_window_ref and hasattr(self.store_window_ref, 'refresh_user_info_display'):
+                         self.store_window_ref.refresh_user_info_display()
+                     if self.store_window_ref and hasattr(self.store_window_ref, 'load_games_library'):
+                          self.store_window_ref.load_games_library()
 
             except AttributeError:
                  messagebox.showerror("Помилка", "Функціонал покупки/додавання гри не реалізовано (DB method missing).", parent=self)

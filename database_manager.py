@@ -3,6 +3,9 @@ import psycopg2.sql as sql
 import bcrypt
 import json
 import os
+import decimal
+import traceback
+
 from tkinter import messagebox
 from decimal import Decimal, InvalidOperation
 
@@ -231,7 +234,8 @@ class DatabaseManager:
     def fetch_game_details(self, game_id):
         query = """
             SELECT
-                game_id, title, description, price, image, status, release_date
+                game_id, title, description, price, image, status, release_date,
+                created_at, updated_at  -- Додано created_at, updated_at
             FROM games
             WHERE game_id = %s;
         """
@@ -239,12 +243,19 @@ class DatabaseManager:
         game_tuple = self.execute_query(query, (game_id,), fetch_one=True)
         if game_tuple:
             details = {
-                'game_id': game_tuple[0], 'title': game_tuple[1], 'description': game_tuple[2],
-                'price': game_tuple[3], 'image': game_tuple[4], 'status': game_tuple[5],
-                'release_date': game_tuple[6]
+                'game_id': game_tuple[0],
+                'title': game_tuple[1],
+                'description': game_tuple[2],
+                'price': game_tuple[3],
+                'image': game_tuple[4],
+                'status': game_tuple[5],
+                'release_date': game_tuple[6],
+                'created_at': game_tuple[7], 
+                'updated_at': game_tuple[8]
             }
             return details
-        else: return None
+        else:
+            return None
         
     def fetch_purchased_games(self, user_id):
         query = """
@@ -281,20 +292,34 @@ class DatabaseManager:
         conn = self.get_connection()
         if not conn:
             print("Cannot purchase game: No active database connection")
+            messagebox.showerror("Помилка Бази Даних", "Немає активного підключення до бази даних.")
             return False
+
         try:
-            if price_at_purchase is None or float(price_at_purchase) == 0.0:
-                final_price = Decimal('0.00')
+            if price_at_purchase is None:
+                 final_price = decimal.Decimal('0.00')
             else:
-                final_price = Decimal(str(price_at_purchase)).quantize(Decimal("0.01"))
-        except (ValueError, TypeError, InvalidOperation):
-             print(f"Error: Invalid price format for purchase: {price_at_purchase}")
+                final_price = decimal.Decimal(str(price_at_purchase)).quantize(decimal.Decimal("0.01"))
+        except (ValueError, TypeError, decimal.InvalidOperation) as e:
+             print(f"Error: Invalid price format for purchase: {price_at_purchase} - {e}")
+             messagebox.showerror("Помилка ціни", f"Некоректний формат ціни для покупки: {price_at_purchase}")
              return False
 
         purchase_id = None
         try:
             with conn:
                 with conn.cursor() as cur:
+                    cur.execute("SELECT balance FROM Users WHERE user_id = %s FOR UPDATE;", (user_id,))
+                    current_balance_tuple = cur.fetchone()
+                    if not current_balance_tuple:
+                        raise ValueError("Користувача не знайдено.")
+
+                    current_balance = decimal.Decimal(str(current_balance_tuple[0])).quantize(decimal.Decimal("0.01"))
+                    if current_balance < final_price:
+                        messagebox.showerror("Недостатньо коштів", f"На вашому рахунку недостатньо коштів ({current_balance:.2f}₴) для покупки гри за {final_price:.2f}₴.")
+                        conn.rollback()
+                        return False
+
                     purchase_query = sql.SQL("""
                         INSERT INTO Purchases (user_id, total_amount, status)
                         VALUES (%s, %s, %s)
@@ -307,8 +332,7 @@ class DatabaseManager:
                         purchase_id = result[0]
                         print(f"DB: Created Purchases record with ID: {purchase_id}")
                     else:
-                        print("DB: Failed to create Purchases record or retrieve purchase_id.")
-                        raise psycopg2.DatabaseError("Failed to create Purchases record") 
+                        raise psycopg2.DatabaseError("Failed to create Purchases record")
 
                     item_query = sql.SQL("""
                         INSERT INTO Purchases_Items (purchase_id, game_id, price_at_purchase)
@@ -317,19 +341,25 @@ class DatabaseManager:
                     cur.execute(item_query, (purchase_id, game_id, final_price))
 
                     if cur.rowcount != 1:
-                         print(f"DB: Failed to insert into Purchases_Items for purchase_id {purchase_id}, game_id {game_id}.")
                          raise psycopg2.DatabaseError("Failed to insert purchase item")
 
-                    print(f"DB: Added game {game_id} to purchase {purchase_id} successfully.")
+                    if final_price > 0:
+                        new_balance = current_balance - final_price
+                        cur.execute("UPDATE Users SET balance = %s WHERE user_id = %s;", (new_balance, user_id))
+                        if cur.rowcount != 1:
+                             raise psycopg2.DatabaseError("Failed to update user balance")
+                        print(f"DB: Updated balance for user {user_id} to {new_balance:.2f}")
 
+                    print(f"DB: Added game {game_id} to purchase {purchase_id} successfully.")
             return True
 
+        except (ValueError, psycopg2.DatabaseError) as db_error:
+            print(f"\nError during game purchase transaction: {db_error}")
+            return False
         except (Exception, psycopg2.Error) as error:
-            print(f"\nError during game purchase transaction: {error}")
-            if purchase_id:
-                 print(f"Transaction for purchase_id {purchase_id} rolled back.")
-            else:
-                 print("Transaction rolled back before Purchases record was fully created.")
+            print(f"\nUnexpected error during game purchase transaction: {error}")
+            traceback.print_exc()
+            messagebox.showerror("Помилка Транзакції", f"Сталася неочікувана помилка під час покупки:\n{error}")
             return False
         
     def check_ownership(self, user_id, game_id):
@@ -518,6 +548,21 @@ class DatabaseManager:
                 return None
         except Exception as e:
             print(f"DB: Error fetching studio details for '{studio_name}': {e}")
+            return None
+        
+    def fetch_user_info(self, user_id):
+        query = "SELECT username, balance FROM Users WHERE user_id = %s;"
+        print(f"DB: Fetching user info for user_id {user_id}...")
+        result = self.execute_query(query, (user_id,), fetch_one=True)
+        if result:
+            try:
+                balance = decimal.Decimal(str(result[1])).quantize(decimal.Decimal("0.01"))
+                return {'username': result[0], 'balance': balance}
+            except (TypeError, decimal.InvalidOperation):
+                 print(f"DB Warning: Invalid balance format for user {user_id}. Returning 0.00.")
+                 return {'username': result[0], 'balance': decimal.Decimal('0.00')}
+        else:
+            print(f"DB: User info not found for user_id {user_id}.")
             return None
 
     
