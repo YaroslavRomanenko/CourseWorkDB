@@ -34,7 +34,6 @@ class StudioDetailView(tk.Frame):
         self.logo_label = None
         self.description_content_label = None
         self.details_content_label = None
-        self.associate_button = None
 
         self._fetch_studio_data()
         self._setup_ui()
@@ -127,6 +126,8 @@ class StudioDetailView(tk.Frame):
 
         desc_title_label = None
         error_label = None
+        
+        target_font = self.fonts.get('description', ("Verdana", 10))
 
         if self.studio_details:
             if self.studio_details.get('description'):
@@ -138,14 +139,14 @@ class StudioDetailView(tk.Frame):
 
                 description = self.studio_details.get('description', 'Опис відсутній.')
                 self.description_content_label = tk.Label(self, text=description,
-                                                          font=self.fonts.get('detail', ("Verdana", 10)),
+                                                          font=target_font,
                                                           bg=bg_color,
                                                           wraplength=initial_wraplength, justify=tk.LEFT, anchor='nw')
                 self.description_content_label.grid(row=current_row, column=0, sticky='ew', padx=10, pady=(0, 10))
                 current_row += 1
         else:
              error_label = tk.Label(self, text=f"Не вдалося завантажити інформацію для студії '{self.studio_name}'.",
-                                     font=self.fonts.get('detail'), fg='red',
+                                     font=target_font, fg='red',
                                      bg=bg_color)
              error_label.grid(row=current_row, column=0, sticky='nw', padx=10, pady=20)
              current_row += 1
@@ -168,9 +169,9 @@ class StudioDetailView(tk.Frame):
         details_row_internal = 0
         if self.studio_details:
             if self.studio_details.get('country'):
-                country_prefix = tk.Label(details_frame, text="Країна:", font=self.fonts.get('detail', ("Verdana", 10, "bold")), bg=bg_color, anchor='nw')
+                country_prefix = tk.Label(details_frame, text="Країна:", font=target_font, bg=bg_color, anchor='nw')
                 country_prefix.grid(row=details_row_internal, column=0, sticky='nw', padx=(0,5))
-                country_value = tk.Label(details_frame, text=self.studio_details['country'], font=self.fonts.get('detail', ("Verdana", 10)), bg=bg_color, anchor='nw', justify=tk.LEFT)
+                country_value = tk.Label(details_frame, text=self.studio_details['country'], font=target_font, bg=bg_color, anchor='nw', justify=tk.LEFT)
                 country_value.grid(row=details_row_internal, column=1, sticky='nw')
                 details_row_internal += 1
 
@@ -187,18 +188,18 @@ class StudioDetailView(tk.Frame):
                     print(f"Could not format date '{date_val}': {e}")
                     formatted_date = str(date_val)
 
-                date_prefix = tk.Label(details_frame, text="Засновано:", font=self.fonts.get('detail', ("Verdana", 10, "bold")), bg=bg_color, anchor='nw')
+                date_prefix = tk.Label(details_frame, text="Засновано:", font=target_font, bg=bg_color, anchor='nw')
                 date_prefix.grid(row=details_row_internal, column=0, sticky='nw', padx=(0,5))
-                date_value = tk.Label(details_frame, text=formatted_date, font=self.fonts.get('detail', ("Verdana", 10)), bg=bg_color, anchor='nw', justify=tk.LEFT)
+                date_value = tk.Label(details_frame, text=formatted_date, font=target_font, bg=bg_color, anchor='nw', justify=tk.LEFT)
                 date_value.grid(row=details_row_internal, column=1, sticky='nw')
                 details_row_internal += 1
 
             website_url = self.studio_details.get('website_url')
             if website_url:
-                website_prefix = tk.Label(details_frame, text="Веб-сайт:", font=self.fonts.get('detail', ("Verdana", 10, "bold")), bg=bg_color, anchor='nw')
+                website_prefix = tk.Label(details_frame, text="Веб-сайт:", font=target_font, bg=bg_color, anchor='nw')
                 website_prefix.grid(row=details_row_internal, column=0, sticky='nw', padx=(0,5))
 
-                link_font_tuple = list(self.fonts.get('detail', ("Verdana", 10)))
+                link_font_tuple = list(target_font)
                 if len(link_font_tuple) < 3 or "underline" not in link_font_tuple[2]:
                     link_font_tuple.append("underline")
                 link_font = tuple(link_font_tuple)
@@ -214,31 +215,16 @@ class StudioDetailView(tk.Frame):
                 self._bind_mousewheel_to_children(website_link_label) 
                 details_row_internal += 1
 
-        separator_assoc = None
-        if self.store_window_ref and self.store_window_ref.is_developer and self.studio_details:
-            separator_assoc = ttk.Separator(self, orient='horizontal')
-            separator_assoc.grid(row=current_row, column=0, sticky='ew', padx=10, pady=(15, 10))
-            current_row += 1
-
-            self.associate_button = ttk.Button(
-                self,
-                text="Зробити основною студією",
-                command=self._associate_with_studio,
-                style=self.styles.get('custom_button', 'TButton')
-            )
-            self.associate_button.grid(row=current_row, column=0, padx=10, pady=10)
-            current_row += 1
-            self.after_idle(self._check_and_update_associate_button_state)
-
         widgets_to_bind = [self, top_frame, self.logo_label, self.studio_title_label, separator1, separator2, details_title_label, details_frame, info_frame_under_title]
         if desc_title_label: widgets_to_bind.append(desc_title_label)
         if self.description_content_label: widgets_to_bind.append(self.description_content_label)
         if error_label: widgets_to_bind.append(error_label)
         for child in details_frame.winfo_children():
-            if child not in widgets_to_bind and not isinstance(child, tk.Label): 
+            is_link_label = False
+            if 'website_link_label' in locals() and child == website_link_label:
+                is_link_label = True
+            if child not in widgets_to_bind and not is_link_label:
                  widgets_to_bind.append(child)
-        if separator_assoc: widgets_to_bind.append(separator_assoc)
-        if self.associate_button: widgets_to_bind.append(self.associate_button)
 
         self._bind_mousewheel_to_children(widgets_to_bind)
         

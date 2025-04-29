@@ -78,6 +78,7 @@ class StoreWindow(tk.Tk):
             'user_panel_text_fg': 'black', 'user_panel_bg': '#ededed',
             'username_fg': '#67c1f5'
         }
+        self.sort_label_style_name = 'TLabel'
 
         self._load_placeholders(list_size=self.list_icon_size, detail_size=self.detail_icon_size)
         self._fetch_and_set_user_info()
@@ -92,35 +93,42 @@ class StoreWindow(tk.Tk):
 
         style = ttk.Style(self)
         try:
+            pass
+        except tk.TclError as e:
+            print(f"Error setting theme: {e}")
+
+        try:
             theme_bg = style.lookup('TFrame', 'background')
-            if theme_bg:
-                self.original_bg = theme_bg
-                self.colors['original_bg'] = theme_bg
-            else:
-                self.original_bg = "white"
-                self.colors['original_bg'] = self.original_bg
+            self.original_bg = theme_bg if theme_bg else "white"
+            self.colors['original_bg'] = self.original_bg
             self.colors['user_panel_bg'] = '#ededed'
             self.configure(bg=self.original_bg)
 
             self.custom_button_style = 'NoFocus.TButton'
-            style.configure(self.custom_button_style, focuscolor=style.lookup('TButton', 'background'))
+            try:
+                 button_bg = style.lookup('TButton', 'background')
+                 style.configure(self.custom_button_style, focuscolor=button_bg)
+            except tk.TclError:
+                 print("Could not configure NoFocus.TButton style for the current theme.")
+                 self.custom_button_style = 'TButton'
+
             style.configure('TNotebook', background=self.original_bg)
-            style.configure('TNotebook.Tab', font=self.fonts['ui'], padding=[5, 2], background=self.original_bg, lightcolor=self.original_bg, bordercolor=self.original_bg)
+            style.configure('TNotebook.Tab', font=self.fonts['ui'], padding=[5, 2])
             style.map('TNotebook.Tab',
-                      background=[('selected', self.original_bg)],
-                      focuscolor=[('focus', style.lookup('TNotebook', 'background'))])
+                       background=[('selected', self.original_bg)],
+                       focuscolor=[('focus', self.original_bg)])
+
             style.configure('TFrame', background=self.original_bg)
             style.configure('TPanedwindow', background=self.original_bg)
             style.configure('Vertical.TScrollbar', background=self.original_bg)
 
         except tk.TclError as e:
-             print(f"Помилка налаштування стилів ttk: {e}. Defaulting background.")
+             print(f"Помилка налаштування стилів ttk після зміни теми: {e}.")
              self.original_bg = "white"
              self.colors['original_bg'] = self.original_bg
              self.colors['user_panel_bg'] = '#ededed'
              self.custom_button_style = 'TButton'
              self.configure(bg=self.original_bg)
-
 
         top_bar_frame = tk.Frame(self, bg=self.original_bg)
         top_bar_frame.grid(row=0, column=0, sticky='ew')
@@ -914,30 +922,64 @@ class StoreWindow(tk.Tk):
 
     def _create_sort_panel(self, parent):
         frame = tk.Frame(parent, bg=self.original_bg)
-        frame.grid_columnconfigure(1, weight=0)
-        frame.grid_columnconfigure(3, weight=0)
 
-        sort_by_label = tk.Label(frame, text="Сортувати за:", bg=self.original_bg, font=self.fonts['ui'])
-        sort_by_label.grid(row=0, column=0, padx=(0, 5), pady=5)
+        disabled_fg = '#777777'
+
+        self.sort_by_label = tk.Label(
+            frame,
+            text="Сортувати за:",
+            bg=self.original_bg,
+            # fg=disabled_fg, # Можна прибрати, якщо стандартний disabled вигляд влаштовує
+            font=self.fonts['ui'],
+            takefocus=0,
+            highlightthickness=0
+        )
+        self.sort_by_label.grid(row=0, column=0, padx=(0, 5), pady=5, sticky='w')
 
         self.sort_criteria_combobox = ttk.Combobox(
             frame, values=["Назвою", "Ціною"], state="readonly", width=10, font=self.fonts['ui']
         )
         self.sort_criteria_combobox.set("Назвою")
-        self.sort_criteria_combobox.grid(row=0, column=1, padx=(0, 15), pady=5)
-        self.sort_criteria_combobox.bind("<<ComboboxSelected>>", self._on_sort_change)
+        self.sort_criteria_combobox.grid(row=0, column=1, padx=(0, 15), pady=5, sticky='w')
 
-        order_label = tk.Label(frame, text="Порядок:", bg=self.original_bg, font=self.fonts['ui'])
-        order_label.grid(row=0, column=2, padx=(0, 5), pady=5)
+        self.order_label = tk.Label(
+            frame,
+            text="Порядок:",
+            bg=self.original_bg,
+            # fg=disabled_fg, # Можна прибрати
+            font=self.fonts['ui'],
+            takefocus=0,
+            highlightthickness=0
+        )
+        self.order_label.grid(row=0, column=2, padx=(0, 5), pady=5, sticky='w')
 
         self.sort_order_combobox = ttk.Combobox(
             frame, values=["За зростанням", "За спаданням"], state="readonly", width=15, font=self.fonts['ui']
         )
         self.sort_order_combobox.set("За зростанням")
-        self.sort_order_combobox.grid(row=0, column=3, padx=(0, 0), pady=5)
-        self.sort_order_combobox.bind("<<ComboboxSelected>>", self._on_sort_change)
+        self.sort_order_combobox.grid(row=0, column=3, padx=(0, 0), pady=5, sticky='w')
+
+        def handle_selection(event):
+            self._on_sort_change(event)
+            event.widget.master.focus_set()
+            self.after(1, self._reset_sort_label_bg)
+
+        self.sort_criteria_combobox.bind("<<ComboboxSelected>>", handle_selection)
+        self.sort_order_combobox.bind("<<ComboboxSelected>>", handle_selection)
 
         return frame
+    
+          
+    def _reset_sort_label_bg(self):
+        try:
+            if hasattr(self, 'sort_by_label') and self.sort_by_label.winfo_exists():
+                self.sort_by_label.config(bg=self.original_bg)
+            if hasattr(self, 'order_label') and self.order_label.winfo_exists():
+                self.order_label.config(bg=self.original_bg)
+        except tk.TclError:
+            pass
+
+    
 
     def _create_scrollable_list_frame_content(self, parent):
         canvas = tk.Canvas(parent, borderwidth=0, background=self.original_bg, highlightthickness=0)

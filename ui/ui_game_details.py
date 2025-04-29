@@ -359,14 +359,12 @@ class GameDetailView(tk.Frame):
         add_details_frame.grid_columnconfigure(1, weight=1)
 
         add_details_row = 0
-        detail_prefix_font = self.fonts.get('detail_bold', ("Verdana", 10, "bold"))
-        detail_value_font = self.fonts.get('detail', ("Verdana", 10))
 
         status_val = self.game_data.get('status')
         if status_val:
-            status_prefix = tk.Label(add_details_frame, text="Стан:", font=detail_prefix_font, bg=self.original_bg, anchor='nw')
+            status_prefix = tk.Label(add_details_frame, text="Стан:", font=self.description_font, bg=self.original_bg, anchor='nw')
             status_prefix.grid(row=add_details_row, column=0, sticky='nw', padx=(0,5))
-            status_value = tk.Label(add_details_frame, text=status_val, font=detail_value_font, bg=self.original_bg, anchor='nw', justify=tk.LEFT)
+            status_value = tk.Label(add_details_frame, text=status_val, font=self.description_font, bg=self.original_bg, anchor='nw', justify=tk.LEFT)
             status_value.grid(row=add_details_row, column=1, sticky='nw')
             add_details_row += 1
 
@@ -378,9 +376,9 @@ class GameDetailView(tk.Frame):
             except (ValueError, TypeError):
                 release_text = str(release_date_val)
 
-        release_prefix = tk.Label(add_details_frame, text="Дата релізу:", font=detail_prefix_font, bg=self.original_bg, anchor='nw')
+        release_prefix = tk.Label(add_details_frame, text="Дата релізу:", font=self.description_font, bg=self.original_bg, anchor='nw')
         release_prefix.grid(row=add_details_row, column=0, sticky='nw', padx=(0,5))
-        release_value = tk.Label(add_details_frame, text=release_text, font=detail_value_font, bg=self.original_bg, anchor='nw', justify=tk.LEFT)
+        release_value = tk.Label(add_details_frame, text=release_text, font=self.description_font, bg=self.original_bg, anchor='nw', justify=tk.LEFT)
         release_value.grid(row=add_details_row, column=1, sticky='nw')
         add_details_row += 1
 
@@ -392,9 +390,9 @@ class GameDetailView(tk.Frame):
             except (ValueError, TypeError):
                 created_text = str(created_at_val)
 
-        created_prefix = tk.Label(add_details_frame, text="Дата створення:", font=detail_prefix_font, bg=self.original_bg, anchor='nw')
+        created_prefix = tk.Label(add_details_frame, text="Дата створення:", font=self.description_font, bg=self.original_bg, anchor='nw')
         created_prefix.grid(row=add_details_row, column=0, sticky='nw', padx=(0,5))
-        created_value = tk.Label(add_details_frame, text=created_text, font=detail_value_font, bg=self.original_bg, anchor='nw', justify=tk.LEFT)
+        created_value = tk.Label(add_details_frame, text=created_text, font=self.description_font, bg=self.original_bg, anchor='nw', justify=tk.LEFT)
         created_value.grid(row=add_details_row, column=1, sticky='nw')
         add_details_row += 1
 
@@ -406,9 +404,9 @@ class GameDetailView(tk.Frame):
             except (ValueError, TypeError):
                  updated_text = str(updated_at_val)
 
-        updated_prefix = tk.Label(add_details_frame, text="Дата оновлення:", font=detail_prefix_font, bg=self.original_bg, anchor='nw')
+        updated_prefix = tk.Label(add_details_frame, text="Дата оновлення:", font=self.description_font, bg=self.original_bg, anchor='nw')
         updated_prefix.grid(row=add_details_row, column=0, sticky='nw', padx=(0,5))
-        updated_value = tk.Label(add_details_frame, text=updated_text, font=detail_value_font, bg=self.original_bg, anchor='nw', justify=tk.LEFT)
+        updated_value = tk.Label(add_details_frame, text=updated_text, font=self.description_font, bg=self.original_bg, anchor='nw', justify=tk.LEFT)
         updated_value.grid(row=add_details_row, column=1, sticky='nw')
         add_details_row += 1
 
