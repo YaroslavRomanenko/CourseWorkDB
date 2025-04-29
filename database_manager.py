@@ -669,6 +669,8 @@ class DatabaseManager:
             traceback.print_exc()
             return False
         
+          
+          
     def set_developer_status(self, user_id, status=True):
         conn = self.get_connection()
         if not conn:
@@ -678,16 +680,30 @@ class DatabaseManager:
         if status:
             email_query = sql.SQL("SELECT email FROM Users WHERE user_id = %s;")
             user_info = self.execute_query(email_query, (user_id,), fetch_one=True)
-            if not user_info or not user_info[0]:
-                print(f"DB Error: Could not find email for user_id {user_id} to add to Developers.")
-                messagebox.showerror("Помилка", f"Не вдалося знайти email для користувача ID {user_id}.")
-                return False
-            contact_email = user_info[0]
+            contact_email = user_info[0] if user_info and user_info[0] else None
 
-            print(f"DB Logic Error: Cannot set developer status for user {user_id} without a studio_id. Feature requires redesign or schema change.")
-            messagebox.showerror("Помилка Логіки", "Неможливо встановити статус розробника без прив'язки до студії. Зверніться до адміністратора або доопрацюйте функціонал.")
-            return False
-        
+            insert_query = sql.SQL("""
+                INSERT INTO Developers (user_id, studio_id, contact_email)
+                VALUES (%s, NULL, %s)
+                ON CONFLICT (user_id) DO NOTHING;
+            """)
+            params = (user_id, contact_email)
+            try:
+                print(f"DB: Attempting to ensure user {user_id} exists in Developers table (studio_id might be NULL).")
+                with conn:
+                    with conn.cursor() as cur:
+                        cur.execute(insert_query, params)
+                        print(f"DB: Ensure developer entry operation complete for user {user_id}. Affected rows: {cur.rowcount}")
+                return True # Повертаємо True після успішного завершення транзакції
+            except psycopg2.Error as db_error:
+                print(f"\nDB Error ensuring developer entry for user {user_id}: {db_error}")
+                messagebox.showerror("Помилка Бази Даних", f"Не вдалося додати/перевірити запис розробника:\n{db_error}")
+                return False
+            except Exception as e:
+                print(f"\nDB Unexpected error ensuring developer entry for user {user_id}: {e}")
+                traceback.print_exc()
+                messagebox.showerror("Неочікувана Помилка", f"Сталася неочікувана помилка під час оновлення статусу розробника:\n{e}")
+                return False
         else:
             delete_query = sql.SQL("DELETE FROM Developers WHERE user_id = %s;")
             params = (user_id,)
@@ -697,7 +713,7 @@ class DatabaseManager:
                     with conn.cursor() as cur:
                         cur.execute(delete_query, params)
                         print(f"DB: Removed {cur.rowcount} developer entries for user_id {user_id}.")
-                        return True
+                return True # Повертаємо True після успішного завершення транзакції
             except psycopg2.Error as db_error:
                 print(f"\nDB Error removing developer status for user {user_id}: {db_error}")
                 messagebox.showerror("Помилка Бази Даних", f"Не вдалося зняти статус розробника:\n{db_error}")
@@ -707,6 +723,71 @@ class DatabaseManager:
                 traceback.print_exc()
                 messagebox.showerror("Неочікувана Помилка", f"Сталася неочікувана помилка під час зняття статусу:\n{e}")
                 return False
+          
+    def set_developer_primary_studio(self, user_id, studio_id):
+        conn = self.get_connection()
+        if not conn:
+            messagebox.showerror("Помилка Бази Даних", "Немає активного підключення до бази даних.")
+            return False
+        if user_id is None or studio_id is None:
+            messagebox.showerror("Помилка даних", "Не вказано User ID або Studio ID.")
+            return False
+
+        if not self.check_developer_status(user_id):
+             print(f"DB Error: User {user_id} is not a developer. Cannot set primary studio.")
+             return False
+
+        update_query = sql.SQL("""
+            UPDATE Developers SET studio_id = %s WHERE user_id = %s;
+        """)
+        params = (studio_id, user_id)
+
+        try:
+            print(f"DB: Attempting to set studio_id={studio_id} for developer user_id={user_id}.")
+            with conn:
+                with conn.cursor() as cur:
+                    cur.execute(update_query, params)
+                    if cur.rowcount == 1:
+                        print(f"DB: Successfully updated studio_id for user {user_id}.")
+                        return True
+                    elif cur.rowcount == 0:
+                         print(f"DB Warning: No developer record found for user_id {user_id} during UPDATE.")
+                         return False
+                    else:
+                         print(f"DB Warning: Updated {cur.rowcount} rows for user_id {user_id}. Expected 1.")
+                         return True
+        except psycopg2.errors.ForeignKeyViolation:
+            print(f"\nDB ForeignKey Error updating studio for user {user_id}: Studio ID {studio_id} likely does not exist.")
+            messagebox.showerror("Помилка Бази Даних", f"Помилка: Студія з ID {studio_id} не знайдена.")
+            return False
+        except psycopg2.Error as db_error:
+            print(f"\nDB Error updating developer studio for user {user_id}: {db_error}")
+            messagebox.showerror("Помилка Бази Даних", f"Не вдалося оновити основну студію:\n{db_error}")
+            return False
+        except Exception as e:
+            print(f"\nDB Unexpected error updating developer studio for user {user_id}: {e}")
+            traceback.print_exc()
+            messagebox.showerror("Неочікувана Помилка", f"Сталася неочікувана помилка під час оновлення студії:\n{e}")
+            return False
+      
+          
+          
+    def get_developer_studio_id(self, user_id):
+        conn = self.get_connection()
+        if not conn or user_id is None:
+            return None
+
+        query = sql.SQL("SELECT studio_id FROM Developers WHERE user_id = %s;")
+        params = (user_id,)
+        try:
+            result = self.execute_query(query, params, fetch_one=True)
+            if result:
+                return result[0]
+            else:
+                return None
+        except Exception as e:
+            print(f"DB Error getting developer studio_id for user {user_id}: {e}")
+            return None
           
     def delete_user_account(self, user_id):
         conn = self.get_connection()
