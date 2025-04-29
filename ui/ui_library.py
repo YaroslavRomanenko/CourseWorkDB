@@ -29,7 +29,7 @@ class LibraryTab:
 
         self.paned_window = tk.PanedWindow(self.parent, orient=tk.HORIZONTAL, sashrelief=tk.FLAT, sashwidth=1, bg=self.original_bg)
 
-        desired_left_width = 280
+        desired_left_width = 290
         min_left_width = 240
         min_right_width = 520
 

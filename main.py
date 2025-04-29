@@ -1,5 +1,7 @@
 import os
 
+from functools import partial
+
 from ui.ui_login import LoginWindow
 from ui.ui_registration import RegistrationWindow
 from ui.ui_store import StoreWindow
@@ -37,18 +39,20 @@ def start_registration_window():
     print("Registration Window mainloop finished")
     
 def start_store_window(user_id):
-    """Creates and runs the store window"""
     print(f"Opening Store Window for user_id: {user_id}...")
     store_app = StoreWindow(
         db_manager=db_manager,
         user_id=user_id,
-        open_login_func=start_login_window,
         image_folder=IMAGE_FOLDER_PATH,
-        studio_logo_folder=STUDIO_LOGO_FOLDER_PATH, 
+        studio_logo_folder=STUDIO_LOGO_FOLDER_PATH,
         placeholder_image_path=PLACEHOLDER_IMG_PATH,
-        placeholder_image_name=PLACEHOLDER_IMG_NAME
+        placeholder_image_name=PLACEHOLDER_IMG_NAME,
+        open_login_func=start_login_window
     )
     
+    refresh_callback = partial(store_app.refresh_user_info_display)
+    store_app.after(50, refresh_callback)
+
     store_app.mainloop()
     print("Store Window mainloop finished")
     

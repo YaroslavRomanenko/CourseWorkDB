@@ -10,7 +10,6 @@ from tkinter import messagebox
 from decimal import Decimal, InvalidOperation
 
 class DatabaseManager:
-
     def __init__(self, config_filename='config.json'):
         self.db_params = self._load_config(config_filename)
         self.connection = None
@@ -221,15 +220,60 @@ class DatabaseManager:
             return False
 
 
-    def fetch_all_games(self):
-        query = "SELECT game_id, title, NULL AS genre, price, image FROM games ORDER BY title;"
-        print("DB: Fetching all games with image IDs...")
-        games_data = self.execute_query(query, fetch_all=True)
-        if games_data is None:
-            print("DB: Failed to fetch games")
-        elif not games_data:
-            print(f"DB: Fetched {len(games_data)} games")
-        return games_data
+    def fetch_all_games(self, sort_by='title', sort_order='ASC'):
+        conn = self.get_connection()
+        if not conn:
+            print("DB: No connection to fetch games.")
+            return None
+
+        allowed_sort_columns = {'title', 'price'}
+        if sort_by not in allowed_sort_columns:
+            print(f"DB Warning: Invalid sort column '{sort_by}'. Defaulting to 'title'.")
+            sort_by = 'title'
+
+        sort_order = sort_order.upper()
+        if sort_order not in ('ASC', 'DESC'):
+            print(f"DB Warning: Invalid sort order '{sort_order}'. Defaulting to 'ASC'.")
+            sort_order = 'ASC'
+
+        order_by_clause = sql.SQL("ORDER BY {sort_col} {sort_dir}")
+
+        if sort_by == 'price':
+            if sort_order == 'ASC':
+                order_by_clause = sql.SQL("ORDER BY {sort_col} {sort_dir} NULLS FIRST, {secondary_col} ASC")
+            else: # DESC
+                order_by_clause = sql.SQL("ORDER BY {sort_col} {sort_dir} NULLS LAST, {secondary_col} ASC")
+            order_by_sql = order_by_clause.format(
+                sort_col=sql.Identifier(sort_by),
+                sort_dir=sql.SQL(sort_order),
+                secondary_col=sql.Identifier('title')
+            )
+        else:
+            order_by_sql = order_by_clause.format(
+                sort_col=sql.Identifier(sort_by),
+                sort_dir=sql.SQL(sort_order)
+            )
+
+        base_query = sql.SQL("SELECT game_id, title, NULL AS genre, price, image FROM games")
+        query = sql.SQL(" ").join([base_query, order_by_sql])
+
+        print(f"DB: Fetching all games sorted by {sort_by} {sort_order}...")
+        try:
+            games_data = self.execute_query(query, fetch_all=True)
+
+            if games_data is None:
+                print("DB: Failed to fetch games (execute_query returned None)")
+                return None
+            elif not games_data:
+                print("DB: Fetched 0 games.")
+                return []
+            else:
+                print(f"DB: Fetched {len(games_data)} games.")
+                return games_data
+        except Exception as e:
+            print(f"DB: Unexpected error fetching sorted games: {e}")
+            traceback.print_exc()
+            return None
     
     def fetch_game_details(self, game_id):
         query = """
@@ -565,6 +609,104 @@ class DatabaseManager:
             print(f"DB: User info not found for user_id {user_id}.")
             return None
 
+    def add_funds(self, user_id, amount_to_add):
+        conn = self.get_connection()
+        if not conn:
+            print("DB Error: No connection to add funds.")
+            return False
+
+        try:
+            amount_decimal = decimal.Decimal(str(amount_to_add)).quantize(decimal.Decimal("0.01"))
+            if amount_decimal <= 0:
+                print(f"DB Error: Amount to add must be positive ({amount_decimal}).")
+                return False
+        except (ValueError, TypeError, decimal.InvalidOperation) as e:
+            print(f"DB Error: Invalid amount format '{amount_to_add}': {e}")
+            return False
+
+        query = sql.SQL("UPDATE Users SET balance = balance + %s WHERE user_id = %s;")
+        params = (amount_decimal, user_id)
+
+        try:
+            print(f"DB: Attempting to add {amount_decimal} to balance for user_id {user_id}")
+            with conn:
+                with conn.cursor() as cur:
+                    cur.execute(query, params)
+                    if cur.rowcount == 1:
+                        print(f"DB: Successfully added funds for user_id {user_id}.")
+                        return True
+                    else:
+                        print(f"DB Error: User with user_id {user_id} not found.")
+                        return False
+        except psycopg2.Error as db_error:
+            print(f"\nDB Error adding funds for user {user_id}: {db_error}")
+            return False
+        except Exception as e:
+            print(f"\nDB Unexpected error adding funds for user {user_id}: {e}")
+            traceback.print_exc()
+            return False
+        
+    def check_developer_status(self, user_id):
+        query = sql.SQL("""
+            SELECT EXISTS (
+                SELECT 1
+                FROM Developers
+                WHERE user_id = %s
+            );
+        """)
+        print(f"DB: Checking developer status by checking existence in Developers table for user_id {user_id}...")
+        try:
+            result = self.execute_query(query, (user_id,), fetch_one=True)
+            if result:
+                is_dev = result[0]
+                print(f"DB: Developer status for user {user_id}: {is_dev}")
+                return is_dev
+            else:
+                print(f"DB Warning: Failed to execute developer status check query for user {user_id}.")
+                return False
+        except Exception as e:
+            print(f"DB: Error checking developer status for user {user_id}: {e}")
+            traceback.print_exc()
+            return False
+        
+    def set_developer_status(self, user_id, status=True):
+        conn = self.get_connection()
+        if not conn:
+            messagebox.showerror("Помилка Бази Даних", "Немає активного підключення до бази даних.")
+            return False
+
+        if status:
+            email_query = sql.SQL("SELECT email FROM Users WHERE user_id = %s;")
+            user_info = self.execute_query(email_query, (user_id,), fetch_one=True)
+            if not user_info or not user_info[0]:
+                print(f"DB Error: Could not find email for user_id {user_id} to add to Developers.")
+                messagebox.showerror("Помилка", f"Не вдалося знайти email для користувача ID {user_id}.")
+                return False
+            contact_email = user_info[0]
+
+            print(f"DB Logic Error: Cannot set developer status for user {user_id} without a studio_id. Feature requires redesign or schema change.")
+            messagebox.showerror("Помилка Логіки", "Неможливо встановити статус розробника без прив'язки до студії. Зверніться до адміністратора або доопрацюйте функціонал.")
+            return False
+        
+        else:
+            delete_query = sql.SQL("DELETE FROM Developers WHERE user_id = %s;")
+            params = (user_id,)
+            try:
+                print(f"DB: Attempting to remove user {user_id} from Developers table.")
+                with conn:
+                    with conn.cursor() as cur:
+                        cur.execute(delete_query, params)
+                        print(f"DB: Removed {cur.rowcount} developer entries for user_id {user_id}.")
+                        return True
+            except psycopg2.Error as db_error:
+                print(f"\nDB Error removing developer status for user {user_id}: {db_error}")
+                messagebox.showerror("Помилка Бази Даних", f"Не вдалося зняти статус розробника:\n{db_error}")
+                return False
+            except Exception as e:
+                print(f"\nDB Unexpected error removing developer status for user {user_id}: {e}")
+                traceback.print_exc()
+                messagebox.showerror("Неочікувана Помилка", f"Сталася неочікувана помилка під час зняття статусу:\n{e}")
+                return False
           
     def delete_user_account(self, user_id):
         conn = self.get_connection()

@@ -1,4 +1,6 @@
 import bcrypt
+import decimal
+
 from database_manager import DatabaseManager
 
 db_manager = DatabaseManager()
@@ -16,6 +18,7 @@ def main():
     print("9. Insert Developer-Game Links")
     print("10. Insert Game-Studio Links")
     print("11. Delete Specified Data")
+    print("12. Add Funds to User")
     print("-------------------------")
     print("\nChoose and Enter the command: ", end="")
     
@@ -381,9 +384,41 @@ def main():
             db_manager.clear_specified_table("studios")
             
             print("--- The Data is Successfully Deleted ---")
-            break;
+            break
+        
+        elif command == 12:
+            print("--- Add Funds to User Account ---")
+            target_user_id = None
+            while target_user_id is None:
+                try:
+                    user_id_input = input("Enter User ID to add funds to: ").strip()
+                    if not user_id_input: continue
+                    target_user_id = int(user_id_input)
+                except ValueError:
+                    print("Invalid User ID. Please enter a number.")
+
+            amount = None
+            while amount is None:
+                try:
+                    amount_input = input(f"Enter amount to add for user ID {target_user_id}: ").strip().replace(',', '.')
+                    if not amount_input: continue
+                    amount_decimal = decimal.Decimal(amount_input)
+                    if amount_decimal <= 0:
+                        print("Amount must be positive.")
+                    else:
+                        amount = amount_decimal
+                except (ValueError, decimal.InvalidOperation):
+                    print("Invalid amount. Please enter a valid number (e.g., 100.50).")
+
+            if db_manager.add_funds(target_user_id, amount):
+                print(f"--- Successfully added {amount:.2f} to user ID {target_user_id} ---")
+            else:
+                print(f"--- Failed to add funds to user ID {target_user_id} ---")
+            break
+
         else:
             print("You've wrote an unexisting command! Try again: ", end="")
+            
             
     
 def hash_password(password):

@@ -23,6 +23,10 @@ class StoreWindow(tk.Tk):
         self.placeholder_image = None
         self.placeholder_image_detail = None
         self._game_widgets_store = []
+        self.is_developer = False
+
+        self.current_sort_key = 'title'
+        self.current_sort_reverse = False
 
         self.image_folder = image_folder
         self.studio_logo_folder = studio_logo_folder
@@ -51,49 +55,27 @@ class StoreWindow(tk.Tk):
 
         self.original_bg = "white"
         self.hover_bg = "#f0f0f0"
-        self.listbox_select_bg = self.original_bg
-        self.listbox_select_fg = "black"
-        self.no_comments_fg = "grey"
-        self.comment_fg = "black"
-        self.no_comments_message = " Коментарів ще немає."
-
         self.list_icon_size = (64, 64)
         self.detail_icon_size = (160, 160)
-
         self.fonts = {
-            'ui': ("Verdana", 10),
-            'title': ("Verdana", 16, "bold"),
-            'detail': ("Verdana", 11),
-            'price': ("Verdana", 12),
-            'comment': ("Verdana", 9),
-            'description': ("Verdana", 10),
-            'list_title': ("Verdana", 12, "bold"),
-            'library_list_title': ("Verdana", 11, "bold"),
-            'library_detail_title': ("Verdana", 14, "bold"),
-            'review_author': ("Verdana", 9, "bold"),
-            'review_text': ("Verdana", 9),
-            'review_input': ("Verdana", 10),
+            'ui': ("Verdana", 10), 'title': ("Verdana", 16, "bold"),
+            'detail': ("Verdana", 11), 'price': ("Verdana", 12),
+            'comment': ("Verdana", 9), 'description': ("Verdana", 10),
+            'list_title': ("Verdana", 12, "bold"), 'library_list_title': ("Verdana", 11, "bold"),
+            'library_detail_title': ("Verdana", 14, "bold"), 'review_author': ("Verdana", 9, "bold"),
+            'review_text': ("Verdana", 9), 'review_input': ("Verdana", 10),
             'section_header': ("Verdana", 12, "bold")
         }
         self.styles = {'custom_button': 'NoFocus.TButton'}
         self.colors = {
-            'original_bg': self.original_bg,
-            'hover_bg': self.hover_bg,
-            'listbox_select_bg': self.listbox_select_bg,
-            'listbox_select_fg': self.listbox_select_fg,
-            'no_comments_fg': self.no_comments_fg,
-            'comment_fg': self.comment_fg,
-            'no_comments_message': self.no_comments_message,
-            'no_reviews_message': " Рецензій ще немає.",
-            'link_fg': 'blue',
-            'placeholder_fg': 'grey',
-            'date_fg': '#555555',
-            'separator_fg': 'grey',
-            'textbox_bg': 'white',
-            'input_bg': 'white',
-            'input_fg': 'black',
-            'user_panel_text_fg': 'black',
-            'user_panel_bg': '#ededed',
+            'original_bg': self.original_bg, 'hover_bg': self.hover_bg,
+            'listbox_select_bg': self.original_bg, 'listbox_select_fg': 'black',
+            'no_comments_fg': 'grey', 'comment_fg': 'black',
+            'no_comments_message': " Коментарів ще немає.", 'no_reviews_message': " Рецензій ще немає.",
+            'link_fg': 'blue', 'placeholder_fg': 'grey',
+            'date_fg': '#555555', 'separator_fg': 'grey',
+            'textbox_bg': 'white', 'input_bg': 'white', 'input_fg': 'black',
+            'user_panel_text_fg': 'black', 'user_panel_bg': '#ededed',
             'username_fg': '#67c1f5'
         }
 
@@ -107,7 +89,6 @@ class StoreWindow(tk.Tk):
         self.protocol("WM_DELETE_WINDOW", self.on_close)
         self.grid_rowconfigure(1, weight=1)
         self.grid_columnconfigure(0, weight=1)
-        self.grid_columnconfigure(1, weight=0)
 
         style = ttk.Style(self)
         try:
@@ -115,6 +96,9 @@ class StoreWindow(tk.Tk):
             if theme_bg:
                 self.original_bg = theme_bg
                 self.colors['original_bg'] = theme_bg
+            else:
+                self.original_bg = "white"
+                self.colors['original_bg'] = self.original_bg
             self.colors['user_panel_bg'] = '#ededed'
             self.configure(bg=self.original_bg)
 
@@ -130,16 +114,16 @@ class StoreWindow(tk.Tk):
             style.configure('Vertical.TScrollbar', background=self.original_bg)
 
         except tk.TclError as e:
-            print(f"Помилка налаштування стилів ttk: {e}. Defaulting background.")
-            self.original_bg = "white"
-            self.colors['original_bg'] = self.original_bg
-            self.colors['user_panel_bg'] = '#ededed'
-            self.custom_button_style = 'TButton'
-            self.configure(bg=self.original_bg)
+             print(f"Помилка налаштування стилів ttk: {e}. Defaulting background.")
+             self.original_bg = "white"
+             self.colors['original_bg'] = self.original_bg
+             self.colors['user_panel_bg'] = '#ededed'
+             self.custom_button_style = 'TButton'
+             self.configure(bg=self.original_bg)
 
 
         top_bar_frame = tk.Frame(self, bg=self.original_bg)
-        top_bar_frame.grid(row=0, column=0, columnspan=2, sticky='ew')
+        top_bar_frame.grid(row=0, column=0, sticky='ew')
         top_bar_frame.grid_columnconfigure(0, weight=1)
         top_bar_frame.grid_columnconfigure(1, weight=0)
 
@@ -149,30 +133,46 @@ class StoreWindow(tk.Tk):
         self.user_info_frame = self._create_user_info_panel(top_bar_frame)
         self.user_info_frame.grid(row=0, column=1, sticky='ne', padx=10, pady=10)
 
-        self.notebook = ttk.Notebook(self)
-        self.notebook.bind("<FocusIn>", self._unfocus_notebook)
-        self.notebook.grid(row=1, column=0, columnspan=2, sticky='nsew')
+        self.main_content_frame = tk.Frame(self, bg=self.original_bg)
+        self.main_content_frame.grid(row=1, column=0, sticky='nsew')
+        self.main_content_frame.pack_propagate(False)
+        self.main_content_frame.grid_rowconfigure(0, weight=1)
+        self.main_content_frame.grid_columnconfigure(0, weight=1)
 
-        self.store_tab_frame = ttk.Frame(self.notebook, style='TFrame')
-        self.notebook.add(self.store_tab_frame, text='Магазин')
-        self.store_tab_frame.grid_rowconfigure(0, weight=1)
-        self.store_tab_frame.grid_columnconfigure(0, weight=1)
-        self.store_canvas, self.store_list_frame = self._create_scrollable_list_frame(self.store_tab_frame, self.original_bg)
+        self.notebook = ttk.Notebook(self.main_content_frame)
+        self.notebook.bind("<FocusIn>", self._unfocus_notebook)
+        self.notebook.pack(fill=tk.BOTH, expand=True)
+
+        self.store_tab_main_frame = ttk.Frame(self.notebook, style='TFrame')
+        self.notebook.add(self.store_tab_main_frame, text='Магазин')
+        self.store_tab_main_frame.grid_rowconfigure(1, weight=1)
+        self.store_tab_main_frame.grid_columnconfigure(0, weight=1)
+        self.sort_panel_frame = self._create_sort_panel(self.store_tab_main_frame)
+        self.sort_panel_frame.grid(row=0, column=0, sticky='ew', padx=5, pady=(5,0))
+        self.store_scrollable_frame = tk.Frame(self.store_tab_main_frame, bg=self.original_bg)
+        self.store_scrollable_frame.grid(row=1, column=0, sticky='nsew')
+        self.store_scrollable_frame.grid_rowconfigure(0, weight=1)
+        self.store_scrollable_frame.grid_columnconfigure(0, weight=1)
+        self.store_canvas, self.store_list_frame = self._create_scrollable_list_frame_content(self.store_scrollable_frame)
 
         self.library_tab_frame = ttk.Frame(self.notebook, style='TFrame')
         self.notebook.add(self.library_tab_frame, text='Бібліотека')
         self.library_view = LibraryTab(
              parent=self.library_tab_frame, db_manager=self.db_manager, user_id=self.current_user_id,
              image_cache=self._image_references, placeholder_list=self.placeholder_image,
-             placeholder_detail=self.placeholder_image_detail,
-             image_folder_path=self.image_folder,
+             placeholder_detail=self.placeholder_image_detail, image_folder_path=self.image_folder,
              fonts=self.fonts, colors=self.colors
         )
         self.library_view.paned_window.pack(fill=tk.BOTH, expand=True)
 
-        refresh_button = ttk.Button(self, text="Оновити", command=self.refresh_current_tab, style=self.custom_button_style)
-        refresh_button.grid(row=2, column=0, columnspan=2, pady=10)
+        self.workshop_tab_frame = ttk.Frame(self.notebook, style='TFrame', padding=(10, 10))
+        self.notebook.add(self.workshop_tab_frame, text='Майстерня')
+        self.workshop_tab_frame.grid_columnconfigure(0, weight=1)
 
+        refresh_button = ttk.Button(self, text="Оновити", command=self.refresh_current_tab, style=self.custom_button_style)
+        refresh_button.grid(row=2, column=0, pady=10)
+
+        self._setup_workshop_tab()
         self.load_games_store()
 
         self.bind_all("<MouseWheel>", self._on_mousewheel, add='+')
@@ -250,7 +250,7 @@ class StoreWindow(tk.Tk):
             try:
                 selected_tab_index = self.notebook.index(self.notebook.select())
                 if selected_tab_index == 0:
-                    print("Refreshing Store Tab...")
+                    print("Refreshing Store Tab (re-fetching and sorting)...")
                     self.load_games_store()
                 elif selected_tab_index == 1:
                     print("Refreshing Library Tab...")
@@ -258,45 +258,45 @@ class StoreWindow(tk.Tk):
                         self.library_view.load_library_games()
                     else:
                         print("Library view not initialized or available.")
+                elif selected_tab_index == 2:
+                     print("Refreshing Workshop Tab...")
+                     self._fetch_and_set_user_info()
+                     self._setup_workshop_tab()
+
                 self.refresh_user_info_display()
             except tk.TclError:
                 print("Could not get selected tab (Notebook might not be visible).")
+                self.refresh_user_info_display()
             except AttributeError as e:
                 print(f"Error refreshing tab: {e}")
                 traceback.print_exc()
+                self.refresh_user_info_display()
         else:
              print("No active view identified to refresh.")
              self.refresh_user_info_display()
 
     def _show_notebook_view(self):
-        if self.detail_area_frame:
+        if self.detail_area_frame and self.detail_area_frame.winfo_exists():
             self.detail_area_frame.destroy()
             self.detail_area_frame = None
-            self.detail_back_button = None
-            self.detail_frame_container = None
-            self.detail_canvas = None
-            self.detail_scrollbar = None
             self.detail_view_instance = None
-        if self.studio_detail_area_frame:
+        if self.studio_detail_area_frame and self.studio_detail_area_frame.winfo_exists():
             self.studio_detail_area_frame.destroy()
             self.studio_detail_area_frame = None
-            self.studio_detail_back_button = None
-            self.studio_detail_frame_container = None
-            self.studio_detail_canvas = None
-            self.studio_detail_scrollbar = None
             self.studio_detail_view_instance = None
 
-        self.notebook.grid(row=1, column=0, sticky='nsew')
+        if not self.notebook.winfo_ismapped():
+             self.notebook.pack(fill=tk.BOTH, expand=True)
+
         self.title("Universal Games")
         
     def _show_detail_view(self, game_id, event=None):
-        self.notebook.grid_remove()
-        if self.studio_detail_area_frame:
+        self.notebook.pack_forget()
+        if self.studio_detail_area_frame and self.studio_detail_area_frame.winfo_exists():
             self.studio_detail_area_frame.destroy()
             self.studio_detail_area_frame = None
             self.studio_detail_view_instance = None
-
-        if self.detail_area_frame:
+        if self.detail_area_frame and self.detail_area_frame.winfo_exists():
             self.detail_area_frame.destroy()
             self.detail_area_frame = None
             self.detail_view_instance = None
@@ -304,18 +304,15 @@ class StoreWindow(tk.Tk):
         try:
             game_details = self.db_manager.fetch_game_details(game_id)
             if not game_details:
-                messagebox.showwarning("Не знайдено", f"Гра з ID {game_id} не знайдена.")
-                self._show_notebook_view(); return
-        except AttributeError:
-             messagebox.showerror("Помилка", "Функція отримання деталей гри ще не реалізована в DB Manager.")
-             self._show_notebook_view(); return
+                 messagebox.showwarning("Не знайдено", f"Гра з ID {game_id} не знайдена.")
+                 self._show_notebook_view(); return
         except Exception as e:
             messagebox.showerror("Помилка бази даних", f"Не вдалося завантажити деталі гри:\n{e}")
             traceback.print_exc()
             self._show_notebook_view(); return
 
-        self.detail_area_frame = tk.Frame(self, bg=self.original_bg)
-        self.detail_area_frame.grid(row=1, column=0, columnspan=2, sticky='nsew')# columnspan = 2
+        self.detail_area_frame = tk.Frame(self.main_content_frame, bg=self.original_bg)
+        self.detail_area_frame.pack(fill=tk.BOTH, expand=True)
         self.detail_area_frame.grid_rowconfigure(1, weight=1)
         self.detail_area_frame.grid_columnconfigure(0, weight=1)
 
@@ -332,7 +329,6 @@ class StoreWindow(tk.Tk):
         self.detail_canvas = tk.Canvas(self.detail_frame_container, borderwidth=0, background=self.original_bg, highlightthickness=0)
         self.detail_scrollbar = ttk.Scrollbar(self.detail_frame_container, orient="vertical", command=self.detail_canvas.yview)
         self.detail_canvas.configure(yscrollcommand=self.detail_scrollbar.set)
-
         self.detail_scrollbar.pack(side="right", fill="y")
         self.detail_canvas.pack(side="left", fill="both", expand=True)
 
@@ -367,10 +363,9 @@ class StoreWindow(tk.Tk):
              if self.detail_view_instance and self.detail_view_instance.winfo_exists():
                  self.detail_view_instance.after_idle(lambda w=canvas_width: self.detail_view_instance._update_wraplengths(container_width=w))
 
-        if self.detail_view_instance:
-            self.detail_view_instance.bind("<Configure>", _on_detail_frame_configure)
-        if self.detail_canvas:
-            self.detail_canvas.bind('<Configure>', _on_detail_canvas_configure)
+        if self.detail_view_instance: self.detail_view_instance.bind("<Configure>", _on_detail_frame_configure)
+        if self.detail_canvas: self.detail_canvas.bind('<Configure>', _on_detail_canvas_configure)
+        self.detail_area_frame.after(50, _on_detail_frame_configure)
 
         self.title(f"{game_details.get('title', 'Деталі гри')}")
 
@@ -575,39 +570,31 @@ class StoreWindow(tk.Tk):
         return entry_frame
     
     def load_games_store(self):
-        for widget in self.store_list_frame.winfo_children(): widget.destroy()
-        self._game_widgets_store = []
-        games_data = []
+        print(f"Loading store games. Sort by: {self.current_sort_key}, Reverse: {self.current_sort_reverse}")
+
+        db_sort_key = self.current_sort_key
+        db_sort_order = 'DESC' if self.current_sort_reverse else 'ASC'
+
+        games_data_from_db = []
         try:
-            games_data = self.db_manager.fetch_all_games()
+            games_data_from_db = self.db_manager.fetch_all_games(
+                sort_by=db_sort_key,
+                sort_order=db_sort_order
+            )
         except AttributeError:
-            messagebox.showerror("Помилка", "Функція fetch_all_games не реалізована в DB Manager.")
-            tk.Label(self.store_list_frame, text="Помилка завантаження даних (DB)", fg="red", bg=self.original_bg).pack(pady=20)
-            return
+            messagebox.showerror("Помилка", "Функція fetch_all_games не реалізована або не приймає параметри сортування в DB Manager.")
+            games_data_from_db = None
         except Exception as e:
             messagebox.showerror("Помилка бази даних", f"Не вдалося завантажити список ігор:\n{e}")
-            tk.Label(self.store_list_frame, text=f"Помилка бази даних:\n{e}", fg="red", wraplength=self.width-50, bg=self.original_bg).pack(pady=20)
             traceback.print_exc()
+            games_data_from_db = None
+
+        if games_data_from_db is None:
+            print("DB fetch failed for store games.")
+            self._display_games([])
             return
 
-        if games_data is None:
-            print("DB: fetch_all_games returned None.")
-            tk.Label(self.store_list_frame, text="Не вдалося отримати дані з бази даних.", fg="red", bg=self.original_bg).pack(pady=20)
-            return
-
-        if not games_data:
-            tk.Label(self.store_list_frame, text="В магазині поки немає ігор.", font=self.fonts['ui'], bg=self.original_bg).pack(pady=20)
-        else:
-            print(f"Store: Displaying {len(games_data)} games.")
-            for game in games_data:
-                game_widget = self._create_game_entry(self.store_list_frame, game)
-                if game_widget:
-                    game_widget.pack(fill=tk.X, pady=2, padx=2)
-                    self._game_widgets_store.append(game_widget)
-
-        self.store_list_frame.update_idletasks()
-        self.store_canvas.configure(scrollregion=self.store_canvas.bbox("all"))
-        self.store_canvas.yview_moveto(0)
+        self._display_games(games_data_from_db)
 
 
     def load_games_library(self):
@@ -629,21 +616,20 @@ class StoreWindow(tk.Tk):
             traceback.print_exc()
             
     def _show_studio_detail_view(self, studio_name):
-        self.notebook.grid_remove()
-        if self.detail_area_frame:
+        self.notebook.pack_forget()
+        if self.detail_area_frame and self.detail_area_frame.winfo_exists():
             self.detail_area_frame.destroy()
             self.detail_area_frame = None
             self.detail_view_instance = None
-
-        if self.studio_detail_area_frame:
+        if self.studio_detail_area_frame and self.studio_detail_area_frame.winfo_exists():
             self.studio_detail_area_frame.destroy()
             self.studio_detail_area_frame = None
             self.studio_detail_view_instance = None
 
         print(f"Attempting to show details for studio: {studio_name}")
 
-        self.studio_detail_area_frame = tk.Frame(self, bg=self.original_bg)
-        self.studio_detail_area_frame.grid(row=1, column=0, columnspan=2, sticky='nsew') 
+        self.studio_detail_area_frame = tk.Frame(self.main_content_frame, bg=self.original_bg)
+        self.studio_detail_area_frame.pack(fill=tk.BOTH, expand=True)
         self.studio_detail_area_frame.grid_rowconfigure(1, weight=1)
         self.studio_detail_area_frame.grid_columnconfigure(0, weight=1)
 
@@ -673,7 +659,7 @@ class StoreWindow(tk.Tk):
             store_window_ref=self,
             image_cache=self._image_references,
             placeholder_detail=self.placeholder_image_detail,
-            studio_logo_folder=self.studio_logo_folder 
+            studio_logo_folder=self.studio_logo_folder
         )
         studio_canvas_window_id = self.studio_detail_canvas.create_window((0, 0), window=self.studio_detail_view_instance, anchor="nw")
 
@@ -690,22 +676,27 @@ class StoreWindow(tk.Tk):
 
         if self.studio_detail_view_instance: self.studio_detail_view_instance.bind("<Configure>", _on_studio_detail_frame_configure)
         if self.studio_detail_canvas: self.studio_detail_canvas.bind('<Configure>', _on_studio_detail_canvas_configure)
+        self.studio_detail_area_frame.after(50, _on_studio_detail_frame_configure)
 
         self.title(f"Студія: {studio_name}")
 
     def _fetch_and_set_user_info(self):
         if self.current_user_id and self.db_manager:
             user_data = self.db_manager.fetch_user_info(self.current_user_id)
+            developer_status = self.db_manager.check_developer_status(self.current_user_id)
             if user_data:
                 self.username = user_data.get('username', "User")
                 self.current_balance = user_data.get('balance', decimal.Decimal('0.00'))
-                print(f"StoreWindow: User info set - {self.username}, Balance: {self.current_balance}")
+                self.is_developer = developer_status
+                print(f"StoreWindow: User info set - {self.username}, Balance: {self.current_balance}, Is Developer: {self.is_developer}")
             else:
                 print("StoreWindow: Failed to fetch user info.")
                 self.username = "Error"
                 self.current_balance = decimal.Decimal('0.00')
+                self.is_developer = False
         else:
-            print("StoreWindow: Cannot fetch user info - user_id or db_manager missing.")
+             print("StoreWindow: Cannot fetch user info - user_id or db_manager missing.")
+             self.is_developer = False
             
     def _create_user_info_panel(self, parent):
         panel_bg = self.colors.get('user_panel_bg', '#ededed')
@@ -740,14 +731,53 @@ class StoreWindow(tk.Tk):
 
         return frame
 
-    def refresh_user_info_display(self):
-        print("StoreWindow: Refreshing user info display...")
-        self._fetch_and_set_user_info()
-        if hasattr(self, 'username_label') and self.username_label.winfo_exists():
-            self.username_label.config(text=self.username)
-        if hasattr(self, 'balance_label') and self.balance_label.winfo_exists():
-            self.balance_label.config(text=f"{self.current_balance:.2f}₴")
-        print(f"StoreWindow: Display updated - {self.username}, Balance: {self.current_balance:.2f}₴")
+    def refresh_current_tab(self):
+        active_view = None
+        if self.detail_view_instance and self.detail_area_frame and self.detail_area_frame.winfo_ismapped():
+            active_view = 'game_detail'
+            print("Refreshing Game Detail View...")
+            game_id = self.detail_view_instance.game_id
+            self._show_detail_view(game_id)
+
+        elif self.studio_detail_view_instance and self.studio_detail_area_frame and self.studio_detail_area_frame.winfo_ismapped():
+            active_view = 'studio_detail'
+            print("Refreshing Studio Detail View...")
+            if hasattr(self.studio_detail_view_instance, 'studio_name'):
+                 studio_name = self.studio_detail_view_instance.studio_name
+                 self._show_studio_detail_view(studio_name)
+            else:
+                 print("Cannot refresh studio details: studio_name not found in instance.")
+                 self._show_notebook_view()
+
+        elif self.notebook.winfo_ismapped():
+            active_view = 'notebook'
+            try:
+                selected_tab_index = self.notebook.index(self.notebook.select())
+                if selected_tab_index == 0:
+                    print("Refreshing Store Tab (re-fetching and sorting)...")
+                    self.load_games_store()
+                elif selected_tab_index == 1:
+                    print("Refreshing Library Tab...")
+                    if hasattr(self, 'library_view') and self.library_view:
+                        self.library_view.load_library_games()
+                    else:
+                        print("Library view not initialized or available.")
+                elif selected_tab_index == 2:
+                     print("Refreshing Workshop Tab...")
+                     self._fetch_and_set_user_info()
+                     self._setup_workshop_tab()
+
+                self.refresh_user_info_display()
+            except tk.TclError:
+                print("Could not get selected tab (Notebook might not be visible).")
+                self.refresh_user_info_display()
+            except AttributeError as e:
+                print(f"Error refreshing tab: {e}")
+                traceback.print_exc()
+                self.refresh_user_info_display()
+        else:
+             print("No active view identified to refresh.")
+             self.refresh_user_info_display()
 
     def _on_dropdown_click(self, event=None):
         if self.user_dropdown_menu:
@@ -861,14 +891,224 @@ class StoreWindow(tk.Tk):
 
         if success:
             messagebox.showinfo("Успіх", f"Акаунт '{self.username}' було успішно видалено.", parent=self)
-            print("Logging out after account deletion...")
+            print("Scheduling logout after account deletion...")
+
+            if self.user_dropdown_menu:
+                try:
+                    self.user_dropdown_menu.unpost()
+                except tk.TclError:
+                    pass
+                self.user_dropdown_menu = None
+
             if self.open_login_callback:
-                self.open_login_callback()
+                self.after(10, self.open_login_callback)
             else:
-                print("Error: Login callback function is not set in StoreWindow.")
-            self.after(10, self.destroy)
+                 print("Error: Login callback function is not set in StoreWindow.")
+                 self.after(10, self.destroy)
+                 return
+
+            self.after(20, self.destroy)
+
         else:
             print(f"Failed to delete account for user: {self.username} (ID: {self.current_user_id})")
+
+    def _create_sort_panel(self, parent):
+        frame = tk.Frame(parent, bg=self.original_bg)
+        frame.grid_columnconfigure(1, weight=0)
+        frame.grid_columnconfigure(3, weight=0)
+
+        sort_by_label = tk.Label(frame, text="Сортувати за:", bg=self.original_bg, font=self.fonts['ui'])
+        sort_by_label.grid(row=0, column=0, padx=(0, 5), pady=5)
+
+        self.sort_criteria_combobox = ttk.Combobox(
+            frame, values=["Назвою", "Ціною"], state="readonly", width=10, font=self.fonts['ui']
+        )
+        self.sort_criteria_combobox.set("Назвою")
+        self.sort_criteria_combobox.grid(row=0, column=1, padx=(0, 15), pady=5)
+        self.sort_criteria_combobox.bind("<<ComboboxSelected>>", self._on_sort_change)
+
+        order_label = tk.Label(frame, text="Порядок:", bg=self.original_bg, font=self.fonts['ui'])
+        order_label.grid(row=0, column=2, padx=(0, 5), pady=5)
+
+        self.sort_order_combobox = ttk.Combobox(
+            frame, values=["За зростанням", "За спаданням"], state="readonly", width=15, font=self.fonts['ui']
+        )
+        self.sort_order_combobox.set("За зростанням")
+        self.sort_order_combobox.grid(row=0, column=3, padx=(0, 0), pady=5)
+        self.sort_order_combobox.bind("<<ComboboxSelected>>", self._on_sort_change)
+
+        return frame
+
+    def _create_scrollable_list_frame_content(self, parent):
+        canvas = tk.Canvas(parent, borderwidth=0, background=self.original_bg, highlightthickness=0)
+        scrollbar = ttk.Scrollbar(parent, orient="vertical", command=canvas.yview)
+        inner_frame = tk.Frame(canvas, background=self.original_bg)
+
+        canvas.configure(yscrollcommand=scrollbar.set)
+        scrollbar.pack(side="right", fill="y")
+        canvas.pack(side="left", fill="both", expand=True)
+
+        canvas_frame_id = canvas.create_window((0, 0), window=inner_frame, anchor="nw")
+
+        def _on_inner_frame_configure(event=None):
+             canvas.after_idle(lambda: canvas.configure(scrollregion=canvas.bbox("all")))
+
+        def _on_inner_canvas_configure(event):
+             canvas_width = event.width
+             canvas.itemconfig(canvas_frame_id, width=canvas_width)
+             inner_frame.config(width=canvas_width)
+             canvas.after_idle(lambda: canvas.configure(scrollregion=canvas.bbox("all")))
+
+        inner_frame.bind("<Configure>", _on_inner_frame_configure)
+        canvas.bind('<Configure>', _on_inner_canvas_configure)
+
+        return canvas, inner_frame
+    
+    def _on_sort_change(self, event=None):
+        criteria_map = {"Назвою": "title", "Ціною": "price"}
+        order_map = {"За зростанням": False, "За спаданням": True}
+
+        selected_criteria = self.sort_criteria_combobox.get()
+        selected_order = self.sort_order_combobox.get()
+
+        self.current_sort_key = criteria_map.get(selected_criteria, 'title')
+        self.current_sort_reverse = order_map.get(selected_order, False)
+
+        print(f"Sort selection changed to: Key='{self.current_sort_key}', Reverse={self.current_sort_reverse}. Reloading games...")
+        self.load_games_store()
+
+    def _display_games(self, games_to_display):
+        for widget in self.store_list_frame.winfo_children():
+            widget.destroy()
+        self._game_widgets_store = []
+
+        if not games_to_display:
+            tk.Label(self.store_list_frame, text="В магазині поки немає ігор.",
+                     font=self.fonts['ui'], bg=self.original_bg).pack(pady=20)
+        else:
+            print(f"Displaying {len(games_to_display)} games.")
+            for game in games_to_display:
+                game_widget = self._create_game_entry(self.store_list_frame, game)
+                if game_widget:
+                    game_widget.pack(fill=tk.X, pady=2, padx=2)
+                    self._game_widgets_store.append(game_widget)
+
+        self.store_list_frame.update_idletasks()
+        self.store_canvas.configure(scrollregion=self.store_canvas.bbox("all"))
+        self.store_canvas.yview_moveto(0)
+
+    def _setup_workshop_tab(self):
+        for widget in self.workshop_tab_frame.winfo_children():
+            widget.destroy()
+
+        if self.is_developer:
+            title_label = tk.Label(self.workshop_tab_frame, text="Панель розробника",
+                                  font=self.fonts['title'], bg=self.original_bg)
+            title_label.pack(pady=(0, 20))
+
+            info_label = tk.Label(self.workshop_tab_frame, text="Ви вже маєте статус розробника.\n\n"
+                                                              "(Тут будуть інструменти для керування вашими іграми/модами)",
+                                 font=self.fonts['detail'], bg=self.original_bg, justify=tk.CENTER)
+            info_label.pack(pady=10)
+        else:
+            title_label = tk.Label(self.workshop_tab_frame, text="Майстерня розробника",
+                                  font=self.fonts['title'], bg=self.original_bg)
+            title_label.pack(pady=(0, 20))
+
+            info_label = tk.Label(self.workshop_tab_frame,
+                                 text="Бажаєте створювати та публікувати власні ігри чи модифікації?\n"
+                                      "Натисніть кнопку нижче, щоб отримати статус розробника.",
+                                 font=self.fonts['detail'], bg=self.original_bg, justify=tk.CENTER, wraplength=500)
+            info_label.pack(pady=10)
+
+            become_dev_button = ttk.Button(self.workshop_tab_frame, text="Стати розробником",
+                                           command=self._become_developer_action,
+                                           style=self.custom_button_style)
+            become_dev_button.pack(pady=20)
+            
+    def _become_developer_action(self):
+        if self.is_developer:
+             messagebox.showinfo("Статус розробника", "Ви вже є розробником.", parent=self)
+             return
+
+        confirm = messagebox.askyesno("Підтвердження",
+                                       "Ви впевнені, що хочете отримати статус розробника?\n"
+                                       "(В майбутньому це може надати вам доступ до інструментів розробки).",
+                                       parent=self)
+
+        if confirm:
+            print(f"User {self.username} confirmed becoming a developer.")
+            success = False
+            try:
+                success = self.db_manager.set_developer_status(self.current_user_id, True)
+            except AttributeError:
+                messagebox.showerror("Помилка", "Функція зміни статусу розробника не реалізована в DB Manager.", parent=self)
+                return
+            except Exception as e:
+                 messagebox.showerror("Помилка Бази Даних", f"Не вдалося оновити статус:\n{e}", parent=self)
+                 return
+
+            if success:
+                messagebox.showinfo("Успіх", "Вітаємо! Ви отримали статус розробника.", parent=self)
+                self.is_developer = True
+                self._setup_workshop_tab()
+            else:
+                print("Failed to set developer status in DB.")
+
+    def _setup_workshop_tab(self):
+        for widget in self.workshop_tab_frame.winfo_children():
+            widget.destroy()
+
+        if self.is_developer:
+            title_label = tk.Label(self.workshop_tab_frame, text="Панель розробника",
+                                  font=self.fonts['title'], bg=self.original_bg)
+            title_label.pack(pady=(0, 20))
+
+            info_label = tk.Label(self.workshop_tab_frame, text="Ви вже маєте статус розробника.\n\n"
+                                                              "(Тут будуть інструменти для керування вашими іграми/модами)",
+                                 font=self.fonts['detail'], bg=self.original_bg, justify=tk.CENTER)
+            info_label.pack(pady=10)
+
+        else:
+            title_label = tk.Label(self.workshop_tab_frame, text="Майстерня розробника",
+                                  font=self.fonts['title'], bg=self.original_bg)
+            title_label.pack(pady=(0, 20))
+
+            info_label = tk.Label(self.workshop_tab_frame,
+                                 text="Бажаєте створювати та публікувати власні ігри чи модифікації?\n"
+                                      "Натисніть кнопку нижче, щоб отримати статус розробника.",
+                                 font=self.fonts['detail'], bg=self.original_bg, justify=tk.CENTER, wraplength=500)
+            info_label.pack(pady=10)
+
+            become_dev_button = ttk.Button(self.workshop_tab_frame, text="Стати розробником",
+                                           command=self._become_developer_action,
+                                           style=self.custom_button_style)
+            become_dev_button.pack(pady=20)
+
+    def refresh_user_info_display(self):
+        print("StoreWindow: Refreshing user info display...")
+        self._fetch_and_set_user_info()
+
+        if hasattr(self, 'username_label') and self.username_label and self.username_label.winfo_exists():
+            self.username_label.config(text=self.username)
+        else:
+            print("StoreWindow: Username label not found or destroyed, cannot update.")
+
+        if hasattr(self, 'balance_label') and self.balance_label and self.balance_label.winfo_exists():
+            self.balance_label.config(text=f"{self.current_balance:.2f}₴")
+        else:
+             print("StoreWindow: Balance label not found or destroyed, cannot update.")
+
+        current_tab_index = -1
+        try:
+            if self.notebook.winfo_exists() and self.notebook.winfo_ismapped():
+                current_tab_index = self.notebook.index(self.notebook.select())
+        except tk.TclError:
+             pass
+
+        if current_tab_index == 2:
+             print("StoreWindow: Refreshing workshop tab as part of user info refresh.")
+             self._setup_workshop_tab()
 
     def on_close(self):
         self._image_references.clear()
