@@ -11,33 +11,35 @@ from decimal import Decimal, InvalidOperation
 
 class DatabaseManager:
     def __init__(self, config_filename='config.json'):
+        """Constructor"""
         self.db_params = self._load_config(config_filename)
         self.connection = None
 
     def _load_config(self, filename):
+        """Loads and checks configuration of data base from JSON-file"""
         if not os.path.exists(filename):
             print(f"Error: Configuration file '{filename}' not found")
             return None
-        
+
         try:
             with open(filename, 'r') as f:
                 config = json.load(f)
-                
+
             if 'database' not in config:
                 print(f"Error: Key 'database' not found in the file")
                 messagebox.showerror("Помилка конфігурації", "Ключ 'database' не знайдено у файлі.")
                 return None
-            
-            required_keys = {"host", "port", "dbname", "user", "password"} 
+
+            required_keys = {"host", "port", "dbname", "user", "password"}
             if not required_keys.issubset(config['database'].keys()):
                 missing_keys = required_keys - config['database'].keys()
                 print(f"Error: Keys {missing_keys} missing from 'database' section")
                 messagebox.showerror("Помилка конфігурації", f"Відсутні ключі у секції 'database': {missing_keys}")
                 return None
-            
+
             print("Configuration loaded successfully!")
             return config['database']
-        
+
         except json.JSONDecodeError:
             print(f"Error: Unable to parse JSON in '{filename}' file")
             messagebox.showerror("Помилка конфігурації", f"Не вдалося розпарсити JSON у файлі '{filename}'.")
@@ -48,6 +50,7 @@ class DatabaseManager:
             return None
 
     def _connect(self):
+        """Establishes an actual connection with data base"""
         conn = None
         if not self.db_params:
             return None
@@ -61,7 +64,7 @@ class DatabaseManager:
                  if db_version:
                     print(f"Postgre Version: {db_version[0]}")
             return conn
-        
+
         except psycopg2.OperationalError as e:
             print(f"\nError connecting to PostgreSQL: {e}")
             return None
@@ -70,6 +73,7 @@ class DatabaseManager:
             return None
 
     def get_connection(self):
+        """Provides a working connection with data base"""
         if self.connection and not self.connection.closed:
             return self.connection
         print("Connection lost. Attempting to reconnect...")
@@ -77,6 +81,7 @@ class DatabaseManager:
         return self.connection
 
     def close_connection(self):
+        """Closes an active connection with data base if it still exists"""
         if self.connection and not self.connection.closed:
             try:
                 self.connection.close()
@@ -91,7 +96,7 @@ class DatabaseManager:
         if not conn:
             print("Cannot execute bulk query: No active database connection")
             return None
-        
+
         result = None
         try:
             with conn:
@@ -99,43 +104,44 @@ class DatabaseManager:
                     cur.executemany(query, params_list)
                     result = cur.rowcount
                     print(f"Successfully executed bulk query for {result} rows")
-        
+
         except(Exception, psycopg2.Error) as error:
             print(f"\nError executing bulk query: {error}")
             print(f"Query: {query}")
             print(f"Number of parameter sets attempted: {len(params_list)}")
             return None
-        
+
         return result
 
     def execute_query(self, query, params=None, fetch_one=False, fetch_all=False):
+        """Executes one SQL-query"""
         conn = self.get_connection()
         if not conn:
             print("Cannot execute query: No active database connection")
             return None
-        
+
         result = None
         try:
             with conn:
                 with conn.cursor() as cur:
                     cur.execute(query, params)
-                    
+
                     if fetch_one:
                         result = cur.fetchone()
                     elif fetch_all:
                         result = cur.fetchall()
                     else:
                          try:
-                            result = cur.rowcount 
-                         except psycopg2.ProgrammingError: 
-                             result = None 
-                             
+                            result = cur.rowcount
+                         except psycopg2.ProgrammingError:
+                             result = None
+
         except (Exception, psycopg2.Error) as error:
             print(f"\Error executing query: {error}")
             print(f"query: {query}")
             print(f"Parameters: {params}")
-        
-            return None 
+
+            return None
 
         return result
     
@@ -144,20 +150,21 @@ class DatabaseManager:
         try:
             query = sql.SQL("TRUNCATE TABLE {} RESTART IDENTITY CASCADE").format(sql.Identifier(table_name))
             print(f"A safe query has formed: {query.as_string(self.get_connection())}")
-            
+
             result = self.execute_query(query)
-            
+
             if result is None:
                 print(f"Failed to clear the table '{table_name}'")
                 return False
             else:
                 return True
-        
+
         except Exception as e:
             print(f"Unexpected error was occurred while trying to clear the table '{table_name}' : {e}")
             return False
 
     def validate_user(self, username, password):
+        """Checks whether a user with that username exists and whether the provided password matches the stored hash in the database"""
         print(f"DBManager validating user: {username}")
         query = "SELECT user_id, password_hash FROM Users WHERE username = %s;"
         result = self.execute_query(query, (username,), fetch_one=True)
@@ -169,12 +176,13 @@ class DatabaseManager:
                 return user_id
             else:
                 print(f"Password validation failed for user {username}")
-                return None # Пароль невірний
+                return None
         else:
             print(f"User {username} not found.")
             return None
         
     def register_user(self, username, email, password):
+        """Registers a new user in the system"""
         conn = self.get_connection()
         if not conn:
             messagebox.showerror("Помилка Бази Даних", "Не вдалося підключитися до бази даних для реєстрації.")
@@ -221,6 +229,7 @@ class DatabaseManager:
 
 
     def fetch_all_games(self, sort_by='title', sort_order='ASC'):
+        """Fetches a list of all games from the database to display in the store. Sortable"""
         conn = self.get_connection()
         if not conn:
             print("DB: No connection to fetch games.")
@@ -241,7 +250,7 @@ class DatabaseManager:
         if sort_by == 'price':
             if sort_order == 'ASC':
                 order_by_clause = sql.SQL("ORDER BY {sort_col} {sort_dir} NULLS FIRST, {secondary_col} ASC")
-            else: # DESC
+            else:
                 order_by_clause = sql.SQL("ORDER BY {sort_col} {sort_dir} NULLS LAST, {secondary_col} ASC")
             order_by_sql = order_by_clause.format(
                 sort_col=sql.Identifier(sort_by),
@@ -276,10 +285,11 @@ class DatabaseManager:
             return None
     
     def fetch_game_details(self, game_id):
+        """Fetches detailed information about one concrete game by it's id"""
         query = """
             SELECT
                 game_id, title, description, price, image, status, release_date,
-                created_at, updated_at  -- Додано created_at, updated_at
+                created_at, updated_at
             FROM games
             WHERE game_id = %s;
         """
@@ -294,7 +304,7 @@ class DatabaseManager:
                 'image': game_tuple[4],
                 'status': game_tuple[5],
                 'release_date': game_tuple[6],
-                'created_at': game_tuple[7], 
+                'created_at': game_tuple[7],
                 'updated_at': game_tuple[8]
             }
             return details
@@ -302,18 +312,19 @@ class DatabaseManager:
             return None
         
     def fetch_purchased_games(self, user_id):
+        """Fetches a list of games that have been successfully bought by a concrete user"""
         query = """
             SELECT DISTINCT
                 g.game_id,
                 g.title,
-                NULL AS genre, -- Placeholder for UI compatibility
-                g.price,       -- Current game price
+                NULL AS genre,
+                g.price,
                 g.image
             FROM Games g
             JOIN Purchases_Items pi ON g.game_id = pi.game_id
             JOIN Purchases p ON pi.purchase_id = p.purchase_id
             WHERE p.user_id = %s
-              AND p.status = 'Completed' -- Ensure the purchase was successful
+              AND p.status = 'Completed'
             ORDER BY g.title;
         """
         print(f"DB: Fetching purchased games for user_id {user_id}...")
@@ -331,8 +342,10 @@ class DatabaseManager:
                 return purchased_games
         except Exception as e:
             print(f"DB: Unexpected error fetching purchased games for user_id {user_id}: {e}")
+            return None
             
     def purchase_game(self, user_id, game_id, price_at_purchase):
+        """Implements a logic for user to purchase a game"""
         conn = self.get_connection()
         if not conn:
             print("Cannot purchase game: No active database connection")
@@ -407,6 +420,7 @@ class DatabaseManager:
             return False
         
     def check_ownership(self, user_id, game_id):
+        """Checks if the user has a specific game"""
         query = """
             SELECT EXISTS (
                 SELECT 1
@@ -425,6 +439,7 @@ class DatabaseManager:
             return False
         
     def add_or_update_review(self, user_id, game_id, review_text, rating=None):
+        """Adds a new review on a game from the user"""
         conn = self.get_connection()
         if not conn:
             messagebox.showerror("Помилка Бази Даних", "Не вдалося підключитися до бази даних.")
@@ -451,6 +466,7 @@ class DatabaseManager:
             return False
     
     def fetch_game_reviews(self, game_id):
+        """Fetches all reviews for concrete game"""
         conn = self.get_connection()
         if not conn: return None
         query = sql.SQL("""
@@ -464,7 +480,7 @@ class DatabaseManager:
         except Exception as error:
             print(f"DB: Error fetching reviews for game {game_id}: {error}")
             return None
-        
+
     def fetch_review_comments(self, review_id):
         conn = self.get_connection()
         if not conn: return None
@@ -481,6 +497,7 @@ class DatabaseManager:
             return None
         
     def add_review_comment(self, review_id, user_id, comment_text):
+        """Adds a new comment to an existing review"""
         conn = self.get_connection()
         if not conn:
             messagebox.showerror("Помилка Бази Даних", "Не вдалося підключитися до бази даних.")
@@ -501,6 +518,7 @@ class DatabaseManager:
             return False
         
     def fetch_game_genres(self, game_id):
+        """Fetches a list of genre names for a specific game"""
         conn = self.get_connection()
         if not conn or game_id is None:
             return []
@@ -520,6 +538,7 @@ class DatabaseManager:
             return []
         
     def fetch_game_platforms(self, game_id):
+        """Fetches a list of platform names for a specific game"""
         conn = self.get_connection()
         if not conn or game_id is None:
             return []
@@ -539,6 +558,7 @@ class DatabaseManager:
             return []
         
     def fetch_game_studios_by_role(self, game_id, role):
+        """Fetches a list of studio names associated with game in specific role"""
         conn = self.get_connection()
         if not conn or game_id is None:
             print(f"DB: Cannot fetch studios for game {game_id}, role {role}. Connection or game_id missing.")
@@ -565,9 +585,9 @@ class DatabaseManager:
         except Exception as e:
             print(f"DB: Error fetching {role} studios for game_id {game_id}: {e}")
             return []
-        
           
     def fetch_studio_details_by_name(self, studio_name):
+        """Fetches detailed information about studio by it's name"""
         conn = self.get_connection()
         if not conn or not studio_name:
             return None
@@ -595,6 +615,7 @@ class DatabaseManager:
             return None
         
     def fetch_user_info(self, user_id):
+        """Fetches the username and their current balance"""
         query = "SELECT username, balance FROM Users WHERE user_id = %s;"
         print(f"DB: Fetching user info for user_id {user_id}...")
         result = self.execute_query(query, (user_id,), fetch_one=True)
@@ -610,6 +631,7 @@ class DatabaseManager:
             return None
 
     def add_funds(self, user_id, amount_to_add):
+        """Adds specified sum of finds on user's balance"""
         conn = self.get_connection()
         if not conn:
             print("DB Error: No connection to add funds.")
@@ -654,7 +676,7 @@ class DatabaseManager:
                 WHERE user_id = %s
             );
         """)
-        print(f"DB: Checking developer status by checking existence in Developers table for user_id {user_id}...")
+        print(f"DB: Checking developer status for user_id {user_id}...")
         try:
             result = self.execute_query(query, (user_id,), fetch_one=True)
             if result:
@@ -668,17 +690,24 @@ class DatabaseManager:
             print(f"DB: Error checking developer status for user {user_id}: {e}")
             traceback.print_exc()
             return False
-          
-    def set_developer_status(self, user_id, status=True):
+
+    def set_developer_status(self, user_id, status=True, contact_email=None):
         conn = self.get_connection()
         if not conn:
             messagebox.showerror("Помилка Бази Даних", "Немає активного підключення до бази даних.")
             return False
 
         if status:
-            email_query = sql.SQL("SELECT email FROM Users WHERE user_id = %s;")
-            user_info = self.execute_query(email_query, (user_id,), fetch_one=True)
-            contact_email = user_info[0] if user_info and user_info[0] else None
+            if not contact_email:
+                email_query = sql.SQL("SELECT email FROM Users WHERE user_id = %s;")
+                user_info = self.execute_query(email_query, (user_id,), fetch_one=True)
+                if user_info and user_info[0]:
+                    contact_email = user_info[0]
+                    print(f"DB: No contact email provided for becoming developer (user {user_id}). Using primary email: {contact_email}")
+                else:
+                    messagebox.showerror("Помилка", "Не вдалося визначити контактну пошту для розробника.")
+                    print(f"DB Error: Cannot set developer status for user {user_id} without a contact email.")
+                    return False
 
             insert_query = sql.SQL("""
                 INSERT INTO Developers (user_id, studio_id, contact_email)
@@ -686,41 +715,29 @@ class DatabaseManager:
                 ON CONFLICT (user_id) DO NOTHING;
             """)
             params = (user_id, contact_email)
-            try:
-                print(f"DB: Attempting to ensure user {user_id} exists in Developers table (studio_id might be NULL).")
-                with conn:
-                    with conn.cursor() as cur:
-                        cur.execute(insert_query, params)
-                        print(f"DB: Ensure developer entry operation complete for user {user_id}. Affected rows: {cur.rowcount}")
-                return True # Повертаємо True після успішного завершення транзакції
-            except psycopg2.Error as db_error:
-                print(f"\nDB Error ensuring developer entry for user {user_id}: {db_error}")
-                messagebox.showerror("Помилка Бази Даних", f"Не вдалося додати/перевірити запис розробника:\n{db_error}")
-                return False
-            except Exception as e:
-                print(f"\nDB Unexpected error ensuring developer entry for user {user_id}: {e}")
-                traceback.print_exc()
-                messagebox.showerror("Неочікувана Помилка", f"Сталася неочікувана помилка під час оновлення статусу розробника:\n{e}")
-                return False
+            action_desc = "ensure developer entry"
+
         else:
-            delete_query = sql.SQL("DELETE FROM Developers WHERE user_id = %s;")
+            insert_query = sql.SQL("DELETE FROM Developers WHERE user_id = %s;")
             params = (user_id,)
-            try:
-                print(f"DB: Attempting to remove user {user_id} from Developers table.")
-                with conn:
-                    with conn.cursor() as cur:
-                        cur.execute(delete_query, params)
-                        print(f"DB: Removed {cur.rowcount} developer entries for user_id {user_id}.")
-                return True # Повертаємо True після успішного завершення транзакції
-            except psycopg2.Error as db_error:
-                print(f"\nDB Error removing developer status for user {user_id}: {db_error}")
-                messagebox.showerror("Помилка Бази Даних", f"Не вдалося зняти статус розробника:\n{db_error}")
-                return False
-            except Exception as e:
-                print(f"\nDB Unexpected error removing developer status for user {user_id}: {e}")
-                traceback.print_exc()
-                messagebox.showerror("Неочікувана Помилка", f"Сталася неочікувана помилка під час зняття статусу:\n{e}")
-                return False
+            action_desc = "remove developer status"
+
+        try:
+            print(f"DB: Attempting to {action_desc} for user {user_id}.")
+            with conn:
+                with conn.cursor() as cur:
+                    cur.execute(insert_query, params)
+                    print(f"DB: Operation '{action_desc}' complete for user {user_id}. Affected rows: {cur.rowcount}")
+            return True
+        except psycopg2.Error as db_error:
+            print(f"\nDB Error during '{action_desc}' for user {user_id}: {db_error}")
+            messagebox.showerror("Помилка Бази Даних", f"Не вдалося {('встановити' if status else 'зняти')} статус розробника:\n{db_error}")
+            return False
+        except Exception as e:
+            print(f"\nDB Unexpected error during '{action_desc}' for user {user_id}: {e}")
+            traceback.print_exc()
+            messagebox.showerror("Неочікувана Помилка", f"Сталася неочікувана помилка під час {('встановлення' if status else 'зняття')} статусу:\n{e}")
+            return False
           
     def delete_user_account(self, user_id):
         conn = self.get_connection()
@@ -752,6 +769,53 @@ class DatabaseManager:
             traceback.print_exc()
             messagebox.showerror("Неочікувана Помилка", f"Сталася неочікувана помилка під час видалення акаунту:\n{e}")
             return False
-
-    
         
+          
+    def fetch_all_studios(self, sort_by='name', sort_order='ASC'):
+        conn = self.get_connection()
+        if not conn:
+            print("DB: No connection to fetch studios.")
+            return None
+
+        allowed_sort_columns = {'name', 'country', 'established_date'}
+        if sort_by not in allowed_sort_columns:
+            print(f"DB Warning: Invalid sort column '{sort_by}' for studios. Defaulting to 'name'.")
+            sort_by = 'name'
+
+        sort_order = sort_order.upper()
+        if sort_order not in ('ASC', 'DESC'):
+            print(f"DB Warning: Invalid sort order '{sort_order}'. Defaulting to 'ASC'.")
+            sort_order = 'ASC'
+
+        order_by_sql = sql.SQL("ORDER BY {sort_col} {sort_dir}").format(
+            sort_col=sql.Identifier(sort_by),
+            sort_dir=sql.SQL(sort_order)
+        )
+
+        base_query = sql.SQL("SELECT studio_id, name, logo, country FROM Studios")
+        query = sql.SQL(" ").join([base_query, order_by_sql])
+
+        print(f"DB: Fetching all studios sorted by {sort_by} {sort_order}...")
+        try:
+            studios_data = self.execute_query(query, fetch_all=True)
+
+            if studios_data is None:
+                print("DB: Failed to fetch studios (execute_query returned None)")
+                return None
+            elif not studios_data:
+                print("DB: Fetched 0 studios.")
+                return []
+            else:
+                print(f"DB: Fetched {len(studios_data)} studios.")
+                columns = ['studio_id', 'name', 'logo', 'country']
+                studios_list = [dict(zip(columns, row)) for row in studios_data]
+                return studios_list
+        except Exception as e:
+            print(f"DB: Unexpected error fetching sorted studios: {e}")
+            traceback.print_exc()
+            return None
+
+    def submit_studio_application(self, user_id, studio_id):
+        print(f"DB: Received application from user {user_id} for studio {studio_id}.")
+        print("DB: (Stub) Application processed.")
+        return True

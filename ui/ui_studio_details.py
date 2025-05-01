@@ -34,6 +34,7 @@ class StudioDetailView(tk.Frame):
         self.logo_label = None
         self.description_content_label = None
         self.details_content_label = None
+        self.apply_button = None
 
         self._fetch_studio_data()
         self._setup_ui()
@@ -48,18 +49,15 @@ class StudioDetailView(tk.Frame):
                 self.studio_details = self.db_manager.fetch_studio_details_by_name(self.studio_name)
                 if not self.studio_details:
                      print(f"Studio '{self.studio_name}' not found in DB.")
-                     messagebox.showwarning("Не знайдено", f"Не вдалося знайти деталі для студії: {self.studio_name}", parent=self)
                 else:
                     self.studio_name = self.studio_details.get('name', self.studio_name)
                     print(f"StudioDetailView: Fetched details, Studio ID: {self.studio_details.get('studio_id')}")
             except Exception as e:
                 print(f"Error fetching studio details for '{self.studio_name}': {e}")
                 traceback.print_exc()
-                messagebox.showerror("Помилка бази даних", f"Не вдалося завантажити деталі студії:\n{e}", parent=self)
                 self.studio_details = None
         else:
             print("Error: db_manager does not have 'fetch_studio_details_by_name' method.")
-            messagebox.showerror("Помилка", "Не вдалося завантажити деталі студії (метод відсутній).", parent=self)
             self.studio_details = None
 
     def _clear_content_frame(self):
@@ -94,7 +92,7 @@ class StudioDetailView(tk.Frame):
         top_frame = tk.Frame(self, bg=bg_color)
         top_frame.grid(row=current_row, column=0, sticky='new', padx=10, pady=10)
         top_frame.grid_columnconfigure(1, weight=1)
-        current_row += 1 
+        current_row += 1
 
         self.logo_label = tk.Label(top_frame, background=bg_color)
         logo_filename = self.studio_details.get('logo') if self.studio_details else None
@@ -114,11 +112,23 @@ class StudioDetailView(tk.Frame):
         self.studio_title_label = tk.Label(top_frame, text=display_name,
                                             font=self.fonts.get('title', ("Verdana", 16, "bold")),
                                             bg=bg_color,
+                                            wraplength=initial_wraplength,
                                             justify=tk.LEFT, anchor='nw')
         self.studio_title_label.grid(row=0, column=1, sticky='nw', pady=(0, 5))
 
         info_frame_under_title = tk.Frame(top_frame, bg=bg_color)
-        info_frame_under_title.grid(row=1, column=1, sticky='nw') 
+        info_frame_under_title.grid(row=1, column=1, sticky='nw')
+        self.apply_button = ttk.Button(
+            info_frame_under_title,
+            text="Подати заявку на вступ",
+            command=self._submit_application,
+            style=self.styles.get('custom_button', 'TButton')
+        )
+        if self.studio_details:
+             self.apply_button.pack(pady=(5, 0))
+             self._bind_mousewheel_to_children(self.apply_button)
+        else:
+             self.apply_button = None
 
         separator1 = ttk.Separator(self, orient='horizontal')
         separator1.grid(row=current_row, column=0, sticky='ew', padx=10, pady=(5, 10))
@@ -126,7 +136,6 @@ class StudioDetailView(tk.Frame):
 
         desc_title_label = None
         error_label = None
-        
         target_font = self.fonts.get('description', ("Verdana", 10))
 
         if self.studio_details:
@@ -167,6 +176,7 @@ class StudioDetailView(tk.Frame):
         current_row += 1
 
         details_row_internal = 0
+        website_link_label = None
         if self.studio_details:
             if self.studio_details.get('country'):
                 country_prefix = tk.Label(details_frame, text="Країна:", font=target_font, bg=bg_color, anchor='nw')
@@ -201,8 +211,12 @@ class StudioDetailView(tk.Frame):
 
                 link_font_tuple = list(target_font)
                 if len(link_font_tuple) < 3 or "underline" not in link_font_tuple[2]:
-                    link_font_tuple.append("underline")
+                    if len(link_font_tuple) >= 3:
+                        link_font_tuple[2] = f"{link_font_tuple[2]} underline".replace(" normal","").strip()
+                    else:
+                        link_font_tuple.append("underline")
                 link_font = tuple(link_font_tuple)
+
 
                 website_link_label = tk.Label(details_frame, text=website_url,
                                               font=link_font,
@@ -212,22 +226,63 @@ class StudioDetailView(tk.Frame):
                                               anchor='nw', justify=tk.LEFT)
                 website_link_label.grid(row=details_row_internal, column=1, sticky='nw')
                 website_link_label.bind("<Button-1>", partial(self._open_website, website_url))
-                self._bind_mousewheel_to_children(website_link_label) 
+                self._bind_mousewheel_to_children(website_link_label)
                 details_row_internal += 1
 
-        widgets_to_bind = [self, top_frame, self.logo_label, self.studio_title_label, separator1, separator2, details_title_label, details_frame, info_frame_under_title]
+        widgets_to_bind = [self, top_frame, self.logo_label, self.studio_title_label, info_frame_under_title, separator1, separator2, details_title_label, details_frame]
         if desc_title_label: widgets_to_bind.append(desc_title_label)
         if self.description_content_label: widgets_to_bind.append(self.description_content_label)
         if error_label: widgets_to_bind.append(error_label)
         for child in details_frame.winfo_children():
-            is_link_label = False
-            if 'website_link_label' in locals() and child == website_link_label:
-                is_link_label = True
-            if child not in widgets_to_bind and not is_link_label:
+            if child != website_link_label:
                  widgets_to_bind.append(child)
 
         self._bind_mousewheel_to_children(widgets_to_bind)
         
+    def _submit_application(self):
+        if not self.store_window_ref or not hasattr(self.store_window_ref, 'is_developer'):
+            messagebox.showerror("Помилка", "Не вдалося перевірити статус розробника.", parent=self)
+            return
+        if not self.studio_details or 'studio_id' not in self.studio_details:
+            messagebox.showerror("Помилка", "Не вдалося визначити ID студії.", parent=self)
+            return
+
+        is_dev = self.store_window_ref.is_developer
+        user_id = self.store_window_ref.current_user_id
+        studio_id = self.studio_details['studio_id']
+        studio_name_display = self.studio_details.get('name', self.studio_name)
+
+        if not is_dev:
+            messagebox.showinfo(
+                "Потрібен статус розробника",
+                "Щоб подати заявку на вступ до студії, вам потрібно спочатку отримати статус розробника.\n\n"
+                "Це можна зробити у вкладці 'Майстерня'.",
+                parent=self
+            )
+            return
+
+        print(f"User {user_id} (developer) is applying to studio {studio_id} ('{studio_name_display}')")
+
+        success = False
+        try:
+            if hasattr(self.db_manager, 'submit_studio_application'):
+                 success = self.db_manager.submit_studio_application(user_id, studio_id)
+            else:
+                 messagebox.showerror("Помилка", "Функціонал подачі заявок не реалізовано (DB).", parent=self)
+                 return
+        except Exception as e:
+            messagebox.showerror("Помилка бази даних", f"Не вдалося подати заявку:\n{e}", parent=self)
+            traceback.print_exc()
+            return
+
+        if success:
+             messagebox.showinfo("Заявку подано", f"Вашу заявку на вступ до студії '{studio_name_display}' подано.\nОчікуйте на розгляд.", parent=self)
+             if self.apply_button:
+                 self.apply_button.config(state=tk.DISABLED, text="Заявку подано")
+        else:
+             print(f"Failed to submit application for user {user_id} to studio {studio_id}.")
+             
+    
     def _update_wraplengths(self, container_width):
         try:
             if not self.winfo_exists(): return
@@ -256,15 +311,14 @@ class StudioDetailView(tk.Frame):
                          self.studio_title_label.config(wraplength=title_wraplength)
                 except tk.TclError: pass
                 except Exception as e:
-                     print(f"Debug: Error calculating title wraplength: {e}")
-
+                     print(f"Debug: Error calculating title wraplength in StudioDetailView: {e}")
 
         except tk.TclError as e:
             pass
         except Exception as e:
-            print(f"DEBUG: Unexpected error in _update_wraplengths:")
+            print(f"DEBUG: Unexpected error in StudioDetailView._update_wraplengths:")
             traceback.print_exc()
-        
+
     def _load_image_internal(self, image_filename, full_path, size=(64, 64), is_placeholder=False):
         placeholder_to_return = self.placeholder_image_detail
 
@@ -341,12 +395,31 @@ class StudioDetailView(tk.Frame):
         if hasattr(self.store_window_ref, 'placeholder_image_name'):
             is_placeholder_request = (image_filename == self.store_window_ref.placeholder_image_name)
 
-
         return self._load_image_internal(image_filename, full_path, size=size, is_placeholder=is_placeholder_request)
+
+    def _handle_mousewheel(self, event):
+        if isinstance(event.widget, (ttk.Scrollbar, scrolledtext.ScrolledText)):
+            return
+
+        if not self.scroll_target_canvas:
+            return
+
+        if event.num == 4: delta = -1
+        elif event.num == 5: delta = 1
+        else:
+            try:
+                delta = -1 if event.delta > 0 else 1
+            except AttributeError:
+                return
+
+        self.scroll_target_canvas.yview_scroll(delta, "units")
+        return "break"
     
     def _open_website(self, url, event=None):
         if url:
             try:
+                if not url.startswith(('http://', 'https://')):
+                    url = 'http://' + url
                 print(f"Opening website: {url}")
                 webbrowser.open_new_tab(url)
             except Exception as e:
