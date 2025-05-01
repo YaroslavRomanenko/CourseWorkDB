@@ -97,57 +97,6 @@ class GameDetailView(tk.Frame):
         self._load_reviews()
 
         self.bind("<Configure>", lambda e: self.after_idle(lambda: self._update_wraplengths(e.width)))
-
-    def _update_wraplengths(self, container_width):
-        try:
-            if not self.winfo_exists(): return
-            if not isinstance(container_width, (int, float)) or container_width <= 1:
-                try:
-                    self.update_idletasks()
-                    container_width = self.winfo_width()
-                    if container_width <= 1: return
-                except Exception: return
-
-            min_content_width = 100
-            content_wraplength = max(min_content_width, container_width - 20)
-
-            for label_widget in [self.desc_content_label, self.genres_content_label,
-                                 self.platforms_content_label]:
-                if label_widget and label_widget.winfo_exists():
-                    current_wl = label_widget.cget("wraplength")
-                    if current_wl != content_wraplength:
-                        label_widget.config(wraplength=content_wraplength)
-
-            info_frame_wraplength = content_wraplength
-            prefix_col_width_approx = 80
-            try:
-                icon_width = self.detail_icon_size[0]
-                info_frame_base_width = max(min_content_width, container_width - 10 - icon_width - 20 - 10)
-                if self.title_label and self.title_label.winfo_exists():
-                     current_wl = self.title_label.cget("wraplength")
-                     if current_wl != info_frame_base_width:
-                         self.title_label.config(wraplength=info_frame_base_width)
-
-                names_wraplength = max(min_content_width, info_frame_base_width - prefix_col_width_approx)
-                for label_widget in [self.info_developer_names_label, self.info_publisher_names_label]:
-                    if label_widget and label_widget.winfo_exists():
-                         current_wl = label_widget.cget("wraplength")
-                         if current_wl != names_wraplength:
-                             label_widget.config(wraplength=names_wraplength)
-
-            except Exception as e:
-                print(f"DEBUG: Error calculating info_frame_wraplength/names_wraplength: {e}")
-                fallback_wl = max(min_content_width, container_width - 10 - (self.detail_icon_size[0] if self.detail_icon_size else 160) - 20 - 10)
-                for label_widget in [self.title_label, self.info_developer_names_label, self.info_publisher_names_label]:
-                    if label_widget and label_widget.winfo_exists():
-                         label_widget.config(wraplength=fallback_wl)
-
-
-        except tk.TclError as e:
-            pass
-        except Exception as e:
-            print(f"DEBUG: Unexpected error in _update_wraplengths:")
-            traceback.print_exc()
             
     def _handle_mousewheel(self, event):
         if isinstance(event.widget, ttk.Scrollbar):
@@ -737,17 +686,6 @@ class GameDetailView(tk.Frame):
                  print(f"UI Error during purchase process: {e}")
                  traceback.print_exc()
                  messagebox.showerror("Помилка", f"Під час процесу покупки сталася неочікувана помилка:\n{e}", parent=self)
-
-
-    def _update_price_buy_area(self):
-        print("UI: Updating price/buy area...")
-        self._build_price_buy_content()
-
-        for widget in self.price_buy_frame.winfo_children():
-            widget.destroy()
-        in_library_label = tk.Label(self.price_buy_frame, text="У бібліотеці",
-                                    font=self.detail_font, background=self.original_bg, fg="green")
-        in_library_label.pack(side=tk.LEFT, anchor='w')
         
     def _build_price_buy_content(self):
         if not self.price_buy_frame or not self.price_buy_frame.winfo_exists():
@@ -826,24 +764,6 @@ class GameDetailView(tk.Frame):
                 print(f"Image file not found: {full_path} (using placeholder)")
             self._image_references[cache_key] = placeholder_to_return
             return placeholder_to_return
-
-    def _get_image(self, image_filename, size=(64, 64)):
-        placeholder_to_return = self.placeholder_image_detail if size == self.detail_icon_size else self.placeholder_image_list
-
-        if not image_filename:
-            return placeholder_to_return
-        if not self.image_folder:
-            print("Warning: IMAGE_FOLDER path is not set in GameDetailView.")
-            return placeholder_to_return
-
-        if os.path.isabs(image_filename) and os.path.exists(image_filename):
-            full_path = image_filename
-        else:
-            full_path = os.path.join(self.image_folder, image_filename)
-
-        is_placeholder_request = (image_filename == self.placeholder_name) and (full_path == self.placeholder_path)
-
-        return self._load_image_internal(image_filename, full_path, size=size, is_placeholder=is_placeholder_request)
 
     def _get_image(self, image_filename, size=(64, 64)):
         placeholder_to_return = self.placeholder_image_detail if size == self.detail_icon_size else self.placeholder_image_list

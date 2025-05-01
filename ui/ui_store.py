@@ -235,54 +235,6 @@ class StoreWindow(tk.Tk):
 
         return canvas, inner_frame
 
-    def refresh_current_tab(self):
-        active_view = None
-        if self.detail_view_instance and self.detail_area_frame and self.detail_area_frame.winfo_ismapped():
-            active_view = 'game_detail'
-            print("Refreshing Game Detail View...")
-            game_id = self.detail_view_instance.game_id
-            self._show_detail_view(game_id)
-
-        elif self.studio_detail_view_instance and self.studio_detail_area_frame and self.studio_detail_area_frame.winfo_ismapped():
-            active_view = 'studio_detail'
-            print("Refreshing Studio Detail View...")
-            if hasattr(self.studio_detail_view_instance, 'studio_name'):
-                 studio_name = self.studio_detail_view_instance.studio_name
-                 self._show_studio_detail_view(studio_name)
-            else:
-                 print("Cannot refresh studio details: studio_name not found in instance.")
-                 self._show_notebook_view()
-
-        elif self.notebook.winfo_ismapped():
-            active_view = 'notebook'
-            try:
-                selected_tab_index = self.notebook.index(self.notebook.select())
-                if selected_tab_index == 0:
-                    print("Refreshing Store Tab (re-fetching and sorting)...")
-                    self.load_games_store()
-                elif selected_tab_index == 1:
-                    print("Refreshing Library Tab...")
-                    if hasattr(self, 'library_view') and self.library_view:
-                        self.library_view.load_library_games()
-                    else:
-                        print("Library view not initialized or available.")
-                elif selected_tab_index == 2:
-                     print("Refreshing Workshop Tab...")
-                     self._fetch_and_set_user_info()
-                     self._setup_workshop_tab()
-
-                self.refresh_user_info_display()
-            except tk.TclError:
-                print("Could not get selected tab (Notebook might not be visible).")
-                self.refresh_user_info_display()
-            except AttributeError as e:
-                print(f"Error refreshing tab: {e}")
-                traceback.print_exc()
-                self.refresh_user_info_display()
-        else:
-             print("No active view identified to refresh.")
-             self.refresh_user_info_display()
-
     def _show_notebook_view(self):
         if self.detail_area_frame and self.detail_area_frame.winfo_exists():
             self.detail_area_frame.destroy()
@@ -611,17 +563,6 @@ class StoreWindow(tk.Tk):
             self.library_view.load_library_games()
         else:
             print("Warning: Library view is not initialized yet, cannot refresh.")
-
-    def switch_to_tab(self, tab_name_or_id, data=None):
-        try:
-            if self.detail_area_frame and self.detail_area_frame.winfo_ismapped(): self._show_notebook_view()
-            if self.studio_detail_area_frame and self.studio_detail_area_frame.winfo_ismapped(): self._show_notebook_view()
-            self.notebook.select(tab_name_or_id)
-        except tk.TclError as e:
-            print(f"Error switching to tab '{tab_name_or_id}': {e}")
-        except Exception as e:
-            print(f"Unexpected error during tab switch: {e}")
-            traceback.print_exc()
             
     def _show_studio_detail_view(self, studio_name):
         self.notebook.pack_forget()
@@ -1038,35 +979,6 @@ class StoreWindow(tk.Tk):
         self.store_list_frame.update_idletasks()
         self.store_canvas.configure(scrollregion=self.store_canvas.bbox("all"))
         self.store_canvas.yview_moveto(0)
-
-    def _setup_workshop_tab(self):
-        for widget in self.workshop_tab_frame.winfo_children():
-            widget.destroy()
-
-        if self.is_developer:
-            title_label = tk.Label(self.workshop_tab_frame, text="Панель розробника",
-                                  font=self.fonts['title'], bg=self.original_bg)
-            title_label.pack(pady=(0, 20))
-
-            info_label = tk.Label(self.workshop_tab_frame, text="Ви вже маєте статус розробника.\n\n"
-                                                              "(Тут будуть інструменти для керування вашими іграми/модами)",
-                                 font=self.fonts['detail'], bg=self.original_bg, justify=tk.CENTER)
-            info_label.pack(pady=10)
-        else:
-            title_label = tk.Label(self.workshop_tab_frame, text="Майстерня розробника",
-                                  font=self.fonts['title'], bg=self.original_bg)
-            title_label.pack(pady=(0, 20))
-
-            info_label = tk.Label(self.workshop_tab_frame,
-                                 text="Бажаєте створювати та публікувати власні ігри чи модифікації?\n"
-                                      "Натисніть кнопку нижче, щоб отримати статус розробника.",
-                                 font=self.fonts['detail'], bg=self.original_bg, justify=tk.CENTER, wraplength=500)
-            info_label.pack(pady=10)
-
-            become_dev_button = ttk.Button(self.workshop_tab_frame, text="Стати розробником",
-                                           command=self._become_developer_action,
-                                           style=self.custom_button_style)
-            become_dev_button.pack(pady=20)
             
     def _become_developer_action(self):
         if self.is_developer:
@@ -1106,8 +1018,7 @@ class StoreWindow(tk.Tk):
                                   font=self.fonts['title'], bg=self.original_bg)
             title_label.pack(pady=(0, 20))
 
-            info_label = tk.Label(self.workshop_tab_frame, text="Ви вже маєте статус розробника.\n\n"
-                                                              "(Тут будуть інструменти для керування вашими іграми/модами)",
+            info_label = tk.Label(self.workshop_tab_frame, text="Ви вже маєте статус розробника.\n",
                                  font=self.fonts['detail'], bg=self.original_bg, justify=tk.CENTER)
             info_label.pack(pady=10)
 
