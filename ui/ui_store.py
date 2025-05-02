@@ -154,7 +154,6 @@ class StoreWindow(tk.Tk):
         self.main_content_frame.grid_columnconfigure(0, weight=1)
 
         self.notebook = ttk.Notebook(self.main_content_frame)
-        self.notebook.bind("<FocusIn>", self._unfocus_notebook)
         self.notebook.pack(fill=tk.BOTH, expand=True)
 
         self.store_tab_main_frame = ttk.Frame(self.notebook, style='TFrame')
@@ -205,14 +204,6 @@ class StoreWindow(tk.Tk):
         self.bind_all("<MouseWheel>", self._on_mousewheel, add='+')
         self.bind_all("<Button-4>", self._on_mousewheel, add='+')
         self.bind_all("<Button-5>", self._on_mousewheel, add='+')
-
-    def _unfocus_notebook(self, event):
-        grab_holder = self.grab_current()
-        if grab_holder is not None and grab_holder != self:
-            return
-
-        self.focus_set()
-        self.after_idle(lambda: self.notebook.tk_focusNext().focus_set() if self.notebook.winfo_ismapped() else None)
 
     def _create_scrollable_list_frame(self, parent, bg_color):
         canvas_scrollbar_frame = tk.Frame(parent, bg=bg_color)
@@ -1064,33 +1055,25 @@ class StoreWindow(tk.Tk):
             widget.destroy()
 
         self.workshop_tab_frame.grid_columnconfigure(0, weight=1)
+        self.workshop_tab_frame.grid_rowconfigure(0, weight=1)
+        self.workshop_tab_frame.grid_rowconfigure(2, weight=1)
+
+        content_frame = tk.Frame(self.workshop_tab_frame, bg=self.original_bg)
+        content_frame.grid(row=1, column=0, sticky='')
 
         if self.is_developer:
-            title_label = tk.Label(self.workshop_tab_frame, text="Майстерня",
-                                  font=self.fonts.get('title', ("Verdana", 16, "bold")),
-                                  bg=self.original_bg)
-            title_label.pack(pady=(0, 20))
-
-            info_label = tk.Label(self.workshop_tab_frame, text="Ви розробник! Ласкаво просимо до Майстерні.\n\n"
-                                 "(Тут буде доступний інструментарій для завантаження\n"
-                                 "та керування вашими іграми, модами та іншим контентом).",
-                                 font=self.fonts['detail'], bg=self.original_bg, justify=tk.CENTER)
-            info_label.pack(pady=10)
-
-            upload_game_btn = ttk.Button(self.workshop_tab_frame, text="Завантажити гру (неактивно)",
-                                          style=self.custom_button_style, state=tk.DISABLED)
-            upload_game_btn.pack(pady=5)
-            manage_content_btn = ttk.Button(self.workshop_tab_frame, text="Керувати контентом (неактивно)",
-                                           style=self.custom_button_style, state=tk.DISABLED)
-            manage_content_btn.pack(pady=5)
+            info_label = tk.Label(content_frame, text="Ви розробник!",
+                                 font=self.fonts.get('title', ("Verdana", 16, "bold")),
+                                 bg=self.original_bg)
+            info_label.pack(pady=20)
 
         else:
-            title_label = tk.Label(self.workshop_tab_frame, text="Майстерня",
+            title_label = tk.Label(content_frame, text="Майстерня",
                                   font=self.fonts.get('title', ("Verdana", 16, "bold")),
                                   bg=self.original_bg)
             title_label.pack(pady=(0, 20))
 
-            info_label = tk.Label(self.workshop_tab_frame,
+            info_label = tk.Label(content_frame,
                                  text="Бажаєте створювати та публікувати власні ігри чи модифікації?\n"
                                       "Для доступу до Майстерні потрібно отримати статус розробника.\n\n"
                                       "Натисніть кнопку нижче та вкажіть вашу **робочу електронну пошту**\n"
@@ -1099,7 +1082,7 @@ class StoreWindow(tk.Tk):
                                  bg=self.original_bg, justify=tk.CENTER, wraplength=500)
             info_label.pack(pady=20)
 
-            become_dev_button = ttk.Button(self.workshop_tab_frame, text="Стати розробником",
+            become_dev_button = ttk.Button(content_frame, text="Стати розробником",
                                            command=self._prompt_become_developer_from_workshop,
                                            style=self.custom_button_style)
             become_dev_button.pack(pady=20)

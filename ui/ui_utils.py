@@ -180,6 +180,46 @@ def create_scrollable_list(parent, item_creation_func, item_data_list,
 
     return canvas, inner_frame, list_widgets
 
+def handle_mouse_wheel_event(event, canvas):
+    if not canvas or not canvas.winfo_exists():
+        return "break"
+
+    if event.num == 4:
+        delta = -1
+    elif event.num == 5:
+        delta = 1
+    else:
+        try:
+            delta = -1 if event.delta > 0 else 1
+        except AttributeError:
+            return "break"
+        
+    yview_result = canvas.yview()
+    can_scroll = False
+    if delta < 0 and yview_result[0] > 0.0001:
+         can_scroll = True
+    elif delta > 0 and yview_result[1] < 0.9999:
+         can_scroll = True
+
+    if can_scroll:
+         canvas.yview_scroll(delta, "units")
+         
+    return "break"
+
+def bind_recursive_mousewheel(widget, canvas):
+    if isinstance(widget, (scrolledtext.ScrolledText, tk.Listbox, tk.Text, tk.Canvas, ttk.Scrollbar)):
+        return
+
+    try:
+        widget.bind("<MouseWheel>", lambda event, c=canvas: handle_mouse_wheel_event(event, c), add='+')
+        widget.bind("<Button-4>", lambda event, c=canvas: handle_mouse_wheel_event(event, c), add='+')
+        widget.bind("<Button-5>", lambda event, c=canvas: handle_mouse_wheel_event(event, c), add='+')
+    except tk.TclError as e:
+        print(f"Warning (bind_recursive_mousewheel): Could not bind to widget {widget}: {e}")
+
+    for child in widget.winfo_children():
+        bind_recursive_mousewheel(child, canvas)
+
 class CustomAskStringDialog(tk.Toplevel):
     def __init__(self, parent, title=None, prompt=""):
         super().__init__(parent)

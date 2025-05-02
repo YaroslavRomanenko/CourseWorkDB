@@ -7,12 +7,13 @@ import traceback
 import os
 
 from PIL import Image, ImageTk
-from .ui_utils import setup_text_widget_editing, center_window
+from .ui_utils import *
 
 class StudioDetailView(tk.Frame):
     def __init__(self, parent, db_manager, studio_name,
                  fonts, colors, styles,
-                 scroll_target_canvas, store_window_ref,
+                 scroll_target_canvas,
+                 store_window_ref,
                  image_cache, placeholder_detail, studio_logo_folder,
                  **kwargs):
         super().__init__(parent, bg=colors.get('original_bg', 'white'), **kwargs)
@@ -198,7 +199,7 @@ class StudioDetailView(tk.Frame):
             widgets_to_bind.append(self.applications_frame)
             for child in self.applications_frame.winfo_children():
                  widgets_to_bind.append(child)
-        self._bind_mousewheel_to_children(widgets_to_bind)
+        bind_recursive_mousewheel(self, self.scroll_target_canvas)
         
     def _load_and_display_applications(self):
         if not self.applications_frame or not self.is_current_user_admin:
@@ -373,38 +374,6 @@ class StudioDetailView(tk.Frame):
                  print(f"StudioDetailView: Image file not found: {full_path} (using placeholder)")
             self._image_references[cache_key] = placeholder_to_return
             return placeholder_to_return
-            
-    def _handle_mousewheel(self, event):
-        if isinstance(event.widget, (ttk.Scrollbar, scrolledtext.ScrolledText)):
-            return
-
-        if not self.scroll_target_canvas:
-            return
-
-        if event.num == 4: delta = -1
-        elif event.num == 5: delta = 1
-        else:
-            try:
-                delta = -1 if event.delta > 0 else 1
-            except AttributeError:
-                return
-
-        self.scroll_target_canvas.yview_scroll(delta, "units")
-        return "break"
-    
-    def _bind_mousewheel_to_children(self, widgets):
-        if not isinstance(widgets, (list, tuple)):
-            widgets = [widgets]
-
-        for widget in widgets:
-            if widget and widget.winfo_exists():
-                if not isinstance(widget, scrolledtext.ScrolledText):
-                    try:
-                        widget.bind("<MouseWheel>", self._handle_mousewheel, add='+')
-                        widget.bind("<Button-4>", self._handle_mousewheel, add='+')
-                        widget.bind("<Button-5>", self._handle_mousewheel, add='+')
-                    except tk.TclError as e:
-                        print(f"StudioDetailView: Warning - Could not bind scroll to widget {widget}: {e}")
                         
     def _get_image(self, image_filename, size=(128, 128)):
         placeholder_to_return = self.placeholder_image_detail
