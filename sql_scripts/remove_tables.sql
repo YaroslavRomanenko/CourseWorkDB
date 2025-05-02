@@ -7,7 +7,14 @@ DROP TABLE IF EXISTS Developers_Games;
 DROP TABLE IF EXISTS Reviews;
 DROP TABLE IF EXISTS ReviewComments;
 DROP TABLE IF EXISTS Game_Platforms;
-DROP TABLE IF EXISTS Developers_Games;
+DROP TABLE IF EXISTS StudioApplications;
+DROP TABLE IF EXISTS Purchases;
+DROP TABLE IF EXISTS Purchases_Items;
+DROP TABLE IF EXISTS Platforms;
+DROP TABLE IF EXISTS Genres;
+DROP TABLE IF EXISTS Game_Genres; 
 
 DROP TYPE IF EXISTS studio_role_type;
 DROP TYPE IF EXISTS game_status;
+DROP TYPE IF EXISTS application_status;
+DROP TYPE IF EXISTS purchase_status;

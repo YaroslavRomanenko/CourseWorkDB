@@ -17,7 +17,7 @@ def main():
     print("8. Insert Game-Platform Links")
     print("9. Insert Developer-Game Links")
     print("10. Insert Game-Studio Links")
-    print("11. Delete Specified Data")
+    print("11. Delete All Data")
     print("12. Add Funds to User")
     print("-------------------------")
     print("\nChoose and Enter the command: ", end="")
@@ -171,77 +171,77 @@ def main():
         elif command == 3:
             developers_data = [
                 # --- Terraria --- #
-                (1, 1, "redigit@gmail.com"), # have special rights in the game page
-                (2, 1, "Cenx@gmail.com"), # have special rights in the game page
-                (3, 1, "Loki@gmail.com"),
-                (4, 1, "FoodBarbarian@gmail.com"),
+                (1, 1, "redigit@gmail.com", "Admin"), # have special rights in the game page
+                (2, 1, "Cenx@gmail.com", "Member"), # have special rights in the game page
+                (3, 1, "Loki@gmail.com", "Member"),
+                (4, 1, "FoodBarbarian@gmail.com", "Member"),
                 
                 # --- Don't Starve Together  --- #
-                (5, 2, "MatthewMarteinsson@gmail.com"),
-                (6, 2, "BryceDoig@gmail.com"), # have special rights in the game page
-                (7, 2, "AlexSavin@gmail.com"),
+                (5, 2, "MatthewMarteinsson@gmail.com", "Admin"),
+                (6, 2, "BryceDoig@gmail.com", "Member"), # have special rights in the game page
+                (7, 2, "AlexSavin@gmail.com", "Member"),
                 
                 # --- Astroneer --- #
-                (8, 3, "AaronBiddlecom@gmail.com"),
-                (9, 3, "AdamBromell@gmail.com"),
-                (10, 3, "AndreMaguire@gmail.com"), # have special rights in the game page
+                (8, 3, "AaronBiddlecom@gmail.com", "Admin"),
+                (9, 3, "AdamBromell@gmail.com", "Member"),
+                (10, 3, "AndreMaguire@gmail.com", "Member"), # have special rights in the game page
                 
                 # --- Factorio --- #
-                (11, 4, "MichalKovarik@gmail.com"),
-                (12, 4, "Tomax@gmail.com"), # have special rights in the game page
-                (13, 4, "DanStevens@gmail.com"),
+                (11, 4, "MichalKovarik@gmail.com", "Admin"),
+                (12, 4, "Tomax@gmail.com", "Member"), # have special rights in the game page
+                (13, 4, "DanStevens@gmail.com", "Member"),
                 
                 # --- Stardew Valley --- #
-                (14, 5, "EricBarone@gmail.com"), # have special rights in the game page
+                (14, 5, "EricBarone@gmail.com", "Admin"), # have special rights in the game page
                 
                 # --- Sid Meier's Civilization VI --- #
-                (15, 6, "EdBeach@gmail.com"),
-                (16, 6, "DennisShirk@gmail.com"), # have special rights in the game page
-                (17, 6, "AndrewFrederiksen@gmail.com"),
+                (15, 6, "EdBeach@gmail.com", "Admin"),
+                (16, 6, "DennisShirk@gmail.com", "Member"), # have special rights in the game page
+                (17, 6, "AndrewFrederiksen@gmail.com", "Member"),
                 
-                (18, 7, "ChristophHartmann@gmail.com"),
-                (19, 7, "JohnChowanec@gmail.com"),
-                (20, 7, "MelissaMiller@gmail.com"),
+                (18, 7, "ChristophHartmann@gmail.com", "Admin"),
+                (19, 7, "JohnChowanec@gmail.com", "Member"),
+                (20, 7, "MelissaMiller@gmail.com", "Member"),
             
                 # --- Marvel Rivals --- #
-                (21, 8, "ThaddeusSasser@gmail.com"),
-                (22, 8, "James@gmail.com"), # have special rights in the game page
-                (23, 8, "GuangyunChen@gmail.com"),
+                (21, 8, "ThaddeusSasser@gmail.com", "Admin"),
+                (22, 8, "James@gmail.com", "Member"), # have special rights in the game page
+                (23, 8, "GuangyunChen@gmail.com", "Member"),
                 
                 # --- Hades II --- #
-                (24, 9, "WillTurnbull@gmail.com"), # have special rights in the game page
-                (25, 9, "AmirRao@gmail.com"),
-                (26, 9, "GregKasavin@gmail.com"),
+                (24, 9, "WillTurnbull@gmail.com", "Admin"), # have special rights in the game page
+                (25, 9, "AmirRao@gmail.com", "Member"),
+                (26, 9, "GregKasavin@gmail.com", "Member"),
                 
                 # --- Project Odyssey --- #
-                (27, 10, "DanHay@gmail.com"),
-                (28, 10, "RimaBrek@gmail.com"), # have special rights in the game page
-                (29, 10, "ClementMarcou@gmail.com"),
+                (27, 10, "DanHay@gmail.com", "Admin"),
+                (28, 10, "RimaBrek@gmail.com", "Member"), # have special rights in the game page
+                (29, 10, "ClementMarcou@gmail.com", "Member"),
                 
                 # --- The Elder Scrolls VI --- #
-                (30, 11, "CraigLafferty@gmail.com"), # have special rights in the game page
-                (31, 11, "MarkLampert@gmail.com"),
-                (32, 11, "AshleyCheng@gmail.com"),
+                (30, 11, "CraigLafferty@gmail.com", "Admin"), # have special rights in the game page
+                (31, 11, "MarkLampert@gmail.com", "Member"),
+                (32, 11, "AshleyCheng@gmail.com", "Member"),
                 
                 # --- Star citizen --- #
-                (33, 12, "ChrisRoberts@gmail.com"),
-                (34, 12, "PedroCamacho@gmail.com"), # have special rights in the game page
+                (33, 12, "ChrisRoberts@gmail.com", "Admin"),
+                (34, 12, "PedroCamacho@gmail.com", "Member"), # have special rights in the game page
                 
                 # --- Deep down --- #
-                (35, 13, "KenzoTsujimoto@gmail.com"), # have special rights in the game page
-                (36, 13, "TokuroFujiwara@gmail.com"),
+                (35, 13, "KenzoTsujimoto@gmail.com", "Admin"), # have special rights in the game page
+                (36, 13, "TokuroFujiwara@gmail.com", "Member"),
                 
                 # --- Hearts of Iron IV --- #
-                (37, 14, "JohanAndersson@gmail.com"),
-                (38, 14, "DanLind@gmail.com"), # have special rights in the game page
-                (39, 14, "LindaKiby@gmail.com"),
+                (37, 14, "JohanAndersson@gmail.com", "Admin"),
+                (38, 14, "DanLind@gmail.com", "Member"), # have special rights in the game page
+                (39, 14, "LindaKiby@gmail.com", "Member"),
                 
                 # --- Geometry Dash --- #
-                (40, 15, "RobTop@gmail.com") # have special rights in the game page
+                (40, 15, "RobTop@gmail.com", "Admin") # have special rights in the game page
             ]
             
             print("--- Inserting Developers Data ---")
-            insert_query = "INSERT INTO Developers (user_id, studio_id, contact_email) VALUES (%s, %s, %s);"
+            insert_query = "INSERT INTO Developers (user_id, studio_id, contact_email, role) VALUES (%s, %s, %s, %s);"
             
             db_manager.execute_many_query(insert_query, developers_data)
             
@@ -382,6 +382,20 @@ def main():
             print("--- Deleting Data ---")
             
             db_manager.clear_specified_table("studios")
+            db_manager.clear_specified_table("users")
+            db_manager.clear_specified_table("developers")
+            db_manager.clear_specified_table("game_studios")
+            db_manager.clear_specified_table("games")
+            db_manager.clear_specified_table("developers_games")
+            db_manager.clear_specified_table("reviews")
+            db_manager.clear_specified_table("ReviewComments")
+            db_manager.clear_specified_table("game_platforms")
+            db_manager.clear_specified_table("studioapplications")
+            db_manager.clear_specified_table("purchases")
+            db_manager.clear_specified_table("purchases_items")
+            db_manager.clear_specified_table("platforms")
+            db_manager.clear_specified_table("genres")
+            db_manager.clear_specified_table("game_genres")
             
             print("--- The Data is Successfully Deleted ---")
             break
@@ -417,8 +431,7 @@ def main():
             break
 
         else:
-            print("You've wrote an unexisting command! Try again: ", end="")
-            
+            print("You've wrote an unexisting command! Try again: ", end="")    
             
     
 def hash_password(password):

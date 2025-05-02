@@ -137,7 +137,6 @@ CREATE TABLE Developers_Games (
 SELECT * FROM Developers_Games;
 
 CREATE TYPE application_status AS ENUM ('Pending', 'Accepted', 'Rejected');
-
 CREATE TABLE StudioApplications (
     application_id SERIAL PRIMARY KEY,
     user_id INTEGER NOT NULL,
@@ -152,10 +151,18 @@ CREATE TABLE StudioApplications (
     CONSTRAINT fk_application_studio
         FOREIGN KEY (studio_id) REFERENCES Studios (studio_id) ON DELETE CASCADE,
     CONSTRAINT fk_application_reviewer
-        FOREIGN KEY (reviewed_by) REFERENCES Users (user_id) ON DELETE SET NULL, 
-		
-    CONSTRAINT uq_pending_application UNIQUE (user_id, studio_id, status) WHERE (status = 'Pending')
+        FOREIGN KEY (reviewed_by) REFERENCES Users (user_id) ON DELETE SET NULL
 );
+CREATE UNIQUE INDEX uq_pending_application_idx
+ON StudioApplications (user_id, studio_id)
+WHERE (status = 'Pending');
+
+CREATE INDEX idx_studioapplications_user_id ON StudioApplications(user_id);
+CREATE INDEX idx_studioapplications_studio_id ON StudioApplications(studio_id);
+CREATE INDEX idx_studioapplications_status ON StudioApplications(status);
+
+SELECT * FROM StudioApplications;
+
 
 CREATE TYPE purchase_status AS ENUM (
     'Pending',
@@ -205,7 +212,7 @@ CREATE TABLE Purchases_Items (
 CREATE INDEX idx_purchaseitems_purchase_id ON Purchases_Items(purchase_id);
 CREATE INDEX idx_purchaseitems_game_id ON Purchases_Items(game_id);
 
-SELECT * FROM Purchases_Items
+SELECT * FROM Purchases_Items;
 
 CREATE TABLE Reviews (
     review_id SERIAL PRIMARY KEY,
