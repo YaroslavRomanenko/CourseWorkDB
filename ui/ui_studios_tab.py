@@ -2,6 +2,8 @@ import tkinter as tk
 from tkinter import ttk, messagebox, simpledialog
 import traceback
 import os
+import datetime
+
 from PIL import Image, ImageTk
 from functools import partial
 
@@ -42,7 +44,7 @@ class StudiosTab(tk.Frame):
         
     def _setup_ui(self):
         self.load_studios_list()
-
+        
     def load_studios_list(self):
         print("StudiosTab: Loading studios list...")
         studios_data = None
@@ -278,3 +280,161 @@ class StudiosTab(tk.Frame):
             widget.bind("<Button-5>", _on_inner_mousewheel)
 
         return canvas, inner_frame
+    
+    def _fetch_studio_data(self):
+        print(f"StudioDetailView: Fetching details for studio: {self.studio_name}")
+        if hasattr(self.db_manager, 'fetch_studio_details_by_name'):
+            try:
+                self.studio_details = self.db_manager.fetch_studio_details_by_name(self.studio_name)
+                if not self.studio_details:
+                     print(f"Studio '{self.studio_name}' not found in DB.")
+                else:
+                    self.studio_name = self.studio_details.get('name', self.studio_name)
+                    print(f"StudioDetailView: Fetched details, Studio ID: {self.studio_details.get('studio_id')}")
+            except Exception as e:
+                print(f"Error fetching studio details for '{self.studio_name}': {e}")
+                traceback.print_exc()
+                self.studio_details = None
+        else:
+            print("Error: db_manager does not have 'fetch_studio_details_by_name' method.")
+            self.studio_details = None
+            
+    def _check_superdev_status(self):
+        self.is_current_user_superdev = False
+        if self.studio_details and self.store_window_ref and self.db_manager:
+            studio_id = self.studio_details.get('studio_id')
+            current_user_id = self.store_window_ref.current_user_id
+            if studio_id and current_user_id:
+                try:
+                    role = self.db_manager.check_developer_role(current_user_id, studio_id)
+                    if role in ('Superdeveloper', 'Admin'):
+                        self.is_current_user_superdev = True
+                        print(f"StudioDetailView: User {current_user_id} is a '{role}' for studio {studio_id}")
+                    else:
+                         print(f"StudioDetailView: User {current_user_id} is not a superdev/admin for studio {studio_id}. Role: {role}")
+                except Exception as e:
+                     print(f"Error checking superdeveloper status: {e}")
+    
+    def _load_and_display_applications(self):
+        if not self.applications_frame or not self.is_current_user_superdev:
+            return
+
+        for widget in self.applications_frame.winfo_children():
+            widget.destroy()
+
+        studio_id = self.studio_details.get('studio_id')
+        current_user_id = self.store_window_ref.current_user_id
+        if not studio_id or not current_user_id:
+            return
+
+        pending_apps = None
+        try:
+            pending_apps = self.db_manager.fetch_pending_applications(studio_id, current_user_id)
+        except Exception as e:
+             print(f"Error fetching pending applications UI: {e}")
+             messagebox.showerror("Помилка", f"Не вдалося завантажити заявки:\n{e}", parent=self)
+
+        if pending_apps is None:
+            tk.Label(self.applications_frame, text="Помилка завантаження заявок.", fg="red", bg=self.applications_frame['bg']).grid(row=0, column=0, columnspan=4, pady=5)
+        elif not pending_apps:
+            tk.Label(self.applications_frame, text="Немає заявок на розгляд.", bg=self.applications_frame['bg']).grid(row=0, column=0, columnspan=4, pady=5)
+        else:
+            app_row = 0
+            for app in pending_apps:
+                app_id = app['id']
+                username = app['username']
+                date_obj = app['date']
+                date_str = date_obj.strftime('%d-%m-%Y %H:%M') if date_obj else "Невідомо"
+
+                username_label = tk.Label(self.applications_frame, text=username, anchor='w', bg=self.applications_frame['bg'])
+                username_label.grid(row=app_row, column=0, sticky='w', padx=5, pady=2)
+
+                date_label = tk.Label(self.applications_frame, text=date_str, anchor='w', bg=self.applications_frame['bg'], fg='grey')
+                date_label.grid(row=app_row, column=1, sticky='w', padx=10, pady=2)
+
+                accept_button = ttk.Button(self.applications_frame, text="Прийняти", width=10, style=self.styles.get('custom_button', 'TButton'),
+                                          command=partial(self._accept_application, app_id))
+                accept_button.grid(row=app_row, column=2, padx=5, pady=2)
+
+                reject_button = ttk.Button(self.applications_frame, text="Відхилити", width=10, style=self.styles.get('custom_button', 'TButton'),
+                                           command=partial(self._reject_application, app_id))
+                reject_button.grid(row=app_row, column=3, padx=5, pady=2)
+
+                app_row += 1
+            widgets_to_bind_scroll = [self.applications_frame]
+            for child in self.applications_frame.winfo_children():
+                 widgets_to_bind_scroll.append(child)
+            self._bind_mousewheel_to_children(widgets_to_bind_scroll)
+            
+    def _accept_application(self, application_id):
+        print(f"UI: Accepting application {application_id}")
+        if not self.is_current_user_superdev: return
+        current_user_id = self.store_window_ref.current_user_id
+
+        success = False
+        try:
+             success = self.db_manager.process_studio_application(application_id, 'Accepted', current_user_id)
+        except Exception as e:
+             messagebox.showerror("Помилка", f"Не вдалося прийняти заявку:\n{e}", parent=self)
+
+        if success:
+             messagebox.showinfo("Успіх", "Заявку прийнято.", parent=self)
+             self._load_and_display_applications()
+             
+    def _reject_application(self, application_id):
+        print(f"UI: Rejecting application {application_id}")
+        if not self.is_current_user_superdev: return
+        current_user_id = self.store_window_ref.current_user_id
+
+        success = False
+        try:
+             success = self.db_manager.process_studio_application(application_id, 'Rejected', current_user_id)
+        except Exception as e:
+             messagebox.showerror("Помилка", f"Не вдалося відхилити заявку:\n{e}", parent=self)
+
+        if success:
+             messagebox.showinfo("Успіх", "Заявку відхилено.", parent=self)
+             self._load_and_display_applications()
+
+    def _submit_application(self):
+        if not self.store_window_ref or not hasattr(self.store_window_ref, 'is_developer'):
+            messagebox.showerror("Помилка", "Не вдалося перевірити статус розробника.", parent=self)
+            return
+        if not self.studio_details or 'studio_id' not in self.studio_details:
+            messagebox.showerror("Помилка", "Не вдалося визначити ID студії.", parent=self)
+            return
+
+        is_dev = self.store_window_ref.is_developer
+        user_id = self.store_window_ref.current_user_id
+        studio_id = self.studio_details['studio_id']
+        studio_name_display = self.studio_details.get('name', self.studio_name)
+
+        if not is_dev:
+            messagebox.showinfo(
+                "Потрібен статус розробника",
+                "Щоб подати заявку на вступ до студії, вам потрібно спочатку отримати статус розробника.\n\n"
+                "Це можна зробити у вкладці 'Майстерня'.",
+                parent=self
+            )
+            return
+
+        print(f"User {user_id} (developer) is applying to studio {studio_id} ('{studio_name_display}')")
+
+        success = False
+        try:
+            if hasattr(self.db_manager, 'submit_studio_application'):
+                 success = self.db_manager.submit_studio_application(user_id, studio_id)
+            else:
+                 messagebox.showerror("Помилка", "Функціонал подачі заявок не реалізовано (DB).", parent=self)
+                 return
+        except Exception as e:
+            messagebox.showerror("Помилка бази даних", f"Не вдалося подати заявку:\n{e}", parent=self)
+            traceback.print_exc()
+            return
+
+        if success:
+             messagebox.showinfo("Заявку подано", f"Вашу заявку на вступ до студії '{studio_name_display}' подано.\nОчікуйте на розгляд.", parent=self)
+             if self.apply_button:
+                 self.apply_button.config(state=tk.DISABLED, text="Заявку подано")
+        else:
+             print(f"Failed to submit application for user {user_id} to studio {studio_id}.")

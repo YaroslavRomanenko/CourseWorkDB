@@ -816,6 +816,151 @@ class DatabaseManager:
             return None
 
     def submit_studio_application(self, user_id, studio_id):
-        print(f"DB: Received application from user {user_id} for studio {studio_id}.")
-        print("DB: (Stub) Application processed.")
-        return True
+        conn = self.get_connection()
+        if not conn:
+            messagebox.showerror("Помилка Бази Даних", "Немає підключення до бази даних.")
+            return False
+
+        current_studio_id = self.get_developer_studio_id(user_id)
+        if current_studio_id is not None:
+            if current_studio_id == studio_id:
+                messagebox.showinfo("Вже у студії", "Ви вже є учасником цієї студії.", parent=self.store_window_ref if hasattr(self, 'store_window_ref') else None)
+            else:
+                messagebox.showwarning("Вже у студії", "Ви вже є учасником іншої студії.", parent=self.store_window_ref if hasattr(self, 'store_window_ref') else None)
+            return False
+
+        query = sql.SQL("""
+            INSERT INTO StudioApplications (user_id, studio_id, status)
+            VALUES (%s, %s, %s)
+            ON CONFLICT (user_id, studio_id) WHERE (status = 'Pending')
+            DO NOTHING;
+        """)
+        params = (user_id, studio_id, 'Pending')
+
+        try:
+            with conn:
+                with conn.cursor() as cur:
+                    cur.execute(query, params)
+                    if cur.rowcount > 0:
+                        print(f"DB: Application submitted successfully by user {user_id} for studio {studio_id}.")
+                        return True
+                    else:
+                        print(f"DB: Pending application likely already exists for user {user_id}, studio {studio_id}.")
+                        messagebox.showwarning("Заявка вже існує", "Ви вже подали заявку до цієї студії, яка очікує на розгляд.", parent=self.store_window_ref if hasattr(self, 'store_window_ref') else None)
+                        return False
+        except psycopg2.Error as db_error:
+            print(f"DB Error submitting application for user {user_id}, studio {studio_id}: {db_error}")
+            messagebox.showerror("Помилка Бази Даних", f"Не вдалося подати заявку:\n{db_error}", parent=self.store_window_ref if hasattr(self, 'store_window_ref') else None)
+            return False
+        except Exception as e:
+            print(f"DB Unexpected error submitting application: {e}")
+            traceback.print_exc()
+            messagebox.showerror("Неочікувана Помилка", f"Сталася помилка під час подання заявки:\n{e}", parent=self.store_window_ref if hasattr(self, 'store_window_ref') else None)
+            return False
+    
+    def get_developer_studio_id(self, user_id):
+        query = "SELECT studio_id FROM Developers WHERE user_id = %s;"
+        result = self.execute_query(query, (user_id,), fetch_one=True)
+        return result[0] if result and result[0] is not None else None
+    
+    def check_developer_role(self, user_id, studio_id):
+        query = "SELECT role FROM Developers WHERE user_id = %s AND studio_id = %s;"
+        result = self.execute_query(query, (user_id, studio_id), fetch_one=True)
+        return result[0] if result else None
+    
+    def fetch_pending_applications(self, studio_id, superdeveloper_user_id):
+        print(f"DB: Fetching pending applications for studio {studio_id} by user {superdeveloper_user_id}")
+        role = self.check_developer_role(superdeveloper_user_id, studio_id)
+        if role not in ('Superdeveloper', 'Admin'):
+            print(f"DB: User {superdeveloper_user_id} is not a superdeveloper/admin for studio {studio_id}. Role: {role}")
+            return []
+
+        query = sql.SQL("""
+            SELECT sa.application_id, u.username, sa.application_date
+            FROM StudioApplications sa
+            JOIN Users u ON sa.user_id = u.user_id
+            WHERE sa.studio_id = %s AND sa.status = 'Pending'
+            ORDER BY sa.application_date ASC;
+        """)
+        try:
+            results = self.execute_query(query, (studio_id,), fetch_all=True)
+            if results is None: return None
+            apps = [{'id': row[0], 'username': row[1], 'date': row[2]} for row in results]
+            print(f"DB: Found {len(apps)} pending applications for studio {studio_id}.")
+            return apps
+        except Exception as e:
+            print(f"DB: Error fetching pending applications for studio {studio_id}: {e}")
+            traceback.print_exc()
+            return None
+        
+    def process_studio_application(self, application_id, new_status, superdeveloper_user_id):
+        conn = self.get_connection()
+        if not conn:
+            messagebox.showerror("Помилка Бази Даних", "Немає підключення до бази даних.")
+            return False
+
+        if new_status not in ('Accepted', 'Rejected'):
+            print(f"DB Error: Invalid new status '{new_status}' for application processing.")
+            return False
+
+        print(f"DB: Processing application {application_id} to status '{new_status}' by user {superdeveloper_user_id}")
+
+        studio_id = None
+        applicant_user_id = None
+
+        try:
+            with conn:
+                with conn.cursor() as cur:
+                    cur.execute("""
+                        SELECT user_id, studio_id FROM StudioApplications
+                        WHERE application_id = %s AND status = 'Pending' FOR UPDATE;
+                    """, (application_id,))
+                    app_data = cur.fetchone()
+                    if not app_data:
+                        print(f"DB: Application {application_id} not found or not pending.")
+                        messagebox.showwarning("Помилка", "Заявку не знайдено або вона вже оброблена.", parent=self.store_window_ref if hasattr(self, 'store_window_ref') else None)
+                        return False
+                    applicant_user_id, studio_id = app_data
+
+                    cur.execute("""
+                        SELECT 1 FROM Developers
+                        WHERE user_id = %s AND studio_id = %s AND role IN ('Superdeveloper', 'Admin');
+                    """, (superdeveloper_user_id, studio_id))
+                    if cur.fetchone() is None:
+                        print(f"DB: User {superdeveloper_user_id} is not authorized to process applications for studio {studio_id}.")
+                        messagebox.showerror("Відмовлено в доступі", "Ви не маєте прав обробляти заявки для цієї студії.", parent=self.store_window_ref if hasattr(self, 'store_window_ref') else None)
+                        conn.rollback()
+                        return False
+
+                    cur.execute("""
+                        UPDATE StudioApplications
+                        SET status = %s, reviewed_by = %s, review_date = CURRENT_TIMESTAMP
+                        WHERE application_id = %s;
+                    """, (new_status, superdeveloper_user_id, application_id))
+                    if cur.rowcount == 0:
+                        print(f"DB: Failed to update application {application_id} status.")
+                        conn.rollback()
+                        return False
+
+                    if new_status == 'Accepted':
+                        cur.execute("""
+                            UPDATE Developers SET studio_id = %s, role = 'Member'
+                            WHERE user_id = %s AND studio_id IS NULL;
+                        """, (studio_id, applicant_user_id))
+                        if cur.rowcount == 0:
+                            print(f"DB Warning: Could not assign accepted user {applicant_user_id} to studio {studio_id}. User not found in Developers or already has a studio.")
+                        else:
+                             print(f"DB: User {applicant_user_id} successfully added to studio {studio_id}.")
+
+            print(f"DB: Application {application_id} processed successfully to status '{new_status}'.")
+            return True
+
+        except psycopg2.Error as db_error:
+            print(f"DB Error processing application {application_id}: {db_error}")
+            messagebox.showerror("Помилка Бази Даних", f"Не вдалося обробити заявку:\n{db_error}", parent=self.store_window_ref if hasattr(self, 'store_window_ref') else None)
+            return False
+        except Exception as e:
+            print(f"DB Unexpected error processing application {application_id}: {e}")
+            traceback.print_exc()
+            messagebox.showerror("Неочікувана Помилка", f"Сталася помилка під час обробки заявки:\n{e}", parent=self.store_window_ref if hasattr(self, 'store_window_ref') else None)
+            return False
