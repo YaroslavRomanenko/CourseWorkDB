@@ -29,12 +29,14 @@ CREATE INDEX idx_users_email ON Users(email);
 SELECT * FROM Users;
 
 /* ### Developers ### */
+CREATE TYPE developer_role AS ENUM ('Member', 'Admin');
 
 CREATE TABLE Developers (
 	developer_id SERIAL PRIMARY KEY,
 	user_id INTEGER UNIQUE NOT NULL,
 	studio_id INTEGER NULL,
 	contact_email VARCHAR(30) NULL,
+	role developer_role NOT NULL DEFAULT 'Member',
 
 	CONSTRAINT fk_developer_user
 		FOREIGN KEY (user_id)
@@ -133,6 +135,27 @@ CREATE TABLE Developers_Games (
 );
 
 SELECT * FROM Developers_Games;
+
+CREATE TYPE application_status AS ENUM ('Pending', 'Accepted', 'Rejected');
+
+CREATE TABLE StudioApplications (
+    application_id SERIAL PRIMARY KEY,
+    user_id INTEGER NOT NULL,
+    studio_id INTEGER NOT NULL,
+    application_date TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    status application_status NOT NULL DEFAULT 'Pending',
+    reviewed_by INTEGER NULL,
+    review_date TIMESTAMPTZ NULL,
+
+    CONSTRAINT fk_application_user
+        FOREIGN KEY (user_id) REFERENCES Users (user_id) ON DELETE CASCADE,
+    CONSTRAINT fk_application_studio
+        FOREIGN KEY (studio_id) REFERENCES Studios (studio_id) ON DELETE CASCADE,
+    CONSTRAINT fk_application_reviewer
+        FOREIGN KEY (reviewed_by) REFERENCES Users (user_id) ON DELETE SET NULL, 
+		
+    CONSTRAINT uq_pending_application UNIQUE (user_id, studio_id, status) WHERE (status = 'Pending')
+);
 
 CREATE TYPE purchase_status AS ENUM (
     'Pending',

@@ -179,3 +179,53 @@ def create_scrollable_list(parent, item_creation_func, item_data_list,
         canvas.yview_moveto(0)
 
     return canvas, inner_frame, list_widgets
+
+class CustomAskStringDialog(tk.Toplevel):
+    def __init__(self, parent, title=None, prompt=""):
+        super().__init__(parent)
+        self.transient(parent)
+        self.parent = parent
+        self.result = None 
+
+        if title:
+            self.title(title)
+
+        self.prompt_label = tk.Label(self, text=prompt, justify=tk.LEFT, wraplength=300)
+        self.prompt_label.pack(padx=10, pady=(10, 5))
+
+        self.entry = tk.Entry(self, width=40) 
+        self.entry.pack(padx=10, pady=(0, 10), ipady=2) 
+        setup_text_widget_editing(self.entry) 
+
+        button_frame = tk.Frame(self)
+        button_frame.pack(padx=10, pady=(0, 10))
+
+        ok_button = tk.Button(button_frame, text="OK", width=10, command=self.on_ok)
+        ok_button.pack(side=tk.LEFT, padx=5)
+        cancel_button = tk.Button(button_frame, text="Cancel", width=10, command=self.on_cancel)
+        cancel_button.pack(side=tk.LEFT, padx=5)
+
+        self.bind("<Return>", self.on_ok)
+        self.bind("<Escape>", self.on_cancel)
+
+        self.update_idletasks() 
+        center_window(self, self.winfo_reqwidth(), self.winfo_reqheight()) 
+
+        self.protocol("WM_DELETE_WINDOW", self.on_cancel) 
+
+        self.entry.focus_set()
+
+        self.grab_set() 
+        self.wait_window(self) 
+
+    def on_ok(self, event=None):
+        self.result = self.entry.get()
+        self.destroy_dialog()
+
+    def on_cancel(self, event=None):
+        self.result = None
+        self.destroy_dialog()
+
+    def destroy_dialog(self):
+        self.parent.focus_set()
+        self.destroy()

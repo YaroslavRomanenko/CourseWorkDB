@@ -6,7 +6,7 @@ from functools import partial
 import decimal
 import traceback
 
-from .ui_utils import center_window, create_scrollable_list
+from .ui_utils import center_window, create_scrollable_list, CustomAskStringDialog
 from .ui_library import LibraryTab
 from .ui_studios_tab import StudiosTab
 from .ui_game_details import GameDetailView
@@ -205,9 +205,12 @@ class StoreWindow(tk.Tk):
         self.bind_all("<MouseWheel>", self._on_mousewheel, add='+')
         self.bind_all("<Button-4>", self._on_mousewheel, add='+')
         self.bind_all("<Button-5>", self._on_mousewheel, add='+')
-        self.bind_all("<Button-1>", self._on_global_click, add='+')
 
     def _unfocus_notebook(self, event):
+        grab_holder = self.grab_current()
+        if grab_holder is not None and grab_holder != self:
+            return
+
         self.focus_set()
         self.after_idle(lambda: self.notebook.tk_focusNext().focus_set() if self.notebook.winfo_ismapped() else None)
 
@@ -417,7 +420,12 @@ class StoreWindow(tk.Tk):
 
         return self._load_image_internal(image_filename, full_path, size=size, is_placeholder=is_placeholder_request)
     
+          
     def _on_mousewheel(self, event):
+        grab_holder = self.grab_current()
+        if grab_holder is not None and grab_holder != self:
+             return
+
         widget_under_cursor = event.widget
         target_canvas = None
 
@@ -443,20 +451,39 @@ class StoreWindow(tk.Tk):
                 tab_name = self.notebook.tab(current_tab_index, "text")
 
                 if tab_name == 'Магазин':
-                     if widget_under_cursor.winfo_exists():
-                        try:
-                            is_child = str(self.store_list_frame.winfo_parent()) in str(widget_under_cursor.winfo_pathname(widget_under_cursor.winfo_id()))
-                            if is_child: target_canvas = self.store_canvas
-                        except tk.TclError: pass
+                     if hasattr(self, 'store_canvas') and self.store_canvas:
+                         if widget_under_cursor.winfo_exists():
+                             try:
+                                 parent_check = self.store_inner_frame if hasattr(self, 'store_inner_frame') else self.store_canvas
+                                 if str(parent_check) in str(widget_under_cursor.winfo_pathname(widget_under_cursor.winfo_id())):
+                                     target_canvas = self.store_canvas
+                             except tk.TclError: pass
+                         elif self.store_canvas:
+                              target_canvas = self.store_canvas
+
                 elif tab_name == 'Бібліотека':
                      if hasattr(self, 'library_view') and hasattr(self.library_view, 'library_canvas'):
                          if widget_under_cursor.winfo_exists():
                              try:
-                                is_child = str(self.library_view.library_list_frame.winfo_parent()) in str(widget_under_cursor.winfo_pathname(widget_under_cursor.winfo_id()))
-                                if is_child: target_canvas = self.library_view.library_canvas
+                                 parent_check = self.library_view.library_list_frame if hasattr(self.library_view, 'library_list_frame') else self.library_view.library_canvas
+                                 if str(parent_check) in str(widget_under_cursor.winfo_pathname(widget_under_cursor.winfo_id())):
+                                     target_canvas = self.library_view.library_canvas
                              except tk.TclError: pass
+                         elif self.library_view.library_canvas:
+                             target_canvas = self.library_view.library_canvas
+
+                elif tab_name == 'Студії':
+                     if hasattr(self, 'studios_tab_instance') and hasattr(self.studios_tab_instance, 'studios_canvas'):
+                          if widget_under_cursor.winfo_exists():
+                              try:
+                                  parent_check = self.studios_tab_instance.studios_inner_frame if hasattr(self.studios_tab_instance, 'studios_inner_frame') else self.studios_tab_instance.studios_canvas
+                                  if str(parent_check) in str(widget_under_cursor.winfo_pathname(widget_under_cursor.winfo_id())):
+                                      target_canvas = self.studios_tab_instance.studios_canvas
+                              except tk.TclError: pass
+                          elif self.studios_tab_instance.studios_canvas:
+                                target_canvas = self.studios_tab_instance.studios_canvas
+
             except (tk.TclError, AttributeError): pass
-        else: return
 
         if not target_canvas or not target_canvas.winfo_exists(): return
 
@@ -466,7 +493,13 @@ class StoreWindow(tk.Tk):
             try: delta = -1 if event.delta > 0 else 1
             except AttributeError: return
 
-        target_canvas.yview_scroll(delta, "units")
+        yview_result = target_canvas.yview()
+        can_scroll_up = yview_result[0] > 0.0001
+        can_scroll_down = yview_result[1] < 0.9999
+
+        if (delta < 0 and can_scroll_up) or (delta > 0 and can_scroll_down):
+            target_canvas.yview_scroll(delta, "units")
+
         return "break"
 
     def _on_enter(self, event, frame, icon_widget=None):
@@ -693,11 +726,11 @@ class StoreWindow(tk.Tk):
         self.username_label.bind("<Button-1>", self._on_dropdown_click)
 
         arrow_fg = '#555555'
-        arrow_label = tk.Label(frame, text="▼", font=(self.fonts['ui'][0], 8),
+        self.arrow_label = tk.Label(frame, text="▼", font=(self.fonts['ui'][0], 8),
                                fg=arrow_fg,
                                bg=frame['bg'], cursor="hand2")
-        arrow_label.pack(side=tk.LEFT, padx=(0, 8))
-        arrow_label.bind("<Button-1>", self._on_dropdown_click)
+        self.arrow_label.pack(side=tk.LEFT, padx=(0, 8))
+        self.arrow_label.bind("<Button-1>", self._on_dropdown_click)
 
         self.balance_label = tk.Label(frame, text=f"{self.current_balance:.2f}₴",
                                       font=self.fonts['ui'],
@@ -811,20 +844,25 @@ class StoreWindow(tk.Tk):
     def _on_global_click(self, event):
         if self.user_dropdown_menu:
             try:
-                menu_x = self.user_dropdown_menu.winfo_rootx()
-                menu_y = self.user_dropdown_menu.winfo_rooty()
-                menu_width = self.user_dropdown_menu.winfo_width()
-                menu_height = self.user_dropdown_menu.winfo_height()
+                clicked_widget = event.widget
+                is_click_on_menu = False
+                try:
+                    if str(self.user_dropdown_menu) in str(clicked_widget.winfo_pathname(clicked_widget.winfo_id())):
+                        is_click_on_menu = True
+                except tk.TclError:
+                    pass
 
-                if not (menu_x <= event.x_root < menu_x + menu_width and
-                        menu_y <= event.y_root < menu_y + menu_height):
+                is_click_on_trigger = (clicked_widget == self.username_label or
+                                       (hasattr(self, 'arrow_label') and clicked_widget == self.arrow_label) )
+
+                if not is_click_on_menu and not is_click_on_trigger:
+                    print("Global click detected outside menu/trigger, unposting menu.")
                     self.user_dropdown_menu.unpost()
             except tk.TclError:
-                self.user_dropdown_menu = None
+                 self.user_dropdown_menu = None
             except Exception as e:
-                print(f"Error in _on_global_click: {e}")
-                self.user_dropdown_menu = None
-
+                print(f"Error in _on_global_click during menu check: {e}")
+                
     def _logout(self):
         if messagebox.askyesno("Вихід", "Ви впевнені, що хочете вийти з акаунту?", parent=self):
             print("Logging out...")
@@ -1071,63 +1109,63 @@ class StoreWindow(tk.Tk):
             messagebox.showinfo("Статус розробника", "Ви вже є розробником.", parent=self)
             return
 
-        contact_email = simpledialog.askstring(
-            "Стати розробником",
+        dialog_prompt = (
             "Будь ласка, введіть вашу **робочу** електронну пошту.\n"
             "Вона може бути використана для зв'язку зі студіями або адміністрацією.\n\n"
-            "Ваша основна пошта акаунту залишиться незмінною.",
-            parent=self
+            "Ваша основна пошта акаунту залишиться незмінною."
         )
+        dialog = CustomAskStringDialog(self, title="Стати розробником", prompt=dialog_prompt)
+        contact_email = dialog.result
 
-        if contact_email:
-            contact_email = contact_email.strip()
-            if not contact_email:
-                messagebox.showwarning("Помилка", "Ви не ввели електронну пошту.", parent=self)
-                return
-            if "@" not in contact_email or "." not in contact_email.split('@')[-1]:
-                 messagebox.showwarning("Помилка", "Будь ласка, введіть дійсну адресу електронної пошти.", parent=self)
+        if contact_email is not None:
+             contact_email = contact_email.strip()
+             if not contact_email:
+                 messagebox.showwarning("Помилка", "Ви не ввели електронну пошту.", parent=self)
                  return
+             if "@" not in contact_email or "." not in contact_email.split('@')[-1]:
+                  messagebox.showwarning("Помилка", "Будь ласка, введіть дійсну адресу електронної пошти.", parent=self)
+                  return
 
-            confirm = messagebox.askyesno("Підтвердження",
-                                       f"Ви впевнені, що хочете отримати статус розробника?\n"
-                                       f"Контактна пошта розробника буде встановлена як:\n{contact_email}",
-                                       parent=self)
+             confirm = messagebox.askyesno("Підтвердження",
+                                        f"Ви впевнені, що хочете отримати статус розробника?\n"
+                                        f"Контактна пошта розробника буде встановлена як:\n{contact_email}",
+                                        parent=self)
 
-            if confirm:
-                print(f"StoreWindow (Workshop): User ID {self.current_user_id} confirmed becoming a developer with contact email: {contact_email}.")
-                success = False
-                try:
-                    success = self.db_manager.set_developer_status(
-                        self.current_user_id,
-                        status=True,
-                        contact_email=contact_email
-                    )
-                except TypeError as te:
-                     if 'contact_email' in str(te) or "unexpected keyword argument 'contact_email'" in str(te):
-                         messagebox.showerror("Помилка Програми", "Помилка: Метод set_developer_status не оновлено для прийому contact_email.", parent=self)
-                         print("!!! PROGRAM ERROR: db_manager.set_developer_status needs 'contact_email' argument or handling !!!")
-                         return
-                     else:
-                         messagebox.showerror("Помилка Типу", f"Помилка під час виклику функції розробника:\n{te}", parent=self)
-                         traceback.print_exc()
-                         return
-                except AttributeError:
-                    messagebox.showerror("Помилка", "Функція зміни статусу розробника не реалізована в DB Manager.", parent=self)
-                    return
-                except Exception as e:
-                     messagebox.showerror("Помилка Бази Даних", f"Не вдалося оновити статус:\n{e}", parent=self)
-                     traceback.print_exc()
+             if confirm:
+                 print(f"StoreWindow (Workshop): User ID {self.current_user_id} confirmed becoming a developer with contact email: {contact_email}.")
+                 success = False
+                 try:
+                     success = self.db_manager.set_developer_status(
+                         self.current_user_id,
+                         status=True,
+                         contact_email=contact_email
+                     )
+                 except TypeError as te:
+                      if 'contact_email' in str(te) or "unexpected keyword argument 'contact_email'" in str(te):
+                          messagebox.showerror("Помилка Програми", "Помилка: Метод set_developer_status не оновлено для прийому contact_email.", parent=self)
+                          print("!!! PROGRAM ERROR: db_manager.set_developer_status needs 'contact_email' argument or handling !!!")
+                          return
+                      else:
+                          messagebox.showerror("Помилка Типу", f"Помилка під час виклику функції розробника:\n{te}", parent=self)
+                          traceback.print_exc()
+                          return
+                 except AttributeError:
+                     messagebox.showerror("Помилка", "Функція зміни статусу розробника не реалізована в DB Manager.", parent=self)
                      return
+                 except Exception as e:
+                      messagebox.showerror("Помилка Бази Даних", f"Не вдалося оновити статус:\n{e}", parent=self)
+                      traceback.print_exc()
+                      return
 
-                if success:
-                    messagebox.showinfo("Успіх", "Вітаємо! Ви отримали статус розробника.", parent=self)
-                    self.update_developer_status(True)
-                    self._setup_workshop_tab()
-                else:
-                    print("StoreWindow (Workshop): Failed to set developer status in DB (error message should have been shown by DBManager).")
+                 if success:
+                     messagebox.showinfo("Успіх", "Вітаємо! Ви отримали статус розробника.", parent=self)
+                     self.update_developer_status(True)
+                     self._setup_workshop_tab()
+                 else:
+                     print("StoreWindow (Workshop): Failed to set developer status in DB (error message should have been shown by DBManager).")
         else:
-            print("StoreWindow (Workshop): Becoming developer cancelled by user.")
-
+             print("StoreWindow (Workshop): Becoming developer cancelled by user.")
+             
     def refresh_user_info_display(self):
         print("StoreWindow: Refreshing user info display...")
         self._fetch_and_set_user_info()
