@@ -16,7 +16,6 @@ class StudioDetailView(tk.Frame):
                  image_cache, placeholder_detail, studio_logo_folder,
                  **kwargs):
         super().__init__(parent, bg=colors.get('original_bg', 'white'), **kwargs)
-
         self.db_manager = db_manager
         self.studio_name = studio_name
         self.fonts = fonts
@@ -28,19 +27,36 @@ class StudioDetailView(tk.Frame):
         self.placeholder_image_detail = placeholder_detail
         self.logo_folder = studio_logo_folder
         self.studio_logo_size = (128, 128)
-
         self.studio_details = None
         self.studio_title_label = None
         self.logo_label = None
         self.description_content_label = None
         self.details_content_label = None
         self.apply_button = None
+        self.applications_frame = None
+        self.is_current_user_admin = False
 
         self._fetch_studio_data()
+        self._check_admin_status()
         self._setup_ui()
 
         self.bind("<Configure>", lambda e: self.after_idle(lambda: self._update_wraplengths(e.width)))
-
+          
+    def _check_admin_status(self):
+        self.is_current_user_admin = False
+        if self.studio_details and self.store_window_ref and self.db_manager:
+            studio_id = self.studio_details.get('studio_id')
+            current_user_id = self.store_window_ref.current_user_id
+            if studio_id and current_user_id:
+                try:
+                    role = self.db_manager.check_developer_role(current_user_id, studio_id)
+                    if role == 'Admin':
+                        self.is_current_user_admin = True
+                        print(f"StudioDetailView: User {current_user_id} is an 'Admin' for studio {studio_id}")
+                    else:
+                         print(f"StudioDetailView: User {current_user_id} is not an admin for studio {studio_id}. Role: {role}")
+                except Exception as e:
+                     print(f"Error checking admin status: {e}")
           
     def _fetch_studio_data(self):
         print(f"StudioDetailView: Fetching details for studio: {self.studio_name}")
@@ -83,7 +99,6 @@ class StudioDetailView(tk.Frame):
     def _setup_ui(self):
         for widget in self.winfo_children():
             widget.destroy()
-
         self.grid_columnconfigure(0, weight=1)
         current_row = 0
         initial_wraplength = 10000
@@ -93,151 +108,162 @@ class StudioDetailView(tk.Frame):
         top_frame.grid(row=current_row, column=0, sticky='new', padx=10, pady=10)
         top_frame.grid_columnconfigure(1, weight=1)
         current_row += 1
-
         self.logo_label = tk.Label(top_frame, background=bg_color)
         logo_filename = self.studio_details.get('logo') if self.studio_details else None
         tk_logo_image = self._get_image(logo_filename, size=self.studio_logo_size)
-
         if tk_logo_image:
-            self.logo_label.config(image=tk_logo_image)
-            self.logo_label.image = tk_logo_image
+            self.logo_label.config(image=tk_logo_image); self.logo_label.image = tk_logo_image
         else:
             self.logo_label.config(text="Лого?", font=self.fonts.get('ui', ("Verdana", 10)), width=16, height=8, relief="solid", borderwidth=1)
         self.logo_label.grid(row=0, column=0, rowspan=2, padx=(0, 20), pady=0, sticky='nw')
-
         display_name = self.studio_name
-        if self.studio_details and self.studio_details.get('name'):
-            display_name = self.studio_details['name']
-
-        self.studio_title_label = tk.Label(top_frame, text=display_name,
-                                            font=self.fonts.get('title', ("Verdana", 16, "bold")),
-                                            bg=bg_color,
-                                            wraplength=initial_wraplength,
-                                            justify=tk.LEFT, anchor='nw')
+        if self.studio_details and self.studio_details.get('name'): display_name = self.studio_details['name']
+        self.studio_title_label = tk.Label(top_frame, text=display_name, font=self.fonts.get('title', ("Verdana", 16, "bold")), bg=bg_color, wraplength=initial_wraplength, justify=tk.LEFT, anchor='nw')
         self.studio_title_label.grid(row=0, column=1, sticky='nw', pady=(0, 5))
-
         info_frame_under_title = tk.Frame(top_frame, bg=bg_color)
         info_frame_under_title.grid(row=1, column=1, sticky='nw')
-        self.apply_button = ttk.Button(
-            info_frame_under_title,
-            text="Подати заявку на вступ",
-            command=self._submit_application,
-            style=self.styles.get('custom_button', 'TButton')
-        )
+        self.apply_button = ttk.Button(info_frame_under_title, text="Подати заявку на вступ", command=self._submit_application, style=self.styles.get('custom_button', 'TButton'))
         if self.studio_details:
              self.apply_button.pack(pady=(5, 0))
-             self._bind_mousewheel_to_children(self.apply_button)
-        else:
-             self.apply_button = None
+        else: self.apply_button = None
 
         separator1 = ttk.Separator(self, orient='horizontal')
-        separator1.grid(row=current_row, column=0, sticky='ew', padx=10, pady=(5, 10))
-        current_row += 1
-
-        desc_title_label = None
-        error_label = None
+        separator1.grid(row=current_row, column=0, sticky='ew', padx=10, pady=(5, 10)); current_row += 1
+        desc_title_label = None; error_label = None
         target_font = self.fonts.get('description', ("Verdana", 10))
-
         if self.studio_details:
             if self.studio_details.get('description'):
-                desc_title_label = tk.Label(self, text="Опис:",
-                                            font=self.fonts.get('section_header', ("Verdana", 12, "bold")),
-                                            bg=bg_color)
-                desc_title_label.grid(row=current_row, column=0, sticky='w', padx=10, pady=(0, 5))
-                current_row += 1
-
+                desc_title_label = tk.Label(self, text="Опис:", font=self.fonts.get('section_header', ("Verdana", 12, "bold")), bg=bg_color)
+                desc_title_label.grid(row=current_row, column=0, sticky='w', padx=10, pady=(0, 5)); current_row += 1
                 description = self.studio_details.get('description', 'Опис відсутній.')
-                self.description_content_label = tk.Label(self, text=description,
-                                                          font=target_font,
-                                                          bg=bg_color,
-                                                          wraplength=initial_wraplength, justify=tk.LEFT, anchor='nw')
-                self.description_content_label.grid(row=current_row, column=0, sticky='ew', padx=10, pady=(0, 10))
-                current_row += 1
+                self.description_content_label = tk.Label(self, text=description, font=target_font, bg=bg_color, wraplength=initial_wraplength, justify=tk.LEFT, anchor='nw')
+                self.description_content_label.grid(row=current_row, column=0, sticky='ew', padx=10, pady=(0, 10)); current_row += 1
         else:
-             error_label = tk.Label(self, text=f"Не вдалося завантажити інформацію для студії '{self.studio_name}'.",
-                                     font=target_font, fg='red',
-                                     bg=bg_color)
-             error_label.grid(row=current_row, column=0, sticky='nw', padx=10, pady=20)
-             current_row += 1
+             error_label = tk.Label(self, text=f"Не вдалося завантажити інформацію для студії '{self.studio_name}'.", font=target_font, fg='red', bg=bg_color)
+             error_label.grid(row=current_row, column=0, sticky='nw', padx=10, pady=20); current_row += 1
 
         separator2 = ttk.Separator(self, orient='horizontal')
-        separator2.grid(row=current_row, column=0, sticky='ew', padx=10, pady=10)
-        current_row += 1
-
-        details_title_label = tk.Label(self, text="Деталі:",
-                                      font=self.fonts.get('section_header', ("Verdana", 12, "bold")),
-                                      bg=bg_color)
-        details_title_label.grid(row=current_row, column=0, sticky='w', padx=10, pady=(0, 5))
-        current_row += 1
-
+        separator2.grid(row=current_row, column=0, sticky='ew', padx=10, pady=10); current_row += 1
+        details_title_label = tk.Label(self, text="Деталі:", font=self.fonts.get('section_header', ("Verdana", 12, "bold")), bg=bg_color)
+        details_title_label.grid(row=current_row, column=0, sticky='w', padx=10, pady=(0, 5)); current_row += 1
         details_frame = tk.Frame(self, bg=bg_color)
-        details_frame.grid(row=current_row, column=0, sticky='ew', padx=10, pady=(0, 5))
+        details_frame.grid(row=current_row, column=0, sticky='ew', padx=10, pady=(0, 5)); current_row += 1
         details_frame.grid_columnconfigure(1, weight=1)
-        current_row += 1
-
-        details_row_internal = 0
-        website_link_label = None
+        details_row_internal = 0; website_link_label = None
         if self.studio_details:
             if self.studio_details.get('country'):
-                country_prefix = tk.Label(details_frame, text="Країна:", font=target_font, bg=bg_color, anchor='nw')
-                country_prefix.grid(row=details_row_internal, column=0, sticky='nw', padx=(0,5))
-                country_value = tk.Label(details_frame, text=self.studio_details['country'], font=target_font, bg=bg_color, anchor='nw', justify=tk.LEFT)
-                country_value.grid(row=details_row_internal, column=1, sticky='nw')
-                details_row_internal += 1
-
+                country_prefix = tk.Label(details_frame, text="Країна:", font=target_font, bg=bg_color, anchor='nw'); country_prefix.grid(row=details_row_internal, column=0, sticky='nw', padx=(0,5))
+                country_value = tk.Label(details_frame, text=self.studio_details['country'], font=target_font, bg=bg_color, anchor='nw', justify=tk.LEFT); country_value.grid(row=details_row_internal, column=1, sticky='nw'); details_row_internal += 1
             date_val = self.studio_details.get('established_date')
             if date_val:
                 formatted_date = str(date_val)
-                try:
-                    if isinstance(date_val, datetime):
-                        formatted_date = date_val.strftime('%d-%m-%Y')
-                    else:
-                        dt_obj = datetime.strptime(str(date_val), '%Y-%m-%d')
-                        formatted_date = dt_obj.strftime('%d-%m-%Y')
-                except (ValueError, TypeError) as e:
-                    print(f"Could not format date '{date_val}': {e}")
-                    formatted_date = str(date_val)
-
-                date_prefix = tk.Label(details_frame, text="Засновано:", font=target_font, bg=bg_color, anchor='nw')
-                date_prefix.grid(row=details_row_internal, column=0, sticky='nw', padx=(0,5))
-                date_value = tk.Label(details_frame, text=formatted_date, font=target_font, bg=bg_color, anchor='nw', justify=tk.LEFT)
-                date_value.grid(row=details_row_internal, column=1, sticky='nw')
-                details_row_internal += 1
-
+                try: formatted_date = (date_val.strftime('%d-%m-%Y') if isinstance(date_val, datetime) else datetime.strptime(str(date_val), '%Y-%m-%d').strftime('%d-%m-%Y')) 
+                except Exception: pass
+                
+                date_prefix = tk.Label(details_frame, text="Засновано:", font=target_font, bg=bg_color, anchor='nw'); date_prefix.grid(row=details_row_internal, column=0, sticky='nw', padx=(0,5))
+                date_value = tk.Label(details_frame, text=formatted_date, font=target_font, bg=bg_color, anchor='nw', justify=tk.LEFT); date_value.grid(row=details_row_internal, column=1, sticky='nw'); details_row_internal += 1
             website_url = self.studio_details.get('website_url')
             if website_url:
-                website_prefix = tk.Label(details_frame, text="Веб-сайт:", font=target_font, bg=bg_color, anchor='nw')
-                website_prefix.grid(row=details_row_internal, column=0, sticky='nw', padx=(0,5))
+                website_prefix = tk.Label(details_frame, text="Веб-сайт:", font=target_font, bg=bg_color, anchor='nw'); website_prefix.grid(row=details_row_internal, column=0, sticky='nw', padx=(0,5))
+                link_font_tuple = list(target_font); link_font_tuple.append("underline"); link_font = tuple(link_font_tuple)
+                website_link_label = tk.Label(details_frame, text=website_url, font=link_font, fg=self.colors.get('link_fg', 'blue'), cursor="hand2", bg=bg_color, anchor='nw', justify=tk.LEFT); website_link_label.grid(row=details_row_internal, column=1, sticky='nw')
+                website_link_label.bind("<Button-1>", partial(self._open_website, website_url)); details_row_internal += 1
 
-                link_font_tuple = list(target_font)
-                if len(link_font_tuple) < 3 or "underline" not in link_font_tuple[2]:
-                    if len(link_font_tuple) >= 3:
-                        link_font_tuple[2] = f"{link_font_tuple[2]} underline".replace(" normal","").strip()
-                    else:
-                        link_font_tuple.append("underline")
-                link_font = tuple(link_font_tuple)
-
-
-                website_link_label = tk.Label(details_frame, text=website_url,
-                                              font=link_font,
-                                              fg=self.colors.get('link_fg', 'blue'),
-                                              cursor="hand2",
-                                              bg=bg_color,
-                                              anchor='nw', justify=tk.LEFT)
-                website_link_label.grid(row=details_row_internal, column=1, sticky='nw')
-                website_link_label.bind("<Button-1>", partial(self._open_website, website_url))
-                self._bind_mousewheel_to_children(website_link_label)
-                details_row_internal += 1
+        if self.is_current_user_admin:
+            separator3 = ttk.Separator(self, orient='horizontal')
+            separator3.grid(row=current_row, column=0, sticky='ew', padx=10, pady=10); current_row += 1
+            apps_title_label = tk.Label(self, text="Заявки на вступ:", font=self.fonts.get('section_header', ("Verdana", 12, "bold")), bg=bg_color)
+            apps_title_label.grid(row=current_row, column=0, sticky='w', padx=10, pady=(0, 5)); current_row += 1
+            self.applications_frame = tk.Frame(self, bg=self.colors.get('hover_bg', '#f0f0f0'))
+            self.applications_frame.grid(row=current_row, column=0, sticky='ew', padx=10, pady=(0, 10))
+            self.applications_frame.grid_columnconfigure(0, weight=1)
+            self.applications_frame.grid_columnconfigure(1, weight=0)
+            self.applications_frame.grid_columnconfigure(2, weight=0)
+            self.applications_frame.grid_columnconfigure(3, weight=0)
+            current_row += 1
+            self._load_and_display_applications()
+        else:
+             self.applications_frame = None
 
         widgets_to_bind = [self, top_frame, self.logo_label, self.studio_title_label, info_frame_under_title, separator1, separator2, details_title_label, details_frame]
+        if self.apply_button: widgets_to_bind.append(self.apply_button)
         if desc_title_label: widgets_to_bind.append(desc_title_label)
         if self.description_content_label: widgets_to_bind.append(self.description_content_label)
         if error_label: widgets_to_bind.append(error_label)
-        for child in details_frame.winfo_children():
-            if child != website_link_label:
+        if website_link_label: widgets_to_bind.append(website_link_label)
+        for child in details_frame.winfo_children(): widgets_to_bind.append(child)
+        if self.applications_frame:
+            widgets_to_bind.append(separator3)
+            widgets_to_bind.append(apps_title_label)
+            widgets_to_bind.append(self.applications_frame)
+            for child in self.applications_frame.winfo_children():
                  widgets_to_bind.append(child)
-
         self._bind_mousewheel_to_children(widgets_to_bind)
+        
+    def _load_and_display_applications(self):
+        if not self.applications_frame or not self.is_current_user_admin:
+            return
+
+        studio_id = self.studio_details.get('studio_id')
+        current_user_id = self.store_window_ref.current_user_id
+        if not studio_id or not current_user_id:
+            return
+
+        for widget in self.applications_frame.winfo_children(): widget.destroy()
+        pending_apps = None
+        try:
+            pending_apps = self.db_manager.fetch_pending_applications(studio_id, current_user_id)
+        except Exception as e:
+             print(f"Error fetching pending applications UI: {e}")
+             messagebox.showerror("Помилка", f"Не вдалося завантажити заявки:\n{e}", parent=self)
+
+        if pending_apps is None:
+            tk.Label(self.applications_frame, text="Помилка завантаження заявок.", fg="red", bg=self.applications_frame['bg']).grid(row=0, column=0, columnspan=4, pady=5)
+        elif not pending_apps:
+            tk.Label(self.applications_frame, text="Немає заявок на розгляд.", bg=self.applications_frame['bg']).grid(row=0, column=0, columnspan=4, pady=5)
+        else:
+            app_row = 0
+            for app in pending_apps:
+                app_id = app['id']; username = app['username']; date_obj = app['date']
+                date_str = date_obj.strftime('%d-%m-%Y %H:%M') if date_obj else "Невідомо"
+                username_label = tk.Label(self.applications_frame, text=username, anchor='w', bg=self.applications_frame['bg'])
+                username_label.grid(row=app_row, column=0, sticky='w', padx=5, pady=2)
+                date_label = tk.Label(self.applications_frame, text=date_str, anchor='w', bg=self.applications_frame['bg'], fg='grey')
+                date_label.grid(row=app_row, column=1, sticky='w', padx=10, pady=2)
+                accept_button = ttk.Button(self.applications_frame, text="Прийняти", width=10, style=self.styles.get('custom_button', 'TButton'), command=partial(self._accept_application, app_id))
+                accept_button.grid(row=app_row, column=2, padx=5, pady=2)
+                reject_button = ttk.Button(self.applications_frame, text="Відхилити", width=10, style=self.styles.get('custom_button', 'TButton'), command=partial(self._reject_application, app_id))
+                reject_button.grid(row=app_row, column=3, padx=5, pady=2)
+                app_row += 1
+            widgets_to_bind_scroll = [self.applications_frame]
+            for child in self.applications_frame.winfo_children(): widgets_to_bind_scroll.append(child)
+            self._bind_mousewheel_to_children(widgets_to_bind_scroll)
+        
+    def _accept_application(self, application_id):
+        if not self.is_current_user_admin: return
+        current_user_id = self.store_window_ref.current_user_id
+        print(f"UI: Admin {current_user_id} accepting application {application_id}")
+        success = False
+        try:
+             success = self.db_manager.process_studio_application(application_id, 'Accepted', current_user_id)
+        except Exception as e:
+             messagebox.showerror("Помилка", f"Не вдалося прийняти заявку:\n{e}", parent=self)
+        if success:
+             messagebox.showinfo("Успіх", "Заявку прийнято.", parent=self)
+             self._load_and_display_applications()
+        
+    def _reject_application(self, application_id):
+        if not self.is_current_user_admin: return
+        current_user_id = self.store_window_ref.current_user_id
+        print(f"UI: Admin {current_user_id} rejecting application {application_id}")
+        success = False
+        try:
+             success = self.db_manager.process_studio_application(application_id, 'Rejected', current_user_id)
+        except Exception as e:
+             messagebox.showerror("Помилка", f"Не вдалося відхилити заявку:\n{e}", parent=self)
+        if success:
+             messagebox.showinfo("Успіх", "Заявку відхилено.", parent=self)
+             self._load_and_display_applications()
         
     def _submit_application(self):
         if not self.store_window_ref or not hasattr(self.store_window_ref, 'is_developer'):

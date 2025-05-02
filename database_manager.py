@@ -857,43 +857,8 @@ class DatabaseManager:
             traceback.print_exc()
             messagebox.showerror("Неочікувана Помилка", f"Сталася помилка під час подання заявки:\n{e}", parent=self.store_window_ref if hasattr(self, 'store_window_ref') else None)
             return False
-    
-    def get_developer_studio_id(self, user_id):
-        query = "SELECT studio_id FROM Developers WHERE user_id = %s;"
-        result = self.execute_query(query, (user_id,), fetch_one=True)
-        return result[0] if result and result[0] is not None else None
-    
-    def check_developer_role(self, user_id, studio_id):
-        query = "SELECT role FROM Developers WHERE user_id = %s AND studio_id = %s;"
-        result = self.execute_query(query, (user_id, studio_id), fetch_one=True)
-        return result[0] if result else None
-    
-    def fetch_pending_applications(self, studio_id, superdeveloper_user_id):
-        print(f"DB: Fetching pending applications for studio {studio_id} by user {superdeveloper_user_id}")
-        role = self.check_developer_role(superdeveloper_user_id, studio_id)
-        if role not in ('Superdeveloper', 'Admin'):
-            print(f"DB: User {superdeveloper_user_id} is not a superdeveloper/admin for studio {studio_id}. Role: {role}")
-            return []
-
-        query = sql.SQL("""
-            SELECT sa.application_id, u.username, sa.application_date
-            FROM StudioApplications sa
-            JOIN Users u ON sa.user_id = u.user_id
-            WHERE sa.studio_id = %s AND sa.status = 'Pending'
-            ORDER BY sa.application_date ASC;
-        """)
-        try:
-            results = self.execute_query(query, (studio_id,), fetch_all=True)
-            if results is None: return None
-            apps = [{'id': row[0], 'username': row[1], 'date': row[2]} for row in results]
-            print(f"DB: Found {len(apps)} pending applications for studio {studio_id}.")
-            return apps
-        except Exception as e:
-            print(f"DB: Error fetching pending applications for studio {studio_id}: {e}")
-            traceback.print_exc()
-            return None
         
-    def process_studio_application(self, application_id, new_status, superdeveloper_user_id):
+    def process_studio_application(self, application_id, new_status, admin_user_id):
         conn = self.get_connection()
         if not conn:
             messagebox.showerror("Помилка Бази Даних", "Немає підключення до бази даних.")
@@ -903,7 +868,7 @@ class DatabaseManager:
             print(f"DB Error: Invalid new status '{new_status}' for application processing.")
             return False
 
-        print(f"DB: Processing application {application_id} to status '{new_status}' by user {superdeveloper_user_id}")
+        print(f"DB: Processing application {application_id} to status '{new_status}' by admin {admin_user_id}")
 
         studio_id = None
         applicant_user_id = None
@@ -924,11 +889,11 @@ class DatabaseManager:
 
                     cur.execute("""
                         SELECT 1 FROM Developers
-                        WHERE user_id = %s AND studio_id = %s AND role IN ('Superdeveloper', 'Admin');
-                    """, (superdeveloper_user_id, studio_id))
+                        WHERE user_id = %s AND studio_id = %s AND role = 'Admin';
+                    """, (admin_user_id, studio_id))
                     if cur.fetchone() is None:
-                        print(f"DB: User {superdeveloper_user_id} is not authorized to process applications for studio {studio_id}.")
-                        messagebox.showerror("Відмовлено в доступі", "Ви не маєте прав обробляти заявки для цієї студії.", parent=self.store_window_ref if hasattr(self, 'store_window_ref') else None)
+                        print(f"DB: User {admin_user_id} is not authorized (not Admin) to process applications for studio {studio_id}.")
+                        messagebox.showerror("Відмовлено в доступі", "Ви не маєте прав (Адміністратор) обробляти заявки для цієї студії.", parent=self.store_window_ref if hasattr(self, 'store_window_ref') else None)
                         conn.rollback()
                         return False
 
@@ -936,7 +901,7 @@ class DatabaseManager:
                         UPDATE StudioApplications
                         SET status = %s, reviewed_by = %s, review_date = CURRENT_TIMESTAMP
                         WHERE application_id = %s;
-                    """, (new_status, superdeveloper_user_id, application_id))
+                    """, (new_status, admin_user_id, application_id))
                     if cur.rowcount == 0:
                         print(f"DB: Failed to update application {application_id} status.")
                         conn.rollback()
@@ -950,7 +915,7 @@ class DatabaseManager:
                         if cur.rowcount == 0:
                             print(f"DB Warning: Could not assign accepted user {applicant_user_id} to studio {studio_id}. User not found in Developers or already has a studio.")
                         else:
-                             print(f"DB: User {applicant_user_id} successfully added to studio {studio_id}.")
+                             print(f"DB: User {applicant_user_id} successfully added to studio {studio_id} as Member.")
 
             print(f"DB: Application {application_id} processed successfully to status '{new_status}'.")
             return True
@@ -964,3 +929,40 @@ class DatabaseManager:
             traceback.print_exc()
             messagebox.showerror("Неочікувана Помилка", f"Сталася помилка під час обробки заявки:\n{e}", parent=self.store_window_ref if hasattr(self, 'store_window_ref') else None)
             return False
+    
+    def fetch_pending_applications(self, studio_id, admin_user_id):
+        print(f"DB: Fetching pending applications for studio {studio_id} by admin {admin_user_id}")
+        role = self.check_developer_role(admin_user_id, studio_id)
+        if role != 'Admin':
+            print(f"DB: User {admin_user_id} is not an admin for studio {studio_id}. Role: {role}")
+            return []
+
+        query = sql.SQL("""
+            SELECT sa.application_id, u.username, sa.application_date
+            FROM StudioApplications sa
+            JOIN Users u ON sa.user_id = u.user_id
+            WHERE sa.studio_id = %s AND sa.status = 'Pending'
+            ORDER BY sa.application_date ASC;
+        """)
+        try:
+            results = self.execute_query(query, (studio_id,), fetch_all=True)
+            if results is None: return None
+            apps = [{'id': row[0], 'username': row[1], 'date': row[2]} for row in results]
+            print(f"DB: Found {len(apps)} pending applications for studio {studio_id}.")
+            return apps
+        except Exception as e:
+            print(f"DB: Error fetching pending applications for studio {studio_id}: {e}")
+            traceback.print_exc()
+            return None
+          
+    def get_developer_studio_id(self, user_id):
+        query = "SELECT studio_id FROM Developers WHERE user_id = %s;"
+        result = self.execute_query(query, (user_id,), fetch_one=True)
+        return result[0] if result and result[0] is not None else None
+          
+    def check_developer_role(self, user_id, studio_id):
+        query = "SELECT role FROM Developers WHERE user_id = %s AND studio_id = %s;"
+        result = self.execute_query(query, (user_id, studio_id), fetch_one=True)
+        return result[0] if result else None
+
+    

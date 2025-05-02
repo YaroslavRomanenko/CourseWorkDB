@@ -163,7 +163,6 @@ CREATE INDEX idx_studioapplications_status ON StudioApplications(status);
 
 SELECT * FROM StudioApplications;
 
-
 CREATE TYPE purchase_status AS ENUM (
     'Pending',
     'Completed',
