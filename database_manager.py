@@ -438,7 +438,7 @@ class DatabaseManager:
             print(f"DB: Error checking ownership for user {user_id}, game {game_id}: {e}")
             return False
         
-    def add_or_update_review(self, user_id, game_id, review_text, rating=None):
+    def add_or_update_review(self, user_id, game_id, review_text):
         """Adds a new review on a game from the user"""
         conn = self.get_connection()
         if not conn:
@@ -446,10 +446,10 @@ class DatabaseManager:
             return False
 
         query = sql.SQL("""
-            INSERT INTO reviews (user_id, game_id, review_text, rating, review_date)
-            VALUES (%s, %s, %s, %s, CURRENT_TIMESTAMP);
+            INSERT INTO reviews (user_id, game_id, review_text, review_date)
+            VALUES (%s, %s, %s, CURRENT_TIMESTAMP);
         """)
-        params = (user_id, game_id, review_text, rating)
+        params = (user_id, game_id, review_text)
 
         try:
             with conn:

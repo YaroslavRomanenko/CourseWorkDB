@@ -809,12 +809,10 @@ class StoreWindow(tk.Tk):
 
         print("Clicked on dropdown arrow/username - creating menu")
         self.user_dropdown_menu = tk.Menu(self, tearoff=0)
-        self.user_dropdown_menu.add_command(label="Налаштування акаунту (неактивно)")
-        self.user_dropdown_menu.add_command(label="Додати кошти (неактивно)")
-        self.user_dropdown_menu.add_separator()
+
         self.user_dropdown_menu.add_command(label="Видалити акаунт", command=self._delete_account, foreground="red")
-        self.user_dropdown_menu.add_separator()
         self.user_dropdown_menu.add_command(label="Вийти", command=self._logout)
+        
         self.user_dropdown_menu.bind("<Unmap>", self._on_menu_unmap, add='+')
 
         widget = event.widget

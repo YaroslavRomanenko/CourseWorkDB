@@ -9,7 +9,7 @@ from functools import partial
 import traceback
 
 from datetime import datetime
-from .ui_utils import setup_text_widget_editing, center_window
+from .ui_utils import *
 
 class GameDetailView(tk.Frame):
     def __init__(self, parent, db_manager, user_id, game_id, game_data,
@@ -66,7 +66,6 @@ class GameDetailView(tk.Frame):
         if len(link_font_tuple) == 2: link_font_tuple.append("underline")
         elif len(link_font_tuple) > 2: link_font_tuple[2] = f"{link_font_tuple[2]} underline".replace(" normal","").strip()
         self.dev_pub_link_font = tuple(link_font_tuple)
-
         self.price_font = self.fonts.get('price', ("Verdana", 12))
         self.review_author_font = self.fonts.get('review_author', ("Verdana", 9, "bold"))
         self.review_text_font = self.fonts.get('review_text', ("Verdana", 9))
@@ -178,8 +177,7 @@ class GameDetailView(tk.Frame):
         icon_label = tk.Label(top_info_frame, background=self.original_bg)
         tk_detail_image = self._get_image(self.game_data.get('image'), size=self.detail_icon_size)
         if tk_detail_image:
-            icon_label.config(image=tk_detail_image)
-            icon_label.image = tk_detail_image
+            icon_label.config(image=tk_detail_image); icon_label.image = tk_detail_image
         else:
             icon_label.config(text="Фото?", font=self.ui_font, width=20, height=10, relief="solid", borderwidth=1)
         icon_label.grid(row=0, column=0, rowspan=3, padx=(0, 20), pady=0, sticky='nw')
@@ -189,69 +187,36 @@ class GameDetailView(tk.Frame):
         info_frame.grid_columnconfigure(0, weight=1)
         info_row = 0
 
-        self.title_label = tk.Label(info_frame, text=self.game_data.get('title', 'Назва невідома'),
-                                    font=self.title_font, background=self.original_bg,
-                                    justify=tk.LEFT, anchor='nw',
-                                    wraplength=initial_wraplength)
-        self.title_label.grid(row=info_row, column=0, sticky='nw', pady=(0, 10))
-        info_row += 1
+        self.title_label = tk.Label(info_frame, text=self.game_data.get('title', 'Назва невідома'), font=self.title_font, background=self.original_bg, justify=tk.LEFT, anchor='nw', wraplength=initial_wraplength)
+        self.title_label.grid(row=info_row, column=0, sticky='nw', pady=(0, 10)); info_row += 1
 
         self.price_buy_frame = tk.Frame(info_frame, background=self.original_bg)
-        self.price_buy_frame.grid(row=info_row, column=0, sticky='nw', pady=(0, 10))
+        self.price_buy_frame.grid(row=info_row, column=0, sticky='nw', pady=(0, 10)); info_row += 1
         self._build_price_buy_content()
-        info_row += 1
 
         self.dev_pub_frame = tk.Frame(info_frame, background=self.original_bg)
         self.dev_pub_frame.grid(row=info_row, column=0, sticky='nw')
         self.dev_pub_frame.grid_columnconfigure(0, weight=0)
         self.dev_pub_frame.grid_columnconfigure(1, weight=1)
         dev_pub_row = 0
-
         developer_text = ", ".join(self.developer_names) if self.developer_names else ""
         if developer_text:
-            self.info_developer_prefix_label = tk.Label(self.dev_pub_frame, text="Розробник:",
-                                                        font=self.dev_pub_bold_font, background=self.original_bg,
-                                                        justify=tk.LEFT, anchor='nw')
+            self.info_developer_prefix_label = tk.Label(self.dev_pub_frame, text="Розробник:", font=self.dev_pub_bold_font, background=self.original_bg, justify=tk.LEFT, anchor='nw')
             self.info_developer_prefix_label.grid(row=dev_pub_row, column=0, sticky='nw', padx=(0, 5))
-
-            self.info_developer_names_label = tk.Label(self.dev_pub_frame, text=developer_text,
-                                                       font=self.dev_pub_link_font,
-                                                       fg=self.link_fg,
-                                                       cursor="hand2",
-                                                       background=self.original_bg,
-                                                       justify=tk.LEFT, anchor='nw',
-                                                       wraplength=initial_wraplength)
+            self.info_developer_names_label = tk.Label(self.dev_pub_frame, text=developer_text, font=self.dev_pub_link_font, fg=self.link_fg, cursor="hand2", background=self.original_bg, justify=tk.LEFT, anchor='nw', wraplength=initial_wraplength)
             self.info_developer_names_label.grid(row=dev_pub_row, column=1, sticky='nw')
-            self.info_developer_names_label.bind("<Button-1>",
-                partial(self._on_studio_click, studio_names=self.developer_names)
-            )
+            self.info_developer_names_label.bind("<Button-1>", partial(self._on_studio_click, studio_names=self.developer_names))
             dev_pub_row += 1
-        else:
-            self.info_developer_prefix_label = None
-            self.info_developer_names_label = None
-
+        else: self.info_developer_prefix_label = None; self.info_developer_names_label = None
         publisher_text = ", ".join(self.publisher_names) if self.publisher_names else ""
         if publisher_text:
-            self.info_publisher_prefix_label = tk.Label(self.dev_pub_frame, text="Видавець:",
-                                                        font=self.dev_pub_bold_font, background=self.original_bg,
-                                                        justify=tk.LEFT, anchor='nw')
+            self.info_publisher_prefix_label = tk.Label(self.dev_pub_frame, text="Видавець:", font=self.dev_pub_bold_font, background=self.original_bg, justify=tk.LEFT, anchor='nw')
             self.info_publisher_prefix_label.grid(row=dev_pub_row, column=0, sticky='nw', padx=(0, 5))
-
-            self.info_publisher_names_label = tk.Label(self.dev_pub_frame, text=publisher_text,
-                                                       font=self.dev_pub_link_font,
-                                                       fg=self.link_fg,
-                                                       cursor="hand2",
-                                                       background=self.original_bg,
-                                                       justify=tk.LEFT, anchor='nw',
-                                                       wraplength=initial_wraplength)
+            self.info_publisher_names_label = tk.Label(self.dev_pub_frame, text=publisher_text, font=self.dev_pub_link_font, fg=self.link_fg, cursor="hand2", background=self.original_bg, justify=tk.LEFT, anchor='nw', wraplength=initial_wraplength)
             self.info_publisher_names_label.grid(row=dev_pub_row, column=1, sticky='nw')
-            self.info_publisher_names_label.bind("<Button-1>",
-                partial(self._on_studio_click, studio_names=self.publisher_names)
-            )
+            self.info_publisher_names_label.bind("<Button-1>", partial(self._on_studio_click, studio_names=self.publisher_names))
             dev_pub_row += 1
-        else:
-            self.info_publisher_prefix_label = None
-            self.info_publisher_names_label = None
+        else: self.info_publisher_prefix_label = None; self.info_publisher_names_label = None
 
         current_row += 1
         separator1 = ttk.Separator(self, orient='horizontal')
@@ -259,180 +224,116 @@ class GameDetailView(tk.Frame):
 
         current_row += 1
         desc_label = tk.Label(self, text="Опис:", font=self.section_header_font, background=self.original_bg)
-        desc_label.grid(row=current_row, column=0, sticky='w', padx=10, pady=(0, 5))
-        current_row += 1
+        desc_label.grid(row=current_row, column=0, sticky='w', padx=10, pady=(0, 5)); current_row += 1
         description = self.game_data.get('description', 'Опис відсутній.')
-        self.desc_content_label = tk.Label(self, text=description, font=self.description_font,
-                                           justify=tk.LEFT, anchor='nw', bg=self.original_bg,
-                                           wraplength=initial_wraplength)
+        self.desc_content_label = tk.Label(self, text=description, font=self.description_font, justify=tk.LEFT, anchor='nw', bg=self.original_bg, wraplength=initial_wraplength)
         self.desc_content_label.grid(row=current_row, column=0, sticky='ew', padx=10, pady=(0, 10))
 
         current_row += 1
         separator2 = ttk.Separator(self, orient='horizontal')
-        separator2.grid(row=current_row, column=0, sticky='ew', padx=10, pady=10)
-
-        current_row += 1
+        separator2.grid(row=current_row, column=0, sticky='ew', padx=10, pady=10); current_row += 1
         genres_label = tk.Label(self, text="Жанри:", font=self.section_header_font, background=self.original_bg)
-        genres_label.grid(row=current_row, column=0, sticky='w', padx=10, pady=(0, 5))
-        current_row += 1
+        genres_label.grid(row=current_row, column=0, sticky='w', padx=10, pady=(0, 5)); current_row += 1
         genres_text = ", ".join(self.genre_names) if self.genre_names else "Не вказано"
-        self.genres_content_label = tk.Label(self, text=genres_text, font=self.description_font,
-                                             justify=tk.LEFT, anchor='nw', bg=self.original_bg,
-                                             wraplength=initial_wraplength)
+        self.genres_content_label = tk.Label(self, text=genres_text, font=self.description_font, justify=tk.LEFT, anchor='nw', bg=self.original_bg, wraplength=initial_wraplength)
         self.genres_content_label.grid(row=current_row, column=0, sticky='ew', padx=10, pady=(0, 10))
 
         current_row += 1
         separator3 = ttk.Separator(self, orient='horizontal')
-        separator3.grid(row=current_row, column=0, sticky='ew', padx=10, pady=10)
-
-        current_row += 1
+        separator3.grid(row=current_row, column=0, sticky='ew', padx=10, pady=10); current_row += 1
         platforms_label = tk.Label(self, text="Платформи:", font=self.section_header_font, background=self.original_bg)
-        platforms_label.grid(row=current_row, column=0, sticky='w', padx=10, pady=(0, 5))
-        current_row += 1
+        platforms_label.grid(row=current_row, column=0, sticky='w', padx=10, pady=(0, 5)); current_row += 1
         platforms_text = ", ".join(self.platform_names) if self.platform_names else "Не вказано"
-        self.platforms_content_label = tk.Label(self, text=platforms_text, font=self.description_font,
-                                                justify=tk.LEFT, anchor='nw', bg=self.original_bg,
-                                                wraplength=initial_wraplength)
+        self.platforms_content_label = tk.Label(self, text=platforms_text, font=self.description_font, justify=tk.LEFT, anchor='nw', bg=self.original_bg, wraplength=initial_wraplength)
         self.platforms_content_label.grid(row=current_row, column=0, sticky='ew', padx=10, pady=(0, 10))
 
         current_row += 1
         separator_add = ttk.Separator(self, orient='horizontal')
-        separator_add.grid(row=current_row, column=0, sticky='ew', padx=10, pady=10)
-        current_row += 1
+        separator_add.grid(row=current_row, column=0, sticky='ew', padx=10, pady=10); current_row += 1
         add_details_header = tk.Label(self, text="Додаткова інформація:", font=self.section_header_font, background=self.original_bg)
-        add_details_header.grid(row=current_row, column=0, sticky='w', padx=10, pady=(0, 5))
-
-        current_row += 1
+        add_details_header.grid(row=current_row, column=0, sticky='w', padx=10, pady=(0, 5)); current_row += 1
         add_details_frame = tk.Frame(self, bg=self.original_bg)
         add_details_frame.grid(row=current_row, column=0, sticky='ew', padx=10, pady=(0, 10))
         add_details_frame.grid_columnconfigure(1, weight=1)
-
         add_details_row = 0
-
-        status_val = self.game_data.get('status')
+        status_val = self.game_data.get('status'); release_date_val = self.game_data.get('release_date'); created_at_val = self.game_data.get('created_at'); updated_at_val = self.game_data.get('updated_at')
         if status_val:
-            status_prefix = tk.Label(add_details_frame, text="Стан:", font=self.description_font, bg=self.original_bg, anchor='nw')
-            status_prefix.grid(row=add_details_row, column=0, sticky='nw', padx=(0,5))
-            status_value = tk.Label(add_details_frame, text=status_val, font=self.description_font, bg=self.original_bg, anchor='nw', justify=tk.LEFT)
-            status_value.grid(row=add_details_row, column=1, sticky='nw')
-            add_details_row += 1
-
-        release_date_val = self.game_data.get('release_date')
-        release_text = "Не вказано"
-        if release_date_val:
-            try:
-                release_text = release_date_val.strftime('%d-%m-%Y') if isinstance(release_date_val, datetime) else datetime.strptime(str(release_date_val), '%Y-%m-%d').strftime('%d-%m-%Y')
-            except (ValueError, TypeError):
-                release_text = str(release_date_val)
-
-        release_prefix = tk.Label(add_details_frame, text="Дата релізу:", font=self.description_font, bg=self.original_bg, anchor='nw')
-        release_prefix.grid(row=add_details_row, column=0, sticky='nw', padx=(0,5))
-        release_value = tk.Label(add_details_frame, text=release_text, font=self.description_font, bg=self.original_bg, anchor='nw', justify=tk.LEFT)
-        release_value.grid(row=add_details_row, column=1, sticky='nw')
-        add_details_row += 1
-
-        created_at_val = self.game_data.get('created_at')
+            status_prefix = tk.Label(add_details_frame, text="Стан:", font=self.description_font, bg=self.original_bg, anchor='nw'); status_prefix.grid(row=add_details_row, column=0, sticky='nw', padx=(0,5))
+            status_value = tk.Label(add_details_frame, text=status_val, font=self.description_font, bg=self.original_bg, anchor='nw', justify=tk.LEFT); status_value.grid(row=add_details_row, column=1, sticky='nw'); add_details_row += 1
+        release_text = "Не вказано"; dt_format = '%d-%m-%Y'
+        
+        if release_date_val: 
+            try: release_text = release_date_val.strftime(dt_format) if isinstance(release_date_val, datetime) else datetime.strptime(str(release_date_val), '%Y-%m-%d').strftime(dt_format) 
+            except Exception: release_text = str(release_date_val)
+        release_prefix = tk.Label(add_details_frame, text="Дата релізу:", font=self.description_font, bg=self.original_bg, anchor='nw'); release_prefix.grid(row=add_details_row, column=0, sticky='nw', padx=(0,5))
+        release_value = tk.Label(add_details_frame, text=release_text, font=self.description_font, bg=self.original_bg, anchor='nw', justify=tk.LEFT); release_value.grid(row=add_details_row, column=1, sticky='nw'); add_details_row += 1
         created_text = "Не вказано"
-        if created_at_val:
-            try:
-                created_text = created_at_val.strftime('%d-%m-%Y') if isinstance(created_at_val, datetime) else datetime.strptime(str(created_at_val), '%Y-%m-%d').strftime('%d-%m-%Y')
-            except (ValueError, TypeError):
-                created_text = str(created_at_val)
-
-        created_prefix = tk.Label(add_details_frame, text="Дата створення:", font=self.description_font, bg=self.original_bg, anchor='nw')
-        created_prefix.grid(row=add_details_row, column=0, sticky='nw', padx=(0,5))
-        created_value = tk.Label(add_details_frame, text=created_text, font=self.description_font, bg=self.original_bg, anchor='nw', justify=tk.LEFT)
-        created_value.grid(row=add_details_row, column=1, sticky='nw')
-        add_details_row += 1
-
-        updated_at_val = self.game_data.get('updated_at')
+        
+        if created_at_val: 
+            try: created_text = created_at_val.strftime(dt_format) if isinstance(created_at_val, datetime) else datetime.strptime(str(created_at_val), '%Y-%m-%d').strftime(dt_format) 
+            except Exception: created_text = str(created_at_val)
+        created_prefix = tk.Label(add_details_frame, text="Дата створення:", font=self.description_font, bg=self.original_bg, anchor='nw'); created_prefix.grid(row=add_details_row, column=0, sticky='nw', padx=(0,5))
+        created_value = tk.Label(add_details_frame, text=created_text, font=self.description_font, bg=self.original_bg, anchor='nw', justify=tk.LEFT); created_value.grid(row=add_details_row, column=1, sticky='nw'); add_details_row += 1
         updated_text = "Не вказано"
-        if updated_at_val:
-            try:
-                 updated_text = updated_at_val.strftime('%d-%m-%Y') if isinstance(updated_at_val, datetime) else datetime.strptime(str(updated_at_val), '%Y-%m-%d').strftime('%d-%m-%Y')
-            except (ValueError, TypeError):
-                 updated_text = str(updated_at_val)
-
-        updated_prefix = tk.Label(add_details_frame, text="Дата оновлення:", font=self.description_font, bg=self.original_bg, anchor='nw')
-        updated_prefix.grid(row=add_details_row, column=0, sticky='nw', padx=(0,5))
-        updated_value = tk.Label(add_details_frame, text=updated_text, font=self.description_font, bg=self.original_bg, anchor='nw', justify=tk.LEFT)
-        updated_value.grid(row=add_details_row, column=1, sticky='nw')
-        add_details_row += 1
+        
+        if updated_at_val: 
+            try: updated_text = updated_at_val.strftime(dt_format) if isinstance(updated_at_val, datetime) else datetime.strptime(str(updated_at_val), '%Y-%m-%d').strftime(dt_format) 
+            except Exception: updated_text = str(updated_at_val)
+        updated_prefix = tk.Label(add_details_frame, text="Дата оновлення:", font=self.description_font, bg=self.original_bg, anchor='nw'); updated_prefix.grid(row=add_details_row, column=0, sticky='nw', padx=(0,5))
+        updated_value = tk.Label(add_details_frame, text=updated_text, font=self.description_font, bg=self.original_bg, anchor='nw', justify=tk.LEFT); updated_value.grid(row=add_details_row, column=1, sticky='nw'); add_details_row += 1
 
         current_row += 1
         separator4 = ttk.Separator(self, orient='horizontal')
-        separator4.grid(row=current_row, column=0, sticky='ew', padx=10, pady=10)
-
-        current_row += 1
+        separator4.grid(row=current_row, column=0, sticky='ew', padx=10, pady=10); current_row += 1
         reviews_label = tk.Label(self, text="Рецензії:", font=self.section_header_font, background=self.original_bg)
-        reviews_label.grid(row=current_row, column=0, sticky='w', padx=10, pady=(5, 5))
-        current_row += 1
-        self.reviews_display_text = scrolledtext.ScrolledText(
-            self, height=10, wrap=tk.WORD, font=self.review_text_font,
-            relief=tk.SOLID, borderwidth=1, state=tk.DISABLED, padx=5, pady=5,
-            background=self.colors.get('textbox_bg', 'white'),
-            foreground=self.colors.get('text_fg', 'black')
-        )
+        reviews_label.grid(row=current_row, column=0, sticky='w', padx=10, pady=(5, 5)); current_row += 1
+
+        self.reviews_display_text = scrolledtext.ScrolledText(self, height=10, wrap=tk.WORD, font=self.review_text_font, relief=tk.SOLID, borderwidth=1, state=tk.DISABLED, padx=5, pady=5, background=self.colors.get('textbox_bg', 'white'), foreground=self.colors.get('text_fg', 'black'))
         self.reviews_display_text.grid(row=current_row, column=0, sticky='nsew', padx=10, pady=(0, 10))
         self.grid_rowconfigure(current_row, weight=1)
         setup_text_widget_editing(self.reviews_display_text)
-        self._bind_mousewheel_to_children(self.reviews_display_text)
-        try:
-             text_widget_inside = self.reviews_display_text.nametowidget(self.reviews_display_text.winfo_children()[0])
-             self._bind_mousewheel_to_children(text_widget_inside)
-        except: pass
 
         current_row += 1
         separator5 = ttk.Separator(self, orient='horizontal')
-        separator5.grid(row=current_row, column=0, sticky='ew', padx=10, pady=10)
-
-        current_row += 1
+        separator5.grid(row=current_row, column=0, sticky='ew', padx=10, pady=10); current_row += 1
         write_review_label = tk.Label(self, text="Написати рецензію:", font=self.section_header_font, background=self.original_bg)
-        write_review_label.grid(row=current_row, column=0, sticky='w', padx=10, pady=(5, 5))
-        current_row += 1
-        self.review_text_widget = scrolledtext.ScrolledText(
-            self, height=6, font=self.review_input_font, wrap=tk.WORD,
-            borderwidth=1, relief=tk.SOLID, highlightthickness=0,
-            background=self.colors.get('input_bg', 'white'),
-            foreground=self.colors.get('input_fg', 'black')
-        )
+        write_review_label.grid(row=current_row, column=0, sticky='w', padx=10, pady=(5, 5)); current_row += 1
+
+        self.review_text_widget = scrolledtext.ScrolledText(self, height=6, font=self.review_input_font, wrap=tk.WORD, borderwidth=1, relief=tk.SOLID, highlightthickness=0, background=self.colors.get('input_bg', 'white'), foreground=self.colors.get('input_fg', 'black'))
         self.review_text_widget.grid(row=current_row, column=0, sticky='ew', padx=10, pady=(0, 5))
         setup_text_widget_editing(self.review_text_widget)
-        self._bind_mousewheel_to_children(self.review_text_widget)
-        try:
-             text_widget_inside_input = self.review_text_widget.nametowidget(self.review_text_widget.winfo_children()[0])
-             self._bind_mousewheel_to_children(text_widget_inside_input)
-        except: pass
 
         current_row += 1
-        post_review_button = ttk.Button(
-            self, text="Надіслати рецензію", command=self._post_review,
-            style=self.custom_button_style
-        )
+        post_review_button = ttk.Button(self, text="Надіслати рецензію", command=self._post_review, style=self.custom_button_style)
         post_review_button.grid(row=current_row, column=0, sticky='e', padx=10, pady=(0, 10))
 
-        widgets_to_bind_scroll = [
-            self, top_info_frame, icon_label, info_frame, self.title_label,
-            self.dev_pub_frame,
-            self.info_developer_prefix_label, self.info_developer_names_label,
-            self.info_publisher_prefix_label, self.info_publisher_names_label,
-            self.price_buy_frame,
-            desc_label, self.desc_content_label,
-            genres_label, self.genres_content_label,
-            platforms_label, self.platforms_content_label,
-            separator_add, add_details_header, add_details_frame,
-            reviews_label,
-            write_review_label, post_review_button,
-            separator1, separator2, separator3, separator4, separator5
-        ]
-        if self.price_buy_frame:
-             for child in self.price_buy_frame.winfo_children():
-                  widgets_to_bind_scroll.append(child)
-        if 'add_details_frame' in locals():
-            for child in add_details_frame.winfo_children():
-                widgets_to_bind_scroll.append(child)
+        scrolled_text_handler = lambda event, c=self.scroll_target_canvas: handle_mouse_wheel_event(event, c)
 
-        self._bind_mousewheel_to_children(widgets_to_bind_scroll)
+        if self.reviews_display_text:
+            self.reviews_display_text.bind("<MouseWheel>", scrolled_text_handler)
+            self.reviews_display_text.bind("<Button-4>", scrolled_text_handler)
+            self.reviews_display_text.bind("<Button-5>", scrolled_text_handler)
+            try:
+                 text_widget_inside = self.reviews_display_text.winfo_children()[0]
+                 if isinstance(text_widget_inside, tk.Text):
+                     text_widget_inside.bind("<MouseWheel>", scrolled_text_handler)
+                     text_widget_inside.bind("<Button-4>", scrolled_text_handler)
+                     text_widget_inside.bind("<Button-5>", scrolled_text_handler)
+            except Exception as e: print(f"Could not bind to inner widget of reviews_display_text: {e}")
+
+        if self.review_text_widget:
+            self.review_text_widget.bind("<MouseWheel>", scrolled_text_handler)
+            self.review_text_widget.bind("<Button-4>", scrolled_text_handler)
+            self.review_text_widget.bind("<Button-5>", scrolled_text_handler)
+            try:
+                 text_widget_inside_input = self.review_text_widget.winfo_children()[0]
+                 if isinstance(text_widget_inside_input, tk.Text):
+                      text_widget_inside_input.bind("<MouseWheel>", scrolled_text_handler)
+                      text_widget_inside_input.bind("<Button-4>", scrolled_text_handler)
+                      text_widget_inside_input.bind("<Button-5>", scrolled_text_handler)
+            except Exception as e: print(f"Could not bind to inner widget of review_text_widget: {e}")
+
+        bind_recursive_mousewheel(self, self.scroll_target_canvas)
 
     def _post_review(self):
         if not self.review_text_widget:
