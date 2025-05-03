@@ -11,6 +11,18 @@ from .ui_library import LibraryTab
 from .ui_studios_tab import StudiosTab
 from .ui_game_details import GameDetailView
 from .ui_studio_details import StudioDetailView
+      
+def _recursive_widget_config(widget, config_key, config_value, ignore_widget=None):
+    if widget == ignore_widget:
+        return
+    try:
+        if widget.winfo_exists():
+            if isinstance(widget, (tk.Label, tk.Frame)):
+                widget.config(**{config_key: config_value})
+            for child in widget.winfo_children():
+                _recursive_widget_config(child, config_key, config_value, ignore_widget)
+    except tk.TclError:
+        pass
 
 class StoreWindow(tk.Tk):
     def __init__(self, db_manager, user_id, image_folder, studio_logo_folder,
@@ -494,39 +506,19 @@ class StoreWindow(tk.Tk):
         return "break"
 
     def _on_enter(self, event, frame, icon_widget=None):
-        try:
-            if frame.winfo_exists():
-                frame.config(background=self.hover_bg)
-                for widget in frame.winfo_children():
-                     if widget == icon_widget: continue
-                     if isinstance(widget, (tk.Label, tk.Frame)):
-                         if widget.winfo_exists(): widget.config(background=self.hover_bg)
-                         if isinstance(widget, tk.Frame):
-                             for grandchild in widget.winfo_children():
-                                 if isinstance(grandchild, tk.Label):
-                                     if grandchild.winfo_exists(): grandchild.config(background=self.hover_bg)
-        except tk.TclError: pass
+        _recursive_widget_config(frame, 'background', self.hover_bg, ignore_widget=icon_widget)
 
     def _on_leave(self, event, frame, icon_widget=None):
-        try:
-             if frame.winfo_exists():
-                frame.config(background=self.original_bg)
-                for widget in frame.winfo_children():
-                     if widget == icon_widget: continue
-                     if isinstance(widget, (tk.Label, tk.Frame)):
-                          if widget.winfo_exists(): widget.config(background=self.original_bg)
-                          if isinstance(widget, tk.Frame):
-                              for grandchild in widget.winfo_children():
-                                  if isinstance(grandchild, tk.Label):
-                                      if grandchild.winfo_exists(): grandchild.config(background=self.original_bg)
-        except tk.TclError: pass
+        _recursive_widget_config(frame, 'background', self.original_bg, ignore_widget=icon_widget)
 
     def _create_game_entry(self, parent, game_data):
         try:
-            if len(game_data) < 5: return None
-            game_id, title, _, price, image_filename = game_data[:5]
+            if len(game_data) < 6:
+                 print(f"Skipping game entry due to insufficient data (expected 6): {game_data}")
+                 return None
+            game_id, title, _, price, image_filename, purchase_count = game_data[:6]
         except (ValueError, TypeError) as e:
-            print(f"Error unpacking game data for store list: {game_data}, Error: {e}")
+            print(f"Error unpacking game data (expected 6): {game_data}, Error: {e}")
             return None
 
         entry_frame = tk.Frame(parent, borderwidth=1, relief=tk.FLAT, background=self.original_bg)
@@ -542,9 +534,11 @@ class StoreWindow(tk.Tk):
         text_frame = tk.Frame(entry_frame, background=self.original_bg)
         text_frame.pack(side=tk.LEFT, fill=tk.X, expand=True, padx=5, pady=5)
 
-        title_label = tk.Label(text_frame, text=title or "Без назви",
-                               font=self.fonts['list_title'], anchor="w", justify=tk.LEFT, background=self.original_bg)
+        title_label = tk.Label(text_frame, text=title or "Без назви", font=self.fonts['list_title'], anchor="w", justify=tk.LEFT, background=self.original_bg)
         title_label.pack(fill=tk.X, pady=(0, 2))
+
+        price_purchase_frame = tk.Frame(text_frame, background=self.original_bg)
+        price_purchase_frame.pack(fill=tk.X)
 
         price_text = "N/A"
         if price is None: price_text = "Ціна не вказана"
@@ -552,21 +546,35 @@ class StoreWindow(tk.Tk):
         else:
             try:
                 price_decimal = decimal.Decimal(str(price)).quantize(decimal.Decimal("0.01"))
-                price_text = f"Ціна: {price_decimal}₴"
+                price_text = f"{price_decimal}₴"
             except (ValueError, TypeError, decimal.InvalidOperation): price_text = "N/A"
-        price_label = tk.Label(text_frame, text=price_text, font=self.fonts['ui'], anchor="w", justify=tk.LEFT, background=self.original_bg)
-        price_label.pack(fill=tk.X)
+        price_label = tk.Label(price_purchase_frame, text=price_text, font=self.fonts['ui'], anchor="w", justify=tk.LEFT, background=self.original_bg)
+        price_label.pack(side=tk.LEFT, anchor='w')
 
-        widgets_to_bind_hover_click = [entry_frame, icon_label, text_frame, title_label, price_label]
+        purchase_count_text = ""
+        purchase_label = None
+        if isinstance(purchase_count, int) and purchase_count > 0:
+            purchase_count_text = f"Покупок: {purchase_count}"
+            purchase_label = tk.Label(price_purchase_frame, text=purchase_count_text, font=self.fonts['comment'], fg='grey', anchor="e", justify=tk.RIGHT, background=self.original_bg)
+            purchase_label.pack(side=tk.RIGHT, anchor='e', padx=(10, 0))
+
         click_handler = partial(self._show_detail_view, game_id)
         enter_handler = partial(self._on_enter, frame=entry_frame, icon_widget=icon_label)
         leave_handler = partial(self._on_leave, frame=entry_frame, icon_widget=icon_label)
 
-        for widget in widgets_to_bind_hover_click:
+        entry_frame.bind("<Enter>", enter_handler)
+        entry_frame.bind("<Leave>", leave_handler)
+        entry_frame.config(cursor="hand2")
+
+        widgets_to_bind_click = [
+            icon_label, text_frame, title_label,
+            price_purchase_frame, price_label
+        ]
+        if purchase_label: widgets_to_bind_click.append(purchase_label)
+
+        for widget in widgets_to_bind_click:
             if widget and widget.winfo_exists():
                 widget.bind("<Button-1>", click_handler)
-                widget.bind("<Enter>", enter_handler)
-                widget.bind("<Leave>", leave_handler)
                 widget.config(cursor="hand2")
 
         return entry_frame
@@ -1172,7 +1180,7 @@ class StoreWindow(tk.Tk):
              if current_tab_name == 'Майстерня':
                   print("StoreWindow: Refreshing workshop tab as part of user info refresh (because it's active).")
                   self._setup_workshop_tab()
-                  
+      
     def on_close(self):
         self._image_references.clear()
         self.destroy()

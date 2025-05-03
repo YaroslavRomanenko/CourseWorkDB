@@ -98,40 +98,37 @@ class StudioDetailView(tk.Frame):
         placeholder_text.pack(pady=10, fill=tk.BOTH, expand=True)
 
     def _setup_ui(self):
-        for widget in self.winfo_children():
-            widget.destroy()
+        for widget in self.winfo_children(): widget.destroy()
         self.grid_columnconfigure(0, weight=1)
         current_row = 0
         initial_wraplength = 10000
         bg_color = self.colors.get('original_bg', 'white')
+        target_font = self.fonts.get('description', ("Verdana", 10))
 
         top_frame = tk.Frame(self, bg=bg_color)
-        top_frame.grid(row=current_row, column=0, sticky='new', padx=10, pady=10)
+        top_frame.grid(row=current_row, column=0, sticky='new', padx=10, pady=10); current_row += 1
         top_frame.grid_columnconfigure(1, weight=1)
-        current_row += 1
         self.logo_label = tk.Label(top_frame, background=bg_color)
         logo_filename = self.studio_details.get('logo') if self.studio_details else None
         tk_logo_image = self._get_image(logo_filename, size=self.studio_logo_size)
-        if tk_logo_image:
-            self.logo_label.config(image=tk_logo_image); self.logo_label.image = tk_logo_image
-        else:
-            self.logo_label.config(text="Лого?", font=self.fonts.get('ui', ("Verdana", 10)), width=16, height=8, relief="solid", borderwidth=1)
+        if tk_logo_image: self.logo_label.config(image=tk_logo_image); self.logo_label.image = tk_logo_image
+        else: self.logo_label.config(text="Лого?", font=self.fonts.get('ui', ("Verdana", 10)), width=16, height=8, relief="solid", borderwidth=1)
         self.logo_label.grid(row=0, column=0, rowspan=2, padx=(0, 20), pady=0, sticky='nw')
+
         display_name = self.studio_name
         if self.studio_details and self.studio_details.get('name'): display_name = self.studio_details['name']
         self.studio_title_label = tk.Label(top_frame, text=display_name, font=self.fonts.get('title', ("Verdana", 16, "bold")), bg=bg_color, wraplength=initial_wraplength, justify=tk.LEFT, anchor='nw')
         self.studio_title_label.grid(row=0, column=1, sticky='nw', pady=(0, 5))
+
         info_frame_under_title = tk.Frame(top_frame, bg=bg_color)
         info_frame_under_title.grid(row=1, column=1, sticky='nw')
         self.apply_button = ttk.Button(info_frame_under_title, text="Подати заявку на вступ", command=self._submit_application, style=self.styles.get('custom_button', 'TButton'))
-        if self.studio_details:
-             self.apply_button.pack(pady=(5, 0))
+        if self.studio_details: self.apply_button.pack(pady=(5, 0))
         else: self.apply_button = None
 
         separator1 = ttk.Separator(self, orient='horizontal')
         separator1.grid(row=current_row, column=0, sticky='ew', padx=10, pady=(5, 10)); current_row += 1
         desc_title_label = None; error_label = None
-        target_font = self.fonts.get('description', ("Verdana", 10))
         if self.studio_details:
             if self.studio_details.get('description'):
                 desc_title_label = tk.Label(self, text="Опис:", font=self.fonts.get('section_header', ("Verdana", 12, "bold")), bg=bg_color)
@@ -153,19 +150,25 @@ class StudioDetailView(tk.Frame):
         details_row_internal = 0; website_link_label = None
         if self.studio_details:
             if self.studio_details.get('country'):
-                country_prefix = tk.Label(details_frame, text="Країна:", font=target_font, bg=bg_color, anchor='nw'); country_prefix.grid(row=details_row_internal, column=0, sticky='nw', padx=(0,5))
-                country_value = tk.Label(details_frame, text=self.studio_details['country'], font=target_font, bg=bg_color, anchor='nw', justify=tk.LEFT); country_value.grid(row=details_row_internal, column=1, sticky='nw'); details_row_internal += 1
+                tk.Label(details_frame, text="Країна:", font=target_font, bg=bg_color, anchor='nw').grid(row=details_row_internal, column=0, sticky='nw', padx=(0,5))
+                tk.Label(details_frame, text=self.studio_details['country'], font=target_font, bg=bg_color, anchor='nw', justify=tk.LEFT).grid(row=details_row_internal, column=1, sticky='nw'); details_row_internal += 1
             date_val = self.studio_details.get('established_date')
             if date_val:
-                formatted_date = str(date_val)
+                formatted_date = str(date_val) 
                 try: formatted_date = (date_val.strftime('%d-%m-%Y') if isinstance(date_val, datetime) else datetime.strptime(str(date_val), '%Y-%m-%d').strftime('%d-%m-%Y')) 
                 except Exception: pass
                 
-                date_prefix = tk.Label(details_frame, text="Засновано:", font=target_font, bg=bg_color, anchor='nw'); date_prefix.grid(row=details_row_internal, column=0, sticky='nw', padx=(0,5))
-                date_value = tk.Label(details_frame, text=formatted_date, font=target_font, bg=bg_color, anchor='nw', justify=tk.LEFT); date_value.grid(row=details_row_internal, column=1, sticky='nw'); details_row_internal += 1
+                tk.Label(details_frame, text="Засновано:", font=target_font, bg=bg_color, anchor='nw').grid(row=details_row_internal, column=0, sticky='nw', padx=(0,5))
+                tk.Label(details_frame, text=formatted_date, font=target_font, bg=bg_color, anchor='nw', justify=tk.LEFT).grid(row=details_row_internal, column=1, sticky='nw'); details_row_internal += 1
+            dev_count = self.studio_details.get('developer_count', 0)
+            tk.Label(details_frame, text="Розробників:", font=target_font, bg=bg_color, anchor='nw').grid(row=details_row_internal, column=0, sticky='nw', padx=(0,5))
+            tk.Label(details_frame, text=str(dev_count), font=target_font, bg=bg_color, anchor='nw', justify=tk.LEFT).grid(row=details_row_internal, column=1, sticky='nw'); details_row_internal += 1
+            game_count = self.studio_details.get('game_count', 0)
+            tk.Label(details_frame, text="Ігор:", font=target_font, bg=bg_color, anchor='nw').grid(row=details_row_internal, column=0, sticky='nw', padx=(0,5))
+            tk.Label(details_frame, text=str(game_count), font=target_font, bg=bg_color, anchor='nw', justify=tk.LEFT).grid(row=details_row_internal, column=1, sticky='nw'); details_row_internal += 1
             website_url = self.studio_details.get('website_url')
             if website_url:
-                website_prefix = tk.Label(details_frame, text="Веб-сайт:", font=target_font, bg=bg_color, anchor='nw'); website_prefix.grid(row=details_row_internal, column=0, sticky='nw', padx=(0,5))
+                tk.Label(details_frame, text="Веб-сайт:", font=target_font, bg=bg_color, anchor='nw').grid(row=details_row_internal, column=0, sticky='nw', padx=(0,5))
                 link_font_tuple = list(target_font); link_font_tuple.append("underline"); link_font = tuple(link_font_tuple)
                 website_link_label = tk.Label(details_frame, text=website_url, font=link_font, fg=self.colors.get('link_fg', 'blue'), cursor="hand2", bg=bg_color, anchor='nw', justify=tk.LEFT); website_link_label.grid(row=details_row_internal, column=1, sticky='nw')
                 website_link_label.bind("<Button-1>", partial(self._open_website, website_url)); details_row_internal += 1
@@ -173,8 +176,21 @@ class StudioDetailView(tk.Frame):
         if self.is_current_user_admin:
             separator3 = ttk.Separator(self, orient='horizontal')
             separator3.grid(row=current_row, column=0, sticky='ew', padx=10, pady=10); current_row += 1
-            apps_title_label = tk.Label(self, text="Заявки на вступ:", font=self.fonts.get('section_header', ("Verdana", 12, "bold")), bg=bg_color)
+
+            pending_app_count = 0
+            try:
+                if self.studio_details:
+                    studio_id = self.studio_details.get('studio_id')
+                    admin_id = self.store_window_ref.current_user_id
+                    if studio_id and admin_id:
+                         pending_app_count = self.db_manager.get_pending_application_count(studio_id, admin_id)
+            except Exception as e:
+                print(f"Error getting pending app count in UI: {e}")
+
+            apps_title_text = f"Заявки на вступ ({pending_app_count})"
+            apps_title_label = tk.Label(self, text=apps_title_text, font=self.fonts.get('section_header', ("Verdana", 12, "bold")), bg=bg_color)
             apps_title_label.grid(row=current_row, column=0, sticky='w', padx=10, pady=(0, 5)); current_row += 1
+
             self.applications_frame = tk.Frame(self, bg=self.colors.get('hover_bg', '#f0f0f0'))
             self.applications_frame.grid(row=current_row, column=0, sticky='ew', padx=10, pady=(0, 10))
             self.applications_frame.grid_columnconfigure(0, weight=1)
@@ -186,59 +202,7 @@ class StudioDetailView(tk.Frame):
         else:
              self.applications_frame = None
 
-        widgets_to_bind = [self, top_frame, self.logo_label, self.studio_title_label, info_frame_under_title, separator1, separator2, details_title_label, details_frame]
-        if self.apply_button: widgets_to_bind.append(self.apply_button)
-        if desc_title_label: widgets_to_bind.append(desc_title_label)
-        if self.description_content_label: widgets_to_bind.append(self.description_content_label)
-        if error_label: widgets_to_bind.append(error_label)
-        if website_link_label: widgets_to_bind.append(website_link_label)
-        for child in details_frame.winfo_children(): widgets_to_bind.append(child)
-        if self.applications_frame:
-            widgets_to_bind.append(separator3)
-            widgets_to_bind.append(apps_title_label)
-            widgets_to_bind.append(self.applications_frame)
-            for child in self.applications_frame.winfo_children():
-                 widgets_to_bind.append(child)
         bind_recursive_mousewheel(self, self.scroll_target_canvas)
-        
-    def _load_and_display_applications(self):
-        if not self.applications_frame or not self.is_current_user_admin:
-            return
-
-        studio_id = self.studio_details.get('studio_id')
-        current_user_id = self.store_window_ref.current_user_id
-        if not studio_id or not current_user_id:
-            return
-
-        for widget in self.applications_frame.winfo_children(): widget.destroy()
-        pending_apps = None
-        try:
-            pending_apps = self.db_manager.fetch_pending_applications(studio_id, current_user_id)
-        except Exception as e:
-             print(f"Error fetching pending applications UI: {e}")
-             messagebox.showerror("Помилка", f"Не вдалося завантажити заявки:\n{e}", parent=self)
-
-        if pending_apps is None:
-            tk.Label(self.applications_frame, text="Помилка завантаження заявок.", fg="red", bg=self.applications_frame['bg']).grid(row=0, column=0, columnspan=4, pady=5)
-        elif not pending_apps:
-            tk.Label(self.applications_frame, text="Немає заявок на розгляд.", bg=self.applications_frame['bg']).grid(row=0, column=0, columnspan=4, pady=5)
-        else:
-            app_row = 0
-            for app in pending_apps:
-                app_id = app['id']; username = app['username']; date_obj = app['date']
-                date_str = date_obj.strftime('%d-%m-%Y %H:%M') if date_obj else "Невідомо"
-                username_label = tk.Label(self.applications_frame, text=username, anchor='w', bg=self.applications_frame['bg'])
-                username_label.grid(row=app_row, column=0, sticky='w', padx=5, pady=2)
-                date_label = tk.Label(self.applications_frame, text=date_str, anchor='w', bg=self.applications_frame['bg'], fg='grey')
-                date_label.grid(row=app_row, column=1, sticky='w', padx=10, pady=2)
-                accept_button = ttk.Button(self.applications_frame, text="Прийняти", width=10, style=self.styles.get('custom_button', 'TButton'), command=partial(self._accept_application, app_id))
-                accept_button.grid(row=app_row, column=2, padx=5, pady=2)
-                reject_button = ttk.Button(self.applications_frame, text="Відхилити", width=10, style=self.styles.get('custom_button', 'TButton'), command=partial(self._reject_application, app_id))
-                reject_button.grid(row=app_row, column=3, padx=5, pady=2)
-                app_row += 1
-            widgets_to_bind_scroll = [self.applications_frame]
-            for child in self.applications_frame.winfo_children(): widgets_to_bind_scroll.append(child)
-            self._bind_mousewheel_to_children(widgets_to_bind_scroll)
         
     def _accept_application(self, application_id):
         if not self.is_current_user_admin: return

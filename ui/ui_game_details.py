@@ -180,22 +180,27 @@ class GameDetailView(tk.Frame):
             icon_label.config(image=tk_detail_image); icon_label.image = tk_detail_image
         else:
             icon_label.config(text="Фото?", font=self.ui_font, width=20, height=10, relief="solid", borderwidth=1)
-        icon_label.grid(row=0, column=0, rowspan=3, padx=(0, 20), pady=0, sticky='nw')
+        icon_label.grid(row=0, column=0, rowspan=4, padx=(0, 20), pady=0, sticky='nw')
 
         info_frame = tk.Frame(top_info_frame, background=self.original_bg)
-        info_frame.grid(row=0, column=1, rowspan=3, sticky='nsew', pady=0)
+        info_frame.grid(row=0, column=1, rowspan=4, sticky='nsew', pady=0)
         info_frame.grid_columnconfigure(0, weight=1)
         info_row = 0
 
         self.title_label = tk.Label(info_frame, text=self.game_data.get('title', 'Назва невідома'), font=self.title_font, background=self.original_bg, justify=tk.LEFT, anchor='nw', wraplength=initial_wraplength)
-        self.title_label.grid(row=info_row, column=0, sticky='nw', pady=(0, 10)); info_row += 1
+        self.title_label.grid(row=info_row, column=0, sticky='nw', pady=(0, 5)); info_row += 1
+
+        review_count = self.game_data.get('review_count', 0)
+        review_count_text = f"Відгуків: {review_count}"
+        self.review_count_label = tk.Label(info_frame, text=review_count_text, font=self.fonts['comment'], background=self.original_bg, fg='grey', anchor='nw')
+        self.review_count_label.grid(row=info_row, column=0, sticky='nw', pady=(0, 10)); info_row += 1
 
         self.price_buy_frame = tk.Frame(info_frame, background=self.original_bg)
         self.price_buy_frame.grid(row=info_row, column=0, sticky='nw', pady=(0, 10)); info_row += 1
         self._build_price_buy_content()
 
         self.dev_pub_frame = tk.Frame(info_frame, background=self.original_bg)
-        self.dev_pub_frame.grid(row=info_row, column=0, sticky='nw')
+        self.dev_pub_frame.grid(row=info_row, column=0, sticky='nw', pady=(5, 0)); info_row += 1
         self.dev_pub_frame.grid_columnconfigure(0, weight=0)
         self.dev_pub_frame.grid_columnconfigure(1, weight=1)
         dev_pub_row = 0
@@ -225,8 +230,9 @@ class GameDetailView(tk.Frame):
         current_row += 1
         desc_label = tk.Label(self, text="Опис:", font=self.section_header_font, background=self.original_bg)
         desc_label.grid(row=current_row, column=0, sticky='w', padx=10, pady=(0, 5)); current_row += 1
-        description = self.game_data.get('description', 'Опис відсутній.')
-        self.desc_content_label = tk.Label(self, text=description, font=self.description_font, justify=tk.LEFT, anchor='nw', bg=self.original_bg, wraplength=initial_wraplength)
+        description_from_db = self.game_data.get('description')
+        description_text = description_from_db if description_from_db else "Не вказано"
+        self.desc_content_label = tk.Label(self, text=description_text, font=self.description_font, justify=tk.LEFT, anchor='nw', bg=self.original_bg, wraplength=initial_wraplength)
         self.desc_content_label.grid(row=current_row, column=0, sticky='ew', padx=10, pady=(0, 10))
 
         current_row += 1
@@ -261,21 +267,18 @@ class GameDetailView(tk.Frame):
             status_prefix = tk.Label(add_details_frame, text="Стан:", font=self.description_font, bg=self.original_bg, anchor='nw'); status_prefix.grid(row=add_details_row, column=0, sticky='nw', padx=(0,5))
             status_value = tk.Label(add_details_frame, text=status_val, font=self.description_font, bg=self.original_bg, anchor='nw', justify=tk.LEFT); status_value.grid(row=add_details_row, column=1, sticky='nw'); add_details_row += 1
         release_text = "Не вказано"; dt_format = '%d-%m-%Y'
-        
         if release_date_val: 
             try: release_text = release_date_val.strftime(dt_format) if isinstance(release_date_val, datetime) else datetime.strptime(str(release_date_val), '%Y-%m-%d').strftime(dt_format) 
             except Exception: release_text = str(release_date_val)
         release_prefix = tk.Label(add_details_frame, text="Дата релізу:", font=self.description_font, bg=self.original_bg, anchor='nw'); release_prefix.grid(row=add_details_row, column=0, sticky='nw', padx=(0,5))
         release_value = tk.Label(add_details_frame, text=release_text, font=self.description_font, bg=self.original_bg, anchor='nw', justify=tk.LEFT); release_value.grid(row=add_details_row, column=1, sticky='nw'); add_details_row += 1
         created_text = "Не вказано"
-        
         if created_at_val: 
             try: created_text = created_at_val.strftime(dt_format) if isinstance(created_at_val, datetime) else datetime.strptime(str(created_at_val), '%Y-%m-%d').strftime(dt_format) 
             except Exception: created_text = str(created_at_val)
         created_prefix = tk.Label(add_details_frame, text="Дата створення:", font=self.description_font, bg=self.original_bg, anchor='nw'); created_prefix.grid(row=add_details_row, column=0, sticky='nw', padx=(0,5))
         created_value = tk.Label(add_details_frame, text=created_text, font=self.description_font, bg=self.original_bg, anchor='nw', justify=tk.LEFT); created_value.grid(row=add_details_row, column=1, sticky='nw'); add_details_row += 1
         updated_text = "Не вказано"
-        
         if updated_at_val: 
             try: updated_text = updated_at_val.strftime(dt_format) if isinstance(updated_at_val, datetime) else datetime.strptime(str(updated_at_val), '%Y-%m-%d').strftime(dt_format) 
             except Exception: updated_text = str(updated_at_val)

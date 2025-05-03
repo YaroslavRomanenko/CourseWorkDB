@@ -235,7 +235,7 @@ class DatabaseManager:
             print("DB: No connection to fetch games.")
             return None
 
-        allowed_sort_columns = {'title', 'price'}
+        allowed_sort_columns = {'title', 'price', 'purchase_count'}
         if sort_by not in allowed_sort_columns:
             print(f"DB Warning: Invalid sort column '{sort_by}'. Defaulting to 'title'.")
             sort_by = 'title'
@@ -245,7 +245,22 @@ class DatabaseManager:
             print(f"DB Warning: Invalid sort order '{sort_order}'. Defaulting to 'ASC'.")
             sort_order = 'ASC'
 
+        base_query = sql.SQL("""
+            SELECT
+                g.game_id, g.title, NULL AS genre, g.price, g.image,
+                COUNT(pi.purchase_item_id) AS purchase_count
+            FROM
+                games g
+            LEFT JOIN
+                Purchases_Items pi ON g.game_id = pi.game_id
+            LEFT JOIN
+                Purchases p ON pi.purchase_id = p.purchase_id AND p.status = 'Completed'
+            GROUP BY
+                g.game_id, g.title, g.price, g.image
+        """)
+
         order_by_clause = sql.SQL("ORDER BY {sort_col} {sort_dir}")
+        secondary_sort_col = 'title' if sort_by != 'title' else 'purchase_count'
 
         if sort_by == 'price':
             if sort_order == 'ASC':
@@ -255,15 +270,15 @@ class DatabaseManager:
             order_by_sql = order_by_clause.format(
                 sort_col=sql.Identifier(sort_by),
                 sort_dir=sql.SQL(sort_order),
-                secondary_col=sql.Identifier('title')
+                secondary_col=sql.Identifier(secondary_sort_col)
             )
         else:
             order_by_sql = order_by_clause.format(
                 sort_col=sql.Identifier(sort_by),
-                sort_dir=sql.SQL(sort_order)
+                sort_dir=sql.SQL(sort_order),
             )
+            order_by_sql = sql.SQL(" ").join([order_by_sql, sql.SQL(", {secondary_col} ASC").format(secondary_col=sql.Identifier(secondary_sort_col))])
 
-        base_query = sql.SQL("SELECT game_id, title, NULL AS genre, price, image FROM games")
         query = sql.SQL(" ").join([base_query, order_by_sql])
 
         print(f"DB: Fetching all games sorted by {sort_by} {sort_order}...")
@@ -288,12 +303,20 @@ class DatabaseManager:
         """Fetches detailed information about one concrete game by it's id"""
         query = """
             SELECT
-                game_id, title, description, price, image, status, release_date,
-                created_at, updated_at
-            FROM games
-            WHERE game_id = %s;
+                g.game_id, g.title, g.description, g.price, g.image, g.status,
+                g.release_date, g.created_at, g.updated_at,
+                COUNT(r.review_id) AS review_count
+            FROM
+                games g
+            LEFT JOIN
+                reviews r ON g.game_id = r.game_id
+            WHERE
+                g.game_id = %s
+            GROUP BY
+                g.game_id, g.title, g.description, g.price, g.image, g.status,
+                g.release_date, g.created_at, g.updated_at;
         """
-        print(f"DB: Fetching details for game_id {game_id}...")
+        print(f"DB: Fetching details and review count for game_id {game_id}...")
         game_tuple = self.execute_query(query, (game_id,), fetch_one=True)
         if game_tuple:
             details = {
@@ -305,10 +328,13 @@ class DatabaseManager:
                 'status': game_tuple[5],
                 'release_date': game_tuple[6],
                 'created_at': game_tuple[7],
-                'updated_at': game_tuple[8]
+                'updated_at': game_tuple[8],
+                'review_count': game_tuple[9]
             }
+            print(f"DB: Fetched details for game {game_id}: Review count = {details['review_count']}")
             return details
         else:
+            print(f"DB: Game details not found for game_id {game_id}.")
             return None
         
     def fetch_purchased_games(self, user_id):
@@ -592,27 +618,49 @@ class DatabaseManager:
         if not conn or not studio_name:
             return None
 
-        query = sql.SQL("""
+        details = None
+        developer_count = 0
+        game_count = 0
+
+        query_details = sql.SQL("""
             SELECT studio_id, name, website_url, logo, country, description, established_date
-            FROM Studios
-            WHERE name = %s;
+            FROM Studios WHERE name = %s;
         """)
         try:
-            studio_tuple = self.execute_query(query, (studio_name,), fetch_one=True)
+            studio_tuple = self.execute_query(query_details, (studio_name,), fetch_one=True)
             if studio_tuple:
+                studio_id = studio_tuple[0]
                 details = {
-                    'studio_id': studio_tuple[0], 'name': studio_tuple[1], 'website_url': studio_tuple[2],
+                    'studio_id': studio_id, 'name': studio_tuple[1], 'website_url': studio_tuple[2],
                     'logo': studio_tuple[3], 'country': studio_tuple[4], 'description': studio_tuple[5],
                     'established_date': studio_tuple[6]
                 }
-                print(f"DB: Fetched details for studio: {studio_name}")
-                return details
+                print(f"DB: Fetched base details for studio: {studio_name} (ID: {studio_id})")
+
+                query_dev_count = sql.SQL("SELECT COUNT(*) FROM Developers WHERE studio_id = %s;")
+                dev_count_result = self.execute_query(query_dev_count, (studio_id,), fetch_one=True)
+                if dev_count_result:
+                    developer_count = dev_count_result[0]
+                print(f"DB: Developer count for studio {studio_id}: {developer_count}")
+
+                query_game_count = sql.SQL("SELECT COUNT(DISTINCT game_id) FROM Game_Studios WHERE studio_id = %s;")
+                game_count_result = self.execute_query(query_game_count, (studio_id,), fetch_one=True)
+                if game_count_result:
+                    game_count = game_count_result[0]
+                print(f"DB: Game count for studio {studio_id}: {game_count}")
+
+                details['developer_count'] = developer_count
+                details['game_count'] = game_count
+
             else:
                 print(f"DB: Studio not found: {studio_name}")
                 return None
         except Exception as e:
-            print(f"DB: Error fetching studio details for '{studio_name}': {e}")
+            print(f"DB: Error fetching full studio details for '{studio_name}': {e}")
+            traceback.print_exc()
             return None
+
+        return details
         
     def fetch_user_info(self, user_id):
         """Fetches the username and their current balance"""
@@ -964,5 +1012,23 @@ class DatabaseManager:
         query = "SELECT role FROM Developers WHERE user_id = %s AND studio_id = %s;"
         result = self.execute_query(query, (user_id, studio_id), fetch_one=True)
         return result[0] if result else None
+
+          
+    def get_pending_application_count(self, studio_id, admin_user_id):
+        print(f"DB: Getting pending application count for studio {studio_id} by admin {admin_user_id}")
+        role = self.check_developer_role(admin_user_id, studio_id)
+        if role != 'Admin':
+            print(f"DB: User {admin_user_id} is not an admin for studio {studio_id}. Role: {role}")
+            return 0
+
+        query = sql.SQL("SELECT COUNT(*) FROM StudioApplications WHERE studio_id = %s AND status = 'Pending';")
+        try:
+            result = self.execute_query(query, (studio_id,), fetch_one=True)
+            count = result[0] if result else 0
+            print(f"DB: Pending application count for studio {studio_id}: {count}")
+            return count
+        except Exception as e:
+            print(f"DB: Error getting pending application count for studio {studio_id}: {e}")
+            return 0
 
     
