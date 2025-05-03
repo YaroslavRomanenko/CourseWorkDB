@@ -1,4 +1,6 @@
 import tkinter as tk
+import re
+
 from tkinter import messagebox, ttk
 from .ui_utils import center_window, setup_text_widget_editing
 
@@ -78,18 +80,25 @@ class RegistrationWindow(tk.Tk):
 
         min_username_len = 4
         max_username_len = 16
-        if not (min_username_len <= len(username) <= max_username_len):
+        username_pattern = f"^[a-zA-Z0-9_-]{{{min_username_len},{max_username_len}}}$"
+        if not re.fullmatch(username_pattern, username):
             messagebox.showwarning(
                 messagebox_title,
                 f"Логін повинен містити від {min_username_len} до {max_username_len} символів.\n"
-                f"Ваш логін має довжину: {len(username)}.",
+                "Дозволені символи: латинські літери (a-z, A-Z), цифри (0-9), "
+                "знаки підкреслення (_) та дефіс (-).",
                 parent=self
             )
             self.login_entry.focus_set()
             return
 
-        if "@" not in email or "." not in email:
-            messagebox.showwarning(messagebox_title, "Будь ласка, введіть дійсну адресу електронної пошти.", parent=self)
+        email_pattern_basic = r"^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$"
+        if not re.fullmatch(email_pattern_basic, email) or not email.isascii():
+            messagebox.showwarning(
+                messagebox_title,
+                "Будь ласка, введіть дійсну адресу електронної пошти, використовуючи лише латинські літери, цифри та стандартні символи (@ . _ % + -).",
+                parent=self
+            )
             self.email_entry.focus_set()
             return
 
@@ -100,6 +109,13 @@ class RegistrationWindow(tk.Tk):
             self.password_repeat_entry.delete(0, tk.END)
             self.password_entry.focus_set()
             return
+
+        if not all(32 <= ord(char) <= 126 for char in password):
+             messagebox.showwarning(messagebox_title, "Пароль може містити лише латинські літери, цифри та стандартні символи (~!@#$%^&*()_+=-`...).", parent=self)
+             self.password_entry.delete(0, tk.END)
+             self.password_repeat_entry.delete(0, tk.END)
+             self.password_entry.focus_set()
+             return
 
         if password != password_repeat:
             messagebox.showerror(messagebox_title, "Паролі не співпадають.", parent=self)
