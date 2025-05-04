@@ -1058,4 +1058,21 @@ class DatabaseManager:
         except Exception as e:
             print(f"DB: Error checking pending application for user {user_id}, studio {studio_id}: {e}")
             return False
-    
+        
+    def check_game_edit_permission(self, user_id, game_id):
+        query = sql.SQL("""
+            SELECT EXISTS (
+                SELECT 1
+                FROM Developers_Games dg
+                JOIN Developers d ON dg.developer_id = d.developer_id
+                WHERE d.user_id = %s AND dg.game_id = %s
+            );
+        """)
+        try:
+            result = self.execute_query(query, (user_id, game_id), fetch_one=True)
+            can_edit = result[0] if result else False
+            print(f"DB: Edit permission check (link exists) for user {user_id}, game {game_id}: {can_edit}")
+            return can_edit
+        except Exception as e:
+            print(f"DB: Error checking game edit permission (link exists) for user {user_id}, game {game_id}: {e}")
+            return False
