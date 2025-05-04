@@ -872,12 +872,24 @@ class DatabaseManager:
         current_studio_id = self.get_developer_studio_id(user_id)
         if current_studio_id is not None:
             if current_studio_id == studio_id:
-                messagebox.showinfo("Вже у студії", "Ви вже є учасником цієї студії.", parent=self.store_window_ref if hasattr(self, 'store_window_ref') else None)
+                messagebox.showinfo("Вже у студії", "Ви вже є учасником цієї студії.")
             else:
-                messagebox.showwarning("Вже у студії", "Ви вже є учасником іншої студії.", parent=self.store_window_ref if hasattr(self, 'store_window_ref') else None)
+                messagebox.showwarning("Вже у студії", "Ви вже є учасником іншої студії.")
             return False
 
-        query = sql.SQL("""
+        query_check_pending = sql.SQL("SELECT 1 FROM StudioApplications WHERE user_id = %s AND status = 'Pending' LIMIT 1;")
+        try:
+            existing_pending_app = self.execute_query(query_check_pending, (user_id,), fetch_one=True)
+            if existing_pending_app:
+                print(f"DB: User {user_id} already has a pending application.")
+                messagebox.showwarning("Заявка вже існує", "Ви вже маєте активну заявку до іншої студії, що очікує на розгляд. Дочекайтеся її обробки або скасуйте.")
+                return False
+        except Exception as e:
+             print(f"DB: Error checking for existing pending applications for user {user_id}: {e}")
+             messagebox.showerror("Помилка перевірки", "Не вдалося перевірити наявність активних заявок.")
+             return False
+
+        query_insert = sql.SQL("""
             INSERT INTO StudioApplications (user_id, studio_id, status)
             VALUES (%s, %s, %s)
             ON CONFLICT (user_id, studio_id) WHERE (status = 'Pending')
@@ -888,22 +900,22 @@ class DatabaseManager:
         try:
             with conn:
                 with conn.cursor() as cur:
-                    cur.execute(query, params)
+                    cur.execute(query_insert, params)
                     if cur.rowcount > 0:
                         print(f"DB: Application submitted successfully by user {user_id} for studio {studio_id}.")
                         return True
                     else:
-                        print(f"DB: Pending application likely already exists for user {user_id}, studio {studio_id}.")
-                        messagebox.showwarning("Заявка вже існує", "Ви вже подали заявку до цієї студії, яка очікує на розгляд.", parent=self.store_window_ref if hasattr(self, 'store_window_ref') else None)
+                        print(f"DB: Pending application likely already exists for user {user_id}, studio {studio_id} (ON CONFLICT triggered).")
+                        messagebox.showwarning("Заявка вже існує", "Ви вже подали заявку до цієї студії, яка очікує на розгляд.")
                         return False
         except psycopg2.Error as db_error:
             print(f"DB Error submitting application for user {user_id}, studio {studio_id}: {db_error}")
-            messagebox.showerror("Помилка Бази Даних", f"Не вдалося подати заявку:\n{db_error}", parent=self.store_window_ref if hasattr(self, 'store_window_ref') else None)
+            messagebox.showerror("Помилка Бази Даних", f"Не вдалося подати заявку:\n{db_error}")
             return False
         except Exception as e:
             print(f"DB Unexpected error submitting application: {e}")
             traceback.print_exc()
-            messagebox.showerror("Неочікувана Помилка", f"Сталася помилка під час подання заявки:\n{e}", parent=self.store_window_ref if hasattr(self, 'store_window_ref') else None)
+            messagebox.showerror("Неочікувана Помилка", f"Сталася помилка під час подання заявки:\n{e}")
             return False
         
     def process_studio_application(self, application_id, new_status, admin_user_id):
@@ -1031,4 +1043,19 @@ class DatabaseManager:
             print(f"DB: Error getting pending application count for studio {studio_id}: {e}")
             return 0
 
+    def check_pending_application(self, user_id, studio_id):
+        query = sql.SQL("""
+            SELECT EXISTS (
+                SELECT 1 FROM StudioApplications
+                WHERE user_id = %s AND studio_id = %s AND status = 'Pending'
+            );
+        """)
+        try:
+            result = self.execute_query(query, (user_id, studio_id), fetch_one=True)
+            exists = result[0] if result else False
+            print(f"DB: Pending application check for user {user_id}, studio {studio_id}: {'Exists' if exists else 'Does not exist'}")
+            return exists
+        except Exception as e:
+            print(f"DB: Error checking pending application for user {user_id}, studio {studio_id}: {e}")
+            return False
     

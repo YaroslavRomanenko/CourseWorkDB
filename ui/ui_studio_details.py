@@ -12,8 +12,7 @@ from .ui_utils import *
 class StudioDetailView(tk.Frame):
     def __init__(self, parent, db_manager, studio_name,
                  fonts, colors, styles,
-                 scroll_target_canvas,
-                 store_window_ref,
+                 scroll_target_canvas, store_window_ref,
                  image_cache, placeholder_detail, studio_logo_folder,
                  **kwargs):
         super().__init__(parent, bg=colors.get('original_bg', 'white'), **kwargs)
@@ -36,9 +35,11 @@ class StudioDetailView(tk.Frame):
         self.apply_button = None
         self.applications_frame = None
         self.is_current_user_admin = False
+        self.has_pending_application = False
 
         self._fetch_studio_data()
         self._check_admin_status()
+        self._check_if_already_applied()
         self._setup_ui()
 
         self.bind("<Configure>", lambda e: self.after_idle(lambda: self._update_wraplengths(e.width)))
@@ -122,9 +123,29 @@ class StudioDetailView(tk.Frame):
 
         info_frame_under_title = tk.Frame(top_frame, bg=bg_color)
         info_frame_under_title.grid(row=1, column=1, sticky='nw')
-        self.apply_button = ttk.Button(info_frame_under_title, text="Подати заявку на вступ", command=self._submit_application, style=self.styles.get('custom_button', 'TButton'))
-        if self.studio_details: self.apply_button.pack(pady=(5, 0))
-        else: self.apply_button = None
+
+        apply_button_text = "Подати заявку на вступ"
+        apply_button_state = tk.NORMAL
+        if self.has_pending_application:
+             apply_button_text = "Заявку вже подано"
+             apply_button_state = tk.DISABLED
+        elif self.store_window_ref and hasattr(self.db_manager, 'get_developer_studio_id'):
+             user_studio_id = self.db_manager.get_developer_studio_id(self.store_window_ref.current_user_id)
+             if self.studio_details and user_studio_id == self.studio_details.get('studio_id'):
+                 apply_button_text = "Ви вже учасник"
+                 apply_button_state = tk.DISABLED
+
+        self.apply_button = ttk.Button(
+            info_frame_under_title,
+            text=apply_button_text,
+            command=self._submit_application,
+            style=self.styles.get('custom_button', 'TButton'),
+            state=apply_button_state
+        )
+        if self.studio_details:
+             self.apply_button.pack(pady=(5, 0))
+        else:
+             self.apply_button = None
 
         separator1 = ttk.Separator(self, orient='horizontal')
         separator1.grid(row=current_row, column=0, sticky='ew', padx=10, pady=(5, 10)); current_row += 1
@@ -176,7 +197,6 @@ class StudioDetailView(tk.Frame):
         if self.is_current_user_admin:
             separator3 = ttk.Separator(self, orient='horizontal')
             separator3.grid(row=current_row, column=0, sticky='ew', padx=10, pady=10); current_row += 1
-
             pending_app_count = 0
             try:
                 if self.studio_details:
@@ -186,11 +206,9 @@ class StudioDetailView(tk.Frame):
                          pending_app_count = self.db_manager.get_pending_application_count(studio_id, admin_id)
             except Exception as e:
                 print(f"Error getting pending app count in UI: {e}")
-
             apps_title_text = f"Заявки на вступ ({pending_app_count})"
             apps_title_label = tk.Label(self, text=apps_title_text, font=self.fonts.get('section_header', ("Verdana", 12, "bold")), bg=bg_color)
             apps_title_label.grid(row=current_row, column=0, sticky='w', padx=10, pady=(0, 5)); current_row += 1
-
             self.applications_frame = tk.Frame(self, bg=self.colors.get('hover_bg', '#f0f0f0'))
             self.applications_frame.grid(row=current_row, column=0, sticky='ew', padx=10, pady=(0, 10))
             self.applications_frame.grid_columnconfigure(0, weight=1)
@@ -269,10 +287,8 @@ class StudioDetailView(tk.Frame):
         if success:
              messagebox.showinfo("Заявку подано", f"Вашу заявку на вступ до студії '{studio_name_display}' подано.\nОчікуйте на розгляд.", parent=self)
              if self.apply_button:
-                 self.apply_button.config(state=tk.DISABLED, text="Заявку подано")
-        else:
-             print(f"Failed to submit application for user {user_id} to studio {studio_id}.")
-             
+                 self.apply_button.config(state=tk.DISABLED, text="Заявку вже подано")
+                 self.has_pending_application = True         
     
     def _update_wraplengths(self, container_width):
         try:
@@ -386,3 +402,62 @@ class StudioDetailView(tk.Frame):
                 messagebox.showerror("Помилка", f"Не вдалося відкрити посилання:\n{url}\n\nПомилка: {e}", parent=self)
         else:
             print("No URL provided to open.")
+            
+    def _load_and_display_applications(self):
+        if not self.applications_frame or not self.is_current_user_admin:
+            return
+
+        for widget in self.applications_frame.winfo_children():
+            widget.destroy()
+
+        studio_id = self.studio_details.get('studio_id')
+        current_user_id = self.store_window_ref.current_user_id
+        if not studio_id or not current_user_id:
+            return
+
+        pending_apps = None
+        try:
+            pending_apps = self.db_manager.fetch_pending_applications(studio_id, current_user_id)
+        except Exception as e:
+             print(f"Error fetching pending applications UI: {e}")
+             messagebox.showerror("Помилка", f"Не вдалося завантажити заявки:\n{e}", parent=self)
+
+        if pending_apps is None:
+            tk.Label(self.applications_frame, text="Помилка завантаження заявок.", fg="red", bg=self.applications_frame['bg']).grid(row=0, column=0, columnspan=4, pady=5)
+        elif not pending_apps:
+            tk.Label(self.applications_frame, text="Немає заявок на розгляд.", bg=self.applications_frame['bg']).grid(row=0, column=0, columnspan=4, pady=5)
+        else:
+            app_row = 0
+            for app in pending_apps:
+                app_id = app['id']
+                username = app['username']
+                date_obj = app['date']
+                date_str = date_obj.strftime('%d-%m-%Y %H:%M') if date_obj else "Невідомо"
+
+                username_label = tk.Label(self.applications_frame, text=username, anchor='w', bg=self.applications_frame['bg'])
+                username_label.grid(row=app_row, column=0, sticky='w', padx=5, pady=2)
+
+                date_label = tk.Label(self.applications_frame, text=date_str, anchor='w', bg=self.applications_frame['bg'], fg='grey')
+                date_label.grid(row=app_row, column=1, sticky='w', padx=10, pady=2)
+
+                accept_button = ttk.Button(self.applications_frame, text="Прийняти", width=10, style=self.styles.get('custom_button', 'TButton'),
+                                          command=partial(self._accept_application, app_id))
+                accept_button.grid(row=app_row, column=2, padx=5, pady=2)
+
+                reject_button = ttk.Button(self.applications_frame, text="Відхилити", width=10, style=self.styles.get('custom_button', 'TButton'),
+                                           command=partial(self._reject_application, app_id))
+                reject_button.grid(row=app_row, column=3, padx=5, pady=2)
+
+                app_row += 1
+                
+    def _check_if_already_applied(self):
+        self.has_pending_application = False
+        if self.studio_details and self.store_window_ref and self.db_manager:
+            studio_id = self.studio_details.get('studio_id')
+            current_user_id = self.store_window_ref.current_user_id
+            if studio_id and current_user_id and not self.is_current_user_admin:
+                try:
+                    self.has_pending_application = self.db_manager.check_pending_application(current_user_id, studio_id)
+                except Exception as e:
+                    print(f"Error checking if already applied: {e}")
+    
