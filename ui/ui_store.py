@@ -11,18 +11,6 @@ from .ui_library import LibraryTab
 from .ui_studios_tab import StudiosTab
 from .ui_game_details import GameDetailView
 from .ui_studio_details import StudioDetailView
-      
-def _recursive_widget_config(widget, config_key, config_value, ignore_widget=None):
-    if widget == ignore_widget:
-        return
-    try:
-        if widget.winfo_exists():
-            if isinstance(widget, (tk.Label, tk.Frame)):
-                widget.config(**{config_key: config_value})
-            for child in widget.winfo_children():
-                _recursive_widget_config(child, config_key, config_value, ignore_widget)
-    except tk.TclError:
-        pass
 
 class StoreWindow(tk.Tk):
     def __init__(self, db_manager, user_id, image_folder, studio_logo_folder,

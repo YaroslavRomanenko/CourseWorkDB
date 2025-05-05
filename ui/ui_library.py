@@ -53,85 +53,6 @@ class LibraryTab:
         self._display_placeholder_details()
         self.load_library_games()
 
-    def _create_scrollable_list_frame(self, parent):
-        canvas_scrollbar_frame = tk.Frame(parent, bg=self.original_bg)
-        canvas_scrollbar_frame.grid(row=0, column=0, sticky='nsew')
-        canvas_scrollbar_frame.grid_rowconfigure(0, weight=1)
-        canvas_scrollbar_frame.grid_columnconfigure(0, weight=1)
-
-        canvas = tk.Canvas(canvas_scrollbar_frame, borderwidth=0, background=self.original_bg, highlightthickness=0)
-        scrollbar = ttk.Scrollbar(canvas_scrollbar_frame, orient="vertical")
-        inner_frame = tk.Frame(canvas, background=self.original_bg)
-
-        def _limited_canvas_yview(*args):
-            canvas.yview(*args)
-            current_top, _ = canvas.yview()
-            if current_top < 0.0001:
-                canvas.yview_moveto(0.0)
-            scrollbar.set(*canvas.yview())
-
-        def _on_inner_mousewheel(event):
-            if event.num == 4: delta = -1 
-            elif event.num == 5: delta = 1
-            else:
-                try: delta = -1 if event.delta > 0 else 1
-                except AttributeError: return 
-
-            canvas.yview_scroll(delta, "units")
-
-            current_top, _ = canvas.yview()
-            if current_top < 0.0001:
-                canvas.yview_moveto(0.0)
-            scrollbar.set(*canvas.yview())
-
-            return "break" 
-
-        scrollbar.config(command=_limited_canvas_yview)
-        canvas.configure(yscrollcommand=scrollbar.set)
-
-        scrollbar.pack(side="right", fill="y")
-        canvas.pack(side="left", fill="both", expand=True)
-        canvas_frame_id = canvas.create_window((0, 0), window=inner_frame, anchor="nw")
-
-        def _on_inner_frame_configure(event=None):
-            canvas.configure(scrollregion=canvas.bbox("all"))
-            _, view_bottom = canvas.yview()
-            bbox = canvas.bbox("all")
-            content_height = bbox[3] - bbox[1] if bbox else 0
-            canvas_height = canvas.winfo_height()
-            if content_height > canvas_height:
-                 scrollbar.set(*canvas.yview())
-
-
-        def _on_inner_canvas_configure(event):
-            canvas_width = event.width
-            canvas.itemconfig(canvas_frame_id, width=event.width)
-            inner_frame.config(width=canvas_width)
-            _on_inner_frame_configure() 
-
-
-        inner_frame.bind("<Configure>", _on_inner_frame_configure)
-        canvas.bind('<Configure>', _on_inner_canvas_configure)
-
-        inner_frame.bind("<MouseWheel>", _on_inner_mousewheel)
-        inner_frame.bind("<Button-4>", _on_inner_mousewheel)
-        inner_frame.bind("<Button-5>", _on_inner_mousewheel)
-        canvas.bind("<MouseWheel>", _on_inner_mousewheel)
-        canvas.bind("<Button-4>", _on_inner_mousewheel)
-        canvas.bind("<Button-5>", _on_inner_mousewheel)
-
-        return canvas, inner_frame
-
-    def _on_enter(self, event, frame):
-        frame.config(background=self.hover_bg)
-        for widget in frame.winfo_children():
-             if isinstance(widget, tk.Label): widget.config(background=self.hover_bg)
-
-    def _on_leave(self, event, frame):
-        frame.config(background=self.original_bg)
-        for widget in frame.winfo_children():
-            if isinstance(widget, tk.Label): widget.config(background=self.original_bg)
-
     def _create_library_entry(self, parent, game_data):
         try:
             game_id, title, _, _, image_filename = game_data
@@ -207,7 +128,14 @@ class LibraryTab:
 
         detail_img_label = tk.Label(self.right_frame, background=self.original_bg)
         img_filename = game_data.get('image')
-        tk_detail_image = self._get_image(img_filename, size=self.detail_icon_size)
+        tk_detail_image = load_image_cached(
+            cache_dict=self._image_references,
+            image_filename=img_filename,
+            folder_path=self.image_folder_path,
+            size=self.detail_icon_size,
+            placeholder_image=self.placeholder_image_detail 
+        )
+        
         if tk_detail_image:
              detail_img_label.config(image=tk_detail_image)
              detail_img_label.image = tk_detail_image
@@ -249,34 +177,6 @@ class LibraryTab:
             item_pack_config={'fill': tk.X, 'pady': 0}
         )
         print(f"LibraryTab: List updated. Widgets created: {len(self._game_widgets_library)}")
-
-    def _load_image_internal(self, image_filename, full_path, size=(64, 64)):
-        placeholder = self.placeholder_image_detail if size == self.detail_icon_size else self.placeholder_image_list
-        if not image_filename: return placeholder
-        cache_key = f"{image_filename}_{size[0]}x{size[1]}"
-        if cache_key in self._image_references: return self._image_references[cache_key]
-        if full_path and os.path.exists(full_path):
-            try:
-                img = Image.open(full_path)
-                if img.mode != 'RGBA': img = img.convert('RGBA')
-                img.thumbnail(size, Image.Resampling.LANCZOS)
-                photo_img = ImageTk.PhotoImage(img)
-                self._image_references[cache_key] = photo_img
-                return photo_img
-            except Exception as e:
-                print(f"... Error loading '{full_path}' ...: {e}")
-                self._image_references[cache_key] = placeholder
-                return placeholder
-        else:
-             self._image_references[cache_key] = placeholder 
-             return placeholder
-
-    def _get_image(self, image_filename, size=(64, 64)):
-        placeholder = self.placeholder_image_detail if size == self.detail_icon_size else self.placeholder_image_list
-        if not image_filename: return placeholder
-        if not self.image_folder_path: return placeholder
-        image_path = os.path.join(self.image_folder_path, image_filename)
-        return self._load_image_internal(image_filename, image_path, size)
     
     def after(self, ms, func):
         self.parent.after(ms, func)

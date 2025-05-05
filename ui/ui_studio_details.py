@@ -91,7 +91,11 @@ class StudioDetailView(tk.Frame):
         top_frame.grid_columnconfigure(1, weight=1)
         self.logo_label = tk.Label(top_frame, background=bg_color)
         logo_filename = self.studio_details.get('logo') if self.studio_details else None
-        tk_logo_image = self._get_image(logo_filename, size=self.studio_logo_size)
+        tk_logo_image = load_image_cached(self._image_references,
+                                  logo_filename,
+                                  self.logo_folder,
+                                  self.studio_logo_size,
+                                  self.placeholder_image_detail)
         if tk_logo_image: self.logo_label.config(image=tk_logo_image); self.logo_label.image = tk_logo_image
         else: self.logo_label.config(text="Лого?", font=self.fonts.get('ui', ("Verdana", 10)), width=16, height=8, relief="solid", borderwidth=1)
         self.logo_label.grid(row=0, column=0, rowspan=2, padx=(0, 20), pady=0, sticky='nw')
@@ -305,70 +309,6 @@ class StudioDetailView(tk.Frame):
         except Exception as e:
             print(f"DEBUG: Unexpected error in StudioDetailView._update_wraplengths:")
             traceback.print_exc()
-
-    def _load_image_internal(self, image_filename, full_path, size=(64, 64), is_placeholder=False):
-        placeholder_to_return = self.placeholder_image_detail
-
-        if not image_filename:
-            return placeholder_to_return
-
-        cache_key = f"studio_{image_filename}_{size[0]}x{size[1]}"
-        if cache_key in self._image_references:
-            return self._image_references[cache_key]
-
-        if full_path and os.path.exists(full_path):
-            try:
-                img = Image.open(full_path)
-                if img.mode != 'RGBA':
-                    img = img.convert('RGBA')
-                img = img.resize(size, Image.Resampling.LANCZOS)
-                photo_img = ImageTk.PhotoImage(img)
-                self._image_references[cache_key] = photo_img
-                return photo_img
-            except Exception as e:
-                print(f"StudioDetailView: Error loading/processing image '{full_path}' (using placeholder): {e}")
-                self._image_references[cache_key] = placeholder_to_return
-                return placeholder_to_return
-        else:
-            if not is_placeholder:
-                 print(f"StudioDetailView: Image file not found: {full_path} (using placeholder)")
-            self._image_references[cache_key] = placeholder_to_return
-            return placeholder_to_return
-                        
-    def _get_image(self, image_filename, size=(128, 128)):
-        placeholder_to_return = self.placeholder_image_detail
-
-        if not image_filename:
-            return placeholder_to_return
-        if self.logo_folder is None:
-            print("StudioDetailView: LOGO_FOLDER is not set, cannot load image.")
-            return placeholder_to_return
-
-        full_path = os.path.join(self.logo_folder, image_filename)
-
-        is_placeholder_request = False
-        if hasattr(self.store_window_ref, 'placeholder_image_name'):
-            is_placeholder_request = (image_filename == self.store_window_ref.placeholder_image_name)
-
-        return self._load_image_internal(image_filename, full_path, size=size, is_placeholder=is_placeholder_request)
-
-    def _handle_mousewheel(self, event):
-        if isinstance(event.widget, (ttk.Scrollbar, scrolledtext.ScrolledText)):
-            return
-
-        if not self.scroll_target_canvas:
-            return
-
-        if event.num == 4: delta = -1
-        elif event.num == 5: delta = 1
-        else:
-            try:
-                delta = -1 if event.delta > 0 else 1
-            except AttributeError:
-                return
-
-        self.scroll_target_canvas.yview_scroll(delta, "units")
-        return "break"
     
     def _open_website(self, url, event=None):
         if url:

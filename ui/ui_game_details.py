@@ -106,23 +106,6 @@ class GameDetailView(tk.Frame):
         self._load_reviews()
 
         self.bind("<Configure>", lambda e: self.after_idle(lambda: self._update_wraplengths(e.width)))
-            
-    def _handle_mousewheel(self, event):
-        if isinstance(event.widget, ttk.Scrollbar):
-            return
-
-        if not self.scroll_target_canvas:
-            return
-
-        if event.num == 4: delta = -1
-        elif event.num == 5: delta = 1
-        else:
-            try: delta = -1 if event.delta > 0 else 1
-            except AttributeError:
-                return
-
-        self.scroll_target_canvas.yview_scroll(delta, "units")
-        return "break"
 
     def _update_wraplengths(self, container_width):
         try:
@@ -185,7 +168,11 @@ class GameDetailView(tk.Frame):
         top_info_frame.grid_columnconfigure(1, weight=1)
 
         icon_label = tk.Label(top_info_frame, background=self.original_bg)
-        tk_detail_image = self._get_image(self.game_data.get('image'), size=self.detail_icon_size)
+        tk_detail_image = load_image_cached(self._image_references,
+                                    self.game_data.get('image'),
+                                    self.image_folder,
+                                    self.detail_icon_size,
+                                    self.placeholder_image_detail)
         if tk_detail_image:
             icon_label.config(image=tk_detail_image); icon_label.image = tk_detail_image
         else:
@@ -634,10 +621,9 @@ class GameDetailView(tk.Frame):
         if is_owned:
             owned_label = tk.Label(self.price_buy_frame, text="✔ У бібліотеці", font=self.detail_font, bg=self.original_bg, fg="green")
             owned_label.pack(side=tk.LEFT, anchor='w')
-            self._bind_mousewheel_to_children(owned_label)
         else:
             price = self.game_data.get('price')
-            price_text_raw = "N/A"
+            price_text_raw = format_price_display(price)
             can_buy = False
             is_free = False
 
@@ -657,74 +643,11 @@ class GameDetailView(tk.Frame):
 
             price_label = tk.Label(self.price_buy_frame, text=price_text_raw, font=self.price_font, bg=self.original_bg)
             price_label.pack(side=tk.LEFT, anchor='w')
-            self._bind_mousewheel_to_children(price_label)
 
             if can_buy:
                  button_text = "Отримати" if is_free else "Придбати"
                  buy_button = ttk.Button(self.price_buy_frame, text=button_text, style=self.custom_button_style, command=self._buy_game)
                  buy_button.pack(side=tk.LEFT, padx=(15, 0), anchor='w')
-                 self._bind_mousewheel_to_children(buy_button)
-                 
-    def _load_image_internal(self, image_filename, full_path, size=(64, 64), is_placeholder=False):
-        placeholder_to_return = self.placeholder_image_detail if size == self.detail_icon_size else self.placeholder_image_list
-
-        if not image_filename:
-            return placeholder_to_return
-
-        cache_key = f"{image_filename}_{size[0]}x{size[1]}"
-        if cache_key in self._image_references:
-            return self._image_references[cache_key]
-
-        if full_path and os.path.exists(full_path):
-            try:
-                img = Image.open(full_path)
-                if img.mode != 'RGBA':
-                    img = img.convert('RGBA')
-                img.thumbnail(size, Image.Resampling.LANCZOS)
-                photo_img = ImageTk.PhotoImage(img)
-                self._image_references[cache_key] = photo_img
-                return photo_img
-            except Exception as e:
-                print(f"Error loading/processing image '{full_path}' (using placeholder): {e}")
-                self._image_references[cache_key] = placeholder_to_return
-                return placeholder_to_return
-        else:
-            if not is_placeholder:
-                print(f"Image file not found: {full_path} (using placeholder)")
-            self._image_references[cache_key] = placeholder_to_return
-            return placeholder_to_return
-
-    def _get_image(self, image_filename, size=(64, 64)):
-        placeholder_to_return = self.placeholder_image_detail if size == self.detail_icon_size else self.placeholder_image_list
-
-        if not image_filename:
-            return placeholder_to_return
-        if self.image_folder is None:
-            print("IMAGE_FOLDER is not set, cannot load image.")
-            return placeholder_to_return
-
-        if os.path.isabs(image_filename) and os.path.exists(image_filename):
-            full_path = image_filename
-        else:
-            full_path = os.path.join(self.image_folder, image_filename)
-
-        is_placeholder = (image_filename == self.placeholder_name)
-
-        return self._load_image_internal(image_filename, full_path, size=size, is_placeholder=is_placeholder)
-    
-    def _bind_mousewheel_to_children(self, widgets):
-        if not isinstance(widgets, (list, tuple)):
-            widgets = [widgets]
-
-        for widget in widgets:
-            if widget and widget.winfo_exists():
-                if not isinstance(widget, scrolledtext.ScrolledText):
-                    try:
-                        widget.bind("<MouseWheel>", self._handle_mousewheel)
-                        widget.bind("<Button-4>", self._handle_mousewheel)
-                        widget.bind("<Button-5>", self._handle_mousewheel)
-                    except tk.TclError as e:
-                        print(f"Warning: Could not bind scroll to widget {widget}: {e}")
                         
     def _on_studio_click(self, event, studio_names):
         if not studio_names:
