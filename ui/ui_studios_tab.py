@@ -7,7 +7,7 @@ import datetime
 from PIL import Image, ImageTk
 from functools import partial
 
-from .ui_utils import create_scrollable_list 
+from .ui_utils import *
 
 class StudiosTab(tk.Frame):
     def __init__(self, parent, db_manager, user_id, is_developer_initial,
@@ -77,10 +77,17 @@ class StudiosTab(tk.Frame):
 
         if studio_id is None: return None
 
-        entry_frame = tk.Frame(parent, borderwidth=1, relief=tk.FLAT, background=self.original_bg)
+        entry_frame = tk.Frame(parent, borderwidth=1, relief=tk.FLAT, background=self.original_bg, cursor="hand2")
 
-        icon_label = tk.Label(entry_frame, background=self.original_bg)
-        tk_image = self._get_studio_logo(logo_filename, size=self.list_icon_size)
+        icon_label = tk.Label(entry_frame, background=self.original_bg, cursor="hand2")
+        tk_image = load_image_cached(
+            cache_dict=self._image_references,
+            image_filename=logo_filename,
+            folder_path=self.studio_logo_folder,
+            size=self.list_icon_size,
+            placeholder_image=self.placeholder_image_list
+        )
+
         if tk_image:
             icon_label.config(image=tk_image)
             icon_label.image = tk_image
@@ -88,29 +95,38 @@ class StudiosTab(tk.Frame):
             icon_label.config(text="?", font=self.fonts['ui'], width=int(self.list_icon_size[0]/8), height=int(self.list_icon_size[1]/16), relief="solid", borderwidth=1)
         icon_label.pack(side=tk.LEFT, padx=5, pady=5)
 
-        text_frame = tk.Frame(entry_frame, background=self.original_bg)
+        text_frame = tk.Frame(entry_frame, background=self.original_bg, cursor="hand2")
         text_frame.pack(side=tk.LEFT, fill=tk.X, expand=True, padx=5, pady=5)
 
         name_label = tk.Label(text_frame, text=name,
-                              font=self.fonts.get('list_title', ("Verdana", 12, "bold")),
-                              anchor="w", justify=tk.LEFT, background=self.original_bg)
+                            font=self.fonts.get('list_title', ("Verdana", 12, "bold")),
+                            anchor="w", justify=tk.LEFT, background=self.original_bg, cursor="hand2")
         name_label.pack(fill=tk.X, pady=(0, 2))
 
         country_label = tk.Label(text_frame, text=f"Країна: {country}",
-                                 font=self.fonts['ui'], anchor="w", justify=tk.LEFT, background=self.original_bg)
+                                font=self.fonts['ui'], anchor="w", justify=tk.LEFT, background=self.original_bg, cursor="hand2")
         country_label.pack(fill=tk.X)
 
         click_handler = partial(self._on_studio_select, name)
-        enter_handler = partial(self._on_enter, frame=entry_frame, icon_widget=icon_label)
-        leave_handler = partial(self._on_leave, frame=entry_frame, icon_widget=icon_label)
 
-        widgets_to_bind = [entry_frame, icon_label, text_frame, name_label, country_label]
-        for widget in widgets_to_bind:
+        entry_frame.bind("<Enter>",
+                        lambda e, frm=entry_frame, hb=self.hover_bg, ob=self.original_bg, ign=[icon_label]:
+                        apply_hover_effect(frm, hb, ob, ign))
+        entry_frame.bind("<Leave>",
+                        lambda e, frm=entry_frame, ob=self.original_bg, ign=[icon_label]:
+                        remove_hover_effect(frm, ob, ign))
+        entry_frame.bind("<Button-1>", click_handler)
+
+        widgets_to_set_cursor = [
+            icon_label, text_frame, name_label, country_label
+        ]
+
+        for widget in widgets_to_set_cursor:
             if widget and widget.winfo_exists():
-                widget.bind("<Button-1>", click_handler)
-                widget.bind("<Enter>", enter_handler)
-                widget.bind("<Leave>", leave_handler)
-                widget.config(cursor="hand2")
+                try:
+                    widget.config(cursor="hand2")
+                    widget.bind("<Button-1>", click_handler)
+                except tk.TclError: pass
 
         return entry_frame
 
@@ -120,55 +136,6 @@ class StudiosTab(tk.Frame):
             self.store_window_ref._show_studio_detail_view(studio_name)
         else:
             messagebox.showerror("Помилка", "Не вдалося відкрити деталі студії.", parent=self)
-            
-    def _on_enter(self, event, frame, icon_widget=None):
-        try:
-            if frame.winfo_exists():
-                frame.config(background=self.hover_bg)
-                for widget in frame.winfo_children():
-                     if widget == icon_widget: continue
-                     if isinstance(widget, (tk.Label, tk.Frame)):
-                         if widget.winfo_exists(): widget.config(background=self.hover_bg)
-                         if isinstance(widget, tk.Frame):
-                             for grandchild in widget.winfo_children():
-                                 if isinstance(grandchild, tk.Label):
-                                     if grandchild.winfo_exists(): grandchild.config(background=self.hover_bg)
-        except tk.TclError: pass
-
-    def _on_leave(self, event, frame, icon_widget=None):
-        try:
-             if frame.winfo_exists():
-                frame.config(background=self.original_bg)
-                for widget in frame.winfo_children():
-                     if widget == icon_widget: continue
-                     if isinstance(widget, (tk.Label, tk.Frame)):
-                          if widget.winfo_exists(): widget.config(background=self.original_bg)
-                          if isinstance(widget, tk.Frame):
-                              for grandchild in widget.winfo_children():
-                                  if isinstance(grandchild, tk.Label):
-                                      if grandchild.winfo_exists(): grandchild.config(background=self.original_bg)
-        except tk.TclError: pass
-        
-    def _get_studio_logo(self, logo_filename, size=(64, 64)):
-        placeholder = self.placeholder_image_list
-        if not logo_filename: return placeholder
-        if not self.studio_logo_folder:
-            print("StudiosTab: STUDIO_LOGO_FOLDER is not set.")
-            return placeholder
-
-        full_path = os.path.join(self.studio_logo_folder, logo_filename)
-        if self.store_window_ref and hasattr(self.store_window_ref, '_load_image_internal'):
-             cache_key_base = f"studio_{logo_filename}"
-             return self.store_window_ref._load_image_internal(cache_key_base, full_path, size=size)
-        else:
-             print("StudiosTab: Warning - Cannot access _load_image_internal from store_window_ref.")
-             try:
-                 if os.path.exists(full_path):
-                     img = Image.open(full_path)
-                     img = img.resize(size, Image.Resampling.LANCZOS)
-                     return ImageTk.PhotoImage(img)
-                 else: return placeholder
-             except Exception: return placeholder
 
     def refresh_content(self):
         print("StudiosTab: Refreshing studios list.")

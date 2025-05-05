@@ -5,6 +5,8 @@ from PIL import Image, ImageTk
 from functools import partial
 import decimal
 
+from ui.ui_utils import *
+
 class LibraryTab:
     def __init__(self, parent, db_manager, user_id, image_cache, placeholder_list, placeholder_detail, image_folder_path, fonts, colors):
         self.parent = parent
@@ -15,7 +17,6 @@ class LibraryTab:
         self.placeholder_image_list = placeholder_list
         self.placeholder_image_detail = placeholder_detail
         self.image_folder_path = image_folder_path
-        self._game_widgets_library = []
 
         self.original_bg = colors.get('original_bg', "white")
         self.hover_bg = colors.get('hover_bg', "#f0f0f0")
@@ -23,8 +24,8 @@ class LibraryTab:
         self.detail_icon_size = (300, 180)
 
         self.ui_font = fonts.get('ui', ("Verdana", 10))
-        self.title_font_list = fonts.get('list_title', ("Verdana", 11, "bold"))
-        self.title_font_detail = fonts.get('detail_title', ("Verdana", 14, "bold"))
+        self.title_font_list = fonts.get('library_list_title', ("Verdana", 11, "bold"))
+        self.title_font_detail = fonts.get('library_detail_title', ("Verdana", 14, "bold"))
         self.detail_font = fonts.get('detail', ("Verdana", 11))
 
         self.paned_window = tk.PanedWindow(self.parent, orient=tk.HORIZONTAL, sashrelief=tk.FLAT, sashwidth=1, bg=self.original_bg)
@@ -38,11 +39,16 @@ class LibraryTab:
         self.left_frame.grid_columnconfigure(0, weight=1)
         self.paned_window.add(self.left_frame, width=desired_left_width, minsize=min_left_width, stretch="never")
 
-        self.library_canvas, self.library_list_frame = self._create_scrollable_list_frame(self.left_frame)
+        self.library_list_container = tk.Frame(self.left_frame, bg=self.original_bg)
+        self.library_list_container.grid(row=0, column=0, sticky='nsew')
 
         self.right_frame = tk.Frame(self.paned_window, bg=self.original_bg, padx=15, pady=10)
         self.right_frame.grid_columnconfigure(0, weight=1)
         self.paned_window.add(self.right_frame, minsize=min_right_width, stretch="always")
+
+        self.library_canvas = None
+        self.library_list_frame = None
+        self._game_widgets_library = []
 
         self._display_placeholder_details()
         self.load_library_games()
@@ -127,29 +133,46 @@ class LibraryTab:
             if isinstance(widget, tk.Label): widget.config(background=self.original_bg)
 
     def _create_library_entry(self, parent, game_data):
-        try: game_id, title, _, _, image_filename = game_data
-        except (ValueError, TypeError): print(f"...: {game_data}"); return None
+        try:
+            game_id, title, _, _, image_filename = game_data
+        except (ValueError, TypeError):
+            print(f"LibraryTab Error: Invalid game data format: {game_data}")
+            return None
 
         entry_frame = tk.Frame(parent, background=self.original_bg, cursor="hand2")
-        entry_frame.pack(fill=tk.X, pady=0)
 
-        icon_label = tk.Label(entry_frame, background=self.original_bg)
-        tk_image = self._get_image(image_filename, size=self.list_icon_size)
-        if tk_image: icon_label.config(image=tk_image); icon_label.image = tk_image
+        icon_label = tk.Label(entry_frame, background=self.original_bg, cursor="hand2")
+        tk_image = load_image_cached(self._image_references, image_filename,
+                                    self.image_folder_path, self.list_icon_size,
+                                    self.placeholder_image_list)
+        if tk_image:
+            icon_label.config(image=tk_image)
+            icon_label.image = tk_image
+        else:
+            icon_label.config(text="?", font=self.ui_font, width=int(self.list_icon_size[0]/6), height=int(self.list_icon_size[1]/12), relief="solid", borderwidth=1)
         icon_label.pack(side=tk.LEFT, padx=5, pady=3)
 
-        title_label = tk.Label(entry_frame, text=title, font=self.title_font_list, anchor="w", background=self.original_bg)
+        title_label = tk.Label(entry_frame, text=title, font=self.title_font_list, anchor="w", background=self.original_bg, cursor="hand2")
         title_label.pack(side=tk.LEFT, fill=tk.X, expand=True, padx=5)
 
         click_handler = partial(self._on_game_select, game_id)
-        enter_handler = partial(self._on_enter, frame=entry_frame)
-        leave_handler = partial(self._on_leave, frame=entry_frame)
 
-        widgets_to_bind = [entry_frame, icon_label, title_label]
-        for widget in widgets_to_bind:
-            widget.bind("<Button-1>", click_handler)
-            widget.bind("<Enter>", enter_handler)
-            widget.bind("<Leave>", leave_handler)
+        entry_frame.bind("<Enter>",
+                        lambda e, frm=entry_frame, hb=self.hover_bg, ob=self.original_bg, ign=[icon_label]:
+                        apply_hover_effect(frm, hb, ob, ign))
+        entry_frame.bind("<Leave>",
+                        lambda e, frm=entry_frame, ob=self.original_bg, ign=[icon_label]:
+                        remove_hover_effect(frm, ob, ign))
+        entry_frame.bind("<Button-1>", click_handler)
+
+
+        widgets_to_set_cursor = [icon_label, title_label]
+        for widget in widgets_to_set_cursor:
+            if widget and widget.winfo_exists():
+                try:
+                    widget.config(cursor="hand2")
+                    widget.bind("<Button-1>", click_handler)
+                except tk.TclError: pass
 
         return entry_frame
 
@@ -204,27 +227,28 @@ class LibraryTab:
 
 
     def load_library_games(self):
-        for widget in self.library_list_frame.winfo_children(): widget.destroy()
-        self._game_widgets_library = []
+        print("LibraryTab: Loading library games...")
+        games_data = []
         try:
             games_data = self.db_manager.fetch_purchased_games(self.user_id)
+            print(f"DEBUG LibraryTab: Fetched {len(games_data) if games_data else 0} games.")
         except AttributeError:
-            tk.Label(self.library_list_frame, text="...", fg="orange").pack(pady=20); print("DB: fetch_purchased_games..."); return
+            print("DB Error: fetch_purchased_games method missing.")
+            games_data = None
         except Exception as e:
-            tk.Label(self.library_list_frame, text="...", fg="red").pack(pady=20); print(f"...: {e}"); return
+            print(f"DB Error fetching purchased games: {e}")
+            games_data = None
 
-        if games_data is None: tk.Label(self.library_list_frame, text="...", fg="red").pack(pady=20); print("DB: Failed fetch (Library)."); return
-        if not games_data: tk.Label(self.library_list_frame, text="Ваша бібліотека порожня").pack(pady=20)
-        else:
-            for game in games_data:
-                 if len(game) < 5: print(f"...: Invalid data format {game}"); continue
-                 game_widget = self._create_library_entry(self.library_list_frame, game)
-                 if game_widget: self._game_widgets_library.append(game_widget)
-
-        self.library_list_frame.update_idletasks()
-        self.library_canvas.configure(scrollregion=self.library_canvas.bbox("all"))
-        self.library_canvas.yview_moveto(0.0)
-        self.after(10, lambda: self.library_canvas.master.winfo_children()[1].set(*self.library_canvas.yview()))
+        self.library_canvas, self.library_list_frame, self._game_widgets_library = create_scrollable_list(
+            parent=self.library_list_container,
+            item_creation_func=self._create_library_entry,
+            item_data_list=games_data,
+            bg_color=self.original_bg,
+            placeholder_text="Ваша бібліотека порожня.",
+            placeholder_font=self.ui_font,
+            item_pack_config={'fill': tk.X, 'pady': 0}
+        )
+        print(f"LibraryTab: List updated. Widgets created: {len(self._game_widgets_library)}")
 
     def _load_image_internal(self, image_filename, full_path, size=(64, 64)):
         placeholder = self.placeholder_image_detail if size == self.detail_icon_size else self.placeholder_image_list

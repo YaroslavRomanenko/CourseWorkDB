@@ -1,8 +1,12 @@
 import tkinter as tk
 import screeninfo
 import pyautogui
+import os
+from datetime import datetime, date 
 
-from tkinter import ttk, scrolledtext
+from tkinter import ttk, scrolledtext, Toplevel 
+from PIL import Image, ImageTk
+from decimal import Decimal, InvalidOperation
 
 def center_window(self, width, height):
         try:
@@ -219,6 +223,140 @@ def bind_recursive_mousewheel(widget, canvas):
 
     for child in widget.winfo_children():
         bind_recursive_mousewheel(child, canvas)
+
+def apply_hover_effect(widget, hover_bg, original_bg, ignore_widgets=None):
+    """Recursively applies hover background color, skipping ignored widgets"""
+    if ignore_widgets is None:
+        ignore_widgets = []
+    if widget in ignore_widgets:
+        return
+    try:
+        if widget.winfo_exists():
+            if isinstance(widget, (tk.Label, tk.Frame, tk.Button, ttk.Button)):
+                 try: widget.config(background=hover_bg)
+                 except tk.TclError: pass
+            if isinstance(widget, tk.Frame):
+                for child in widget.winfo_children():
+                    apply_hover_effect(child, hover_bg, original_bg, ignore_widgets)
+    except tk.TclError:
+        pass
+    
+def remove_hover_effect(widget, original_bg, ignore_widgets=None):
+    """Recursively removes hover background color, skipping ignored widgets"""
+    if ignore_widgets is None:
+        ignore_widgets = []
+    if widget in ignore_widgets:
+        return
+    try:
+        if widget.winfo_exists():
+            if isinstance(widget, (tk.Label, tk.Frame, tk.Button, ttk.Button)):
+                 try: widget.config(background=original_bg)
+                 except tk.TclError: pass
+            if isinstance(widget, tk.Frame):
+                for child in widget.winfo_children():
+                    remove_hover_effect(child, original_bg, ignore_widgets)
+    except tk.TclError:
+        pass
+
+    
+def load_image_cached(cache_dict, image_filename, folder_path, size, placeholder_image=None):
+    """Loads an image, resizes using thumbnail"""
+    if not image_filename or not folder_path:
+        return placeholder_image
+
+    cache_key = f"{folder_path}_{image_filename}_{size[0]}x{size[1]}"
+    if cache_key in cache_dict:
+        return cache_dict[cache_key]
+
+    full_path = os.path.join(folder_path, image_filename)
+
+    if os.path.exists(full_path):
+        try:
+            img = Image.open(full_path)
+            if img.mode != 'RGBA':
+                img = img.convert('RGBA')
+            img.thumbnail(size, Image.Resampling.LANCZOS)
+            photo_img = ImageTk.PhotoImage(img)
+            cache_dict[cache_key] = photo_img
+            return photo_img
+        except Exception as e:
+            print(f"Error loading/processing image '{full_path}': {e}")
+            cache_dict[cache_key] = placeholder_image
+            return placeholder_image
+    else:
+        cache_dict[cache_key] = placeholder_image 
+        return placeholder_image
+
+def format_price_display(price_value):
+    """Formats a price value for display"""
+    if price_value is None:
+        return "Ціна не вказана"
+    try:
+        price_decimal = Decimal(str(price_value))
+        if price_decimal <= 0:
+            return "Безкоштовно"
+        else:
+            return f"{price_decimal:.2f}₴"
+    except (ValueError, TypeError, InvalidOperation):
+        print(f"Warning: Could not format price '{price_value}'")
+        return "N/A"
+    
+def format_date_display(date_value, date_format='%d-%m-%Y'):
+    """
+    Formats a date value for display"""
+    if date_value is None:
+        return "Не вказано"
+    try:
+        if isinstance(date_value, datetime):
+            return date_value.strftime(date_format)
+        elif isinstance(date_value, date):
+             return date_value.strftime(date_format)
+        else:
+            parsed_date = None
+            possible_formats = ['%Y-%m-%d %H:%M:%S', '%Y-%m-%d', '%d-%m-%Y'] 
+            for fmt in possible_formats:
+                try:
+                    parsed_date = datetime.strptime(str(date_value), fmt)
+                    break 
+                except (ValueError, TypeError):
+                    continue
+            if parsed_date:
+                return parsed_date.strftime(date_format)
+            else:
+                print(f"Warning: Could not parse date '{date_value}' with known formats.")
+                return str(date_value)
+    except Exception as e:
+         print(f"Error formatting date '{date_value}': {e}")
+         return str(date_value)
+     
+def format_datetime_display(datetime_value, dt_format='%d %b, %Y @ %H:%M'):
+    """Formats a datetime value for display with time"""
+    if datetime_value is None:
+        return "Невідома дата"
+    try:
+        if isinstance(datetime_value, datetime):
+            return datetime_value.strftime(dt_format)
+        else:
+            parsed_dt = None
+            possible_formats = ['%Y-%m-%d %H:%M:%S', '%Y-%m-%d %H:%M', '%Y-%m-%d', '%d-%m-%Y %H:%M:%S', '%d-%m-%Y %H:%M']
+            if isinstance(datetime_value, date):
+                 datetime_value = datetime.combine(datetime_value, datetime.min.time())
+                 return datetime_value.strftime(dt_format)
+
+            for fmt in possible_formats:
+                try:
+                    parsed_dt = datetime.strptime(str(datetime_value), fmt)
+                    break
+                except (ValueError, TypeError):
+                    continue
+            if parsed_dt:
+                return parsed_dt.strftime(dt_format)
+            else:
+                 print(f"Warning: Could not parse datetime '{datetime_value}' with known formats.")
+                 return str(datetime_value)
+    except Exception as e:
+         print(f"Error formatting datetime '{datetime_value}': {e}")
+         return str(datetime_value)
 
 class CustomAskStringDialog(tk.Toplevel):
     def __init__(self, parent, title=None, prompt=""):

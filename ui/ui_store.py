@@ -6,7 +6,7 @@ from functools import partial
 import decimal
 import traceback
 
-from .ui_utils import center_window, create_scrollable_list, CustomAskStringDialog
+from .ui_utils import *
 from .ui_library import LibraryTab
 from .ui_studios_tab import StudiosTab
 from .ui_game_details import GameDetailView
@@ -312,73 +312,36 @@ class StoreWindow(tk.Tk):
         self.title(f"{game_details.get('title', 'Деталі гри')}")
 
     def _load_placeholders(self, list_size=(64, 64), detail_size=(160, 160)):
-        print("Loading placeholders...")
+        """Loads and caches placeholder ImageTk objects using the utility function."""
+        print("Loading and caching placeholders...")
         if self.placeholder_image_path and os.path.exists(self.placeholder_image_path):
-            self.placeholder_image = self._load_image_internal(
-                self.placeholder_image_name, self.placeholder_image_path, size=list_size, is_placeholder=True
+            self.placeholder_image = load_image_cached(
+                cache_dict=self._image_references,
+                image_filename=self.placeholder_image_name,
+                folder_path=self.image_folder, 
+                size=list_size,
+                placeholder_image=None 
             )
-            detail_placeholder_key = f"{self.placeholder_image_name}_detail_{detail_size[0]}x{detail_size[1]}"
-            self.placeholder_image_detail = self._load_image_internal(
-                detail_placeholder_key, self.placeholder_image_path, size=detail_size, is_placeholder=True
+            self.placeholder_image_detail = load_image_cached(
+                cache_dict=self._image_references,
+                image_filename=self.placeholder_image_name,
+                folder_path=self.image_folder,
+                size=detail_size,
+                placeholder_image=None
             )
 
-            if self.placeholder_image: print(f"List placeholder loaded ({list_size}): {self.placeholder_image}")
-            else: print(f"Failed to load list placeholder ({list_size}).")
-
-            if self.placeholder_image_detail: print(f"Detail placeholder loaded ({detail_size}): {self.placeholder_image_detail}")
-            else:
+            if self.placeholder_image: 
+                print(f"List placeholder loaded/cached ({list_size})")
+            else: 
+                print(f"Failed to load list placeholder ({list_size}).")
+            if self.placeholder_image_detail: 
+                print(f"Detail placeholder loaded/cached ({detail_size})")
+            else: 
                 print(f"Failed to load detail placeholder ({detail_size}).")
-                if self.placeholder_image:
-                    print("Using list placeholder for detail view as fallback.")
-                    self.placeholder_image_detail = self.placeholder_image
-                else:
-                    print("Warning: Both list and detail placeholders failed to load.")
-                    self.placeholder_image_detail = None
         else:
             print(f"Placeholder image file not found or path not set: {self.placeholder_image_path}")
             self.placeholder_image = None
             self.placeholder_image_detail = None
-
-    def _load_image_internal(self, cache_key_base, full_path, size=(64, 64), is_placeholder=False):
-        default_placeholder = None
-        if not is_placeholder:
-             default_placeholder = self.placeholder_image_detail if size == self.detail_icon_size else self.placeholder_image
-
-        cache_key = f"{cache_key_base}_{size[0]}x{size[1]}"
-        if cache_key in self._image_references: return self._image_references[cache_key]
-        if not cache_key_base: return default_placeholder
-
-        if full_path and os.path.exists(full_path):
-            try:
-                img = Image.open(full_path)
-                if img.mode != 'RGBA': img = img.convert('RGBA')
-                img = img.resize(size, Image.Resampling.LANCZOS)
-                photo_img = ImageTk.PhotoImage(img)
-                self._image_references[cache_key] = photo_img
-                return photo_img
-            except Exception as e:
-                print(f"Error loading image '{full_path}' (key: {cache_key}). Using default placeholder. Error: {e}")
-                self._image_references[cache_key] = default_placeholder
-                return default_placeholder
-        else:
-             if not is_placeholder:
-                 print(f"Image file not found: {full_path} (key: {cache_key}). Using default placeholder.")
-             self._image_references[cache_key] = default_placeholder
-             return default_placeholder
-
-    def _get_image(self, image_filename, size=(64, 64)):
-        placeholder_to_return = self.placeholder_image_detail if size == self.detail_icon_size else self.placeholder_image
-        if not image_filename: return placeholder_to_return
-
-        folder = self.image_folder
-        if folder is None:
-             print("GetImage: IMAGE_FOLDER is not set, cannot load image.")
-             return placeholder_to_return
-
-        full_path = os.path.join(folder, image_filename)
-        is_placeholder_request = (image_filename == self.placeholder_image_name)
-
-        return self._load_image_internal(image_filename, full_path, size=size, is_placeholder=is_placeholder_request)
     
           
     def _on_mousewheel(self, event):
@@ -462,25 +425,23 @@ class StoreWindow(tk.Tk):
 
         return "break"
 
-    def _on_enter(self, event, frame, icon_widget=None):
-        _recursive_widget_config(frame, 'background', self.hover_bg, ignore_widget=icon_widget)
-
-    def _on_leave(self, event, frame, icon_widget=None):
-        _recursive_widget_config(frame, 'background', self.original_bg, ignore_widget=icon_widget)
-
     def _create_game_entry(self, parent, game_data):
         try:
-            if len(game_data) < 6:
-                 print(f"Skipping game entry due to insufficient data (expected 6): {game_data}")
-                 return None
             game_id, title, _, price, image_filename, purchase_count = game_data[:6]
         except (ValueError, TypeError) as e:
-            print(f"Error unpacking game data (expected 6): {game_data}, Error: {e}")
+            print(f"Error unpacking game data in _create_game_entry: {game_data}, Error: {e}")
             return None
 
-        entry_frame = tk.Frame(parent, borderwidth=1, relief=tk.FLAT, background=self.original_bg)
-        icon_label = tk.Label(entry_frame, background=self.original_bg)
-        tk_image = self._get_image(image_filename, size=self.list_icon_size)
+        entry_frame = tk.Frame(parent, borderwidth=1, relief=tk.FLAT, background=self.original_bg, cursor="hand2")
+
+        icon_label = tk.Label(entry_frame, background=self.original_bg, cursor="hand2")
+        tk_image = load_image_cached(
+            cache_dict=self._image_references,
+            image_filename=image_filename,
+            folder_path=self.image_folder,
+            size=self.list_icon_size,
+            placeholder_image=self.placeholder_image
+        )
         if tk_image:
             icon_label.config(image=tk_image)
             icon_label.image = tk_image
@@ -488,51 +449,43 @@ class StoreWindow(tk.Tk):
             icon_label.config(text="?", font=self.fonts['ui'], width=int(self.list_icon_size[0]/8), height=int(self.list_icon_size[1]/16), relief="solid", borderwidth=1)
         icon_label.pack(side=tk.LEFT, padx=5, pady=5)
 
-        text_frame = tk.Frame(entry_frame, background=self.original_bg)
+        text_frame = tk.Frame(entry_frame, background=self.original_bg, cursor="hand2")
         text_frame.pack(side=tk.LEFT, fill=tk.X, expand=True, padx=5, pady=5)
 
-        title_label = tk.Label(text_frame, text=title or "Без назви", font=self.fonts['list_title'], anchor="w", justify=tk.LEFT, background=self.original_bg)
+        title_label = tk.Label(text_frame, text=title or "Без назви", font=self.fonts['list_title'], anchor="w", justify=tk.LEFT, background=self.original_bg, cursor="hand2")
         title_label.pack(fill=tk.X, pady=(0, 2))
 
-        price_purchase_frame = tk.Frame(text_frame, background=self.original_bg)
+        price_purchase_frame = tk.Frame(text_frame, background=self.original_bg, cursor="hand2")
         price_purchase_frame.pack(fill=tk.X)
-
-        price_text = "N/A"
-        if price is None: price_text = "Ціна не вказана"
-        elif isinstance(price, (int, float, decimal.Decimal)) and float(price) <= 0.0: price_text = "Безкоштовно"
-        else:
-            try:
-                price_decimal = decimal.Decimal(str(price)).quantize(decimal.Decimal("0.01"))
-                price_text = f"{price_decimal}₴"
-            except (ValueError, TypeError, decimal.InvalidOperation): price_text = "N/A"
-        price_label = tk.Label(price_purchase_frame, text=price_text, font=self.fonts['ui'], anchor="w", justify=tk.LEFT, background=self.original_bg)
+        price_text = format_price_display(price)
+        price_label = tk.Label(price_purchase_frame, text=price_text, font=self.fonts['ui'], anchor="w", justify=tk.LEFT, background=self.original_bg, cursor="hand2")
         price_label.pack(side=tk.LEFT, anchor='w')
 
-        purchase_count_text = ""
         purchase_label = None
         if isinstance(purchase_count, int) and purchase_count > 0:
-            purchase_count_text = f"Покупок: {purchase_count}"
-            purchase_label = tk.Label(price_purchase_frame, text=purchase_count_text, font=self.fonts['comment'], fg='grey', anchor="e", justify=tk.RIGHT, background=self.original_bg)
+            purchase_label = tk.Label(price_purchase_frame, text=f"Покупок: {purchase_count}", font=self.fonts['comment'], fg='grey', anchor="e", justify=tk.RIGHT, background=self.original_bg, cursor="hand2")
             purchase_label.pack(side=tk.RIGHT, anchor='e', padx=(10, 0))
 
         click_handler = partial(self._show_detail_view, game_id)
-        enter_handler = partial(self._on_enter, frame=entry_frame, icon_widget=icon_label)
-        leave_handler = partial(self._on_leave, frame=entry_frame, icon_widget=icon_label)
 
-        entry_frame.bind("<Enter>", enter_handler)
-        entry_frame.bind("<Leave>", leave_handler)
-        entry_frame.config(cursor="hand2")
+        entry_frame.bind("<Enter>",
+                        lambda e, frm=entry_frame, hb=self.hover_bg, ob=self.original_bg, ign=[icon_label]:
+                        apply_hover_effect(frm, hb, ob, ign))
+        entry_frame.bind("<Leave>",
+                        lambda e, frm=entry_frame, ob=self.original_bg, ign=[icon_label]:
+                        remove_hover_effect(frm, ob, ign))
+        entry_frame.bind("<Button-1>", click_handler)
 
-        widgets_to_bind_click = [
-            icon_label, text_frame, title_label,
-            price_purchase_frame, price_label
-        ]
-        if purchase_label: widgets_to_bind_click.append(purchase_label)
+        widgets_to_set_cursor = [icon_label, text_frame, title_label, price_purchase_frame, price_label]
+        if purchase_label:
+            widgets_to_set_cursor.append(purchase_label)
 
-        for widget in widgets_to_bind_click:
+        for widget in widgets_to_set_cursor:
             if widget and widget.winfo_exists():
-                widget.bind("<Button-1>", click_handler)
-                widget.config(cursor="hand2")
+                try:
+                    widget.config(cursor="hand2")
+                    widget.bind("<Button-1>", click_handler)
+                except tk.TclError: pass
 
         return entry_frame
     
