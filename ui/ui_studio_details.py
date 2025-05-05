@@ -78,26 +78,6 @@ class StudioDetailView(tk.Frame):
             print("Error: db_manager does not have 'fetch_studio_details_by_name' method.")
             self.studio_details = None
 
-    def _clear_content_frame(self):
-        for widget in self.content_frame.winfo_children():
-            widget.destroy()
-
-    def _show_default_view(self):
-        self._clear_content_frame()
-        self.content_frame.grid_columnconfigure(0, weight=1)
-
-        title_label = tk.Label(self.content_frame, text="Студії",
-                               font=self.fonts.get('title', ("Verdana", 16, "bold")),
-                               bg=self.colors.get('original_bg', 'white'))
-        title_label.pack(pady=20)
-
-        placeholder_text = tk.Label(self.content_frame, text="Оберіть студію зі списку гри\nабо реалізуйте тут список усіх студій.",
-                                   font=self.fonts.get('ui', ("Verdana", 10)),
-                                   bg=self.colors.get('original_bg', 'white'),
-                                   fg='grey',
-                                   justify=tk.CENTER)
-        placeholder_text.pack(pady=10, fill=tk.BOTH, expand=True)
-
     def _setup_ui(self):
         for widget in self.winfo_children(): widget.destroy()
         self.grid_columnconfigure(0, weight=1)
