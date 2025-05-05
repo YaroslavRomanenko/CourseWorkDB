@@ -508,6 +508,7 @@ class DatabaseManager:
             return None
 
     def fetch_review_comments(self, review_id):
+        """Fetches all comments for a specific review, ordered by date ascending"""
         conn = self.get_connection()
         if not conn: return None
         query = sql.SQL("""
@@ -717,6 +718,7 @@ class DatabaseManager:
             return False
         
     def check_developer_status(self, user_id):
+        """Checks if a user exists in the Developers table"""
         query = sql.SQL("""
             SELECT EXISTS (
                 SELECT 1
@@ -740,6 +742,7 @@ class DatabaseManager:
             return False
 
     def set_developer_status(self, user_id, status=True, contact_email=None):
+        """Adds or removes a user from the Developers table"""
         conn = self.get_connection()
         if not conn:
             messagebox.showerror("Помилка Бази Даних", "Немає активного підключення до бази даних.")
@@ -788,6 +791,7 @@ class DatabaseManager:
             return False
           
     def delete_user_account(self, user_id):
+        """Deletes a user account and all related data via CASCADE constraints"""
         conn = self.get_connection()
         if not conn:
             messagebox.showerror("Помилка Бази Даних", "Немає активного підключення до бази даних.")
@@ -820,6 +824,7 @@ class DatabaseManager:
         
           
     def fetch_all_studios(self, sort_by='name', sort_order='ASC'):
+        """Fetches a list of all studios, optionally sorted"""
         conn = self.get_connection()
         if not conn:
             print("DB: No connection to fetch studios.")
@@ -864,6 +869,7 @@ class DatabaseManager:
             return None
 
     def submit_studio_application(self, user_id, studio_id):
+        """Submits an application for a user to join a studio"""
         conn = self.get_connection()
         if not conn:
             messagebox.showerror("Помилка Бази Даних", "Немає підключення до бази даних.")
@@ -919,6 +925,7 @@ class DatabaseManager:
             return False
         
     def process_studio_application(self, application_id, new_status, admin_user_id):
+        """Processes a pending studio application"""
         conn = self.get_connection()
         if not conn:
             messagebox.showerror("Помилка Бази Даних", "Немає підключення до бази даних.")
@@ -991,6 +998,7 @@ class DatabaseManager:
             return False
     
     def fetch_pending_applications(self, studio_id, admin_user_id):
+        """Fetches pending applications for a specific studio"""
         print(f"DB: Fetching pending applications for studio {studio_id} by admin {admin_user_id}")
         role = self.check_developer_role(admin_user_id, studio_id)
         if role != 'Admin':
@@ -1016,17 +1024,20 @@ class DatabaseManager:
             return None
           
     def get_developer_studio_id(self, user_id):
+        """Gets the studio_id associated with a developer user"""
         query = "SELECT studio_id FROM Developers WHERE user_id = %s;"
         result = self.execute_query(query, (user_id,), fetch_one=True)
         return result[0] if result and result[0] is not None else None
           
     def check_developer_role(self, user_id, studio_id):
+        """Checks the role of a developer within a specific studio"""
         query = "SELECT role FROM Developers WHERE user_id = %s AND studio_id = %s;"
         result = self.execute_query(query, (user_id, studio_id), fetch_one=True)
         return result[0] if result else None
 
           
     def get_pending_application_count(self, studio_id, admin_user_id):
+        """Gets the count of pending applications for a specific studio"""
         print(f"DB: Getting pending application count for studio {studio_id} by admin {admin_user_id}")
         role = self.check_developer_role(admin_user_id, studio_id)
         if role != 'Admin':
@@ -1044,6 +1055,7 @@ class DatabaseManager:
             return 0
 
     def check_pending_application(self, user_id, studio_id):
+        """Checks if a specific user has a pending application for a specific studio"""
         query = sql.SQL("""
             SELECT EXISTS (
                 SELECT 1 FROM StudioApplications
@@ -1060,6 +1072,7 @@ class DatabaseManager:
             return False
         
     def check_game_edit_permission(self, user_id, game_id):
+        """Checks if a user has permission to edit a specific game"""
         query = sql.SQL("""
             SELECT EXISTS (
                 SELECT 1
@@ -1079,6 +1092,7 @@ class DatabaseManager:
             return False
         
     def update_game_details(self, game_id, new_description=None, new_price=None, editor_user_id=None):
+        """Updates the description and/or price for a specific game"""
         conn = self.get_connection()
         if not conn:
             messagebox.showerror("Помилка Бази Даних", "Немає активного підключення до бази даних для оновлення гри.")

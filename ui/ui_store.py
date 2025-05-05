@@ -216,49 +216,6 @@ class StoreWindow(tk.Tk):
         self.bind_all("<MouseWheel>", self._on_mousewheel, add='+')
         self.bind_all("<Button-4>", self._on_mousewheel, add='+')
         self.bind_all("<Button-5>", self._on_mousewheel, add='+')
-
-    def _create_scrollable_list_frame(self, parent, bg_color):
-        canvas_scrollbar_frame = tk.Frame(parent, bg=bg_color)
-        canvas_scrollbar_frame.grid(row=0, column=0, sticky='nsew', padx=5, pady=5)
-        canvas_scrollbar_frame.grid_rowconfigure(0, weight=1)
-        canvas_scrollbar_frame.grid_columnconfigure(0, weight=1)
-
-        canvas = tk.Canvas(canvas_scrollbar_frame, borderwidth=0, background=bg_color, highlightthickness=0)
-        scrollbar = ttk.Scrollbar(canvas_scrollbar_frame, orient="vertical", command=canvas.yview)
-        inner_frame = tk.Frame(canvas, background=bg_color)
-
-        canvas.configure(yscrollcommand=scrollbar.set)
-        scrollbar.pack(side="right", fill="y")
-        canvas.pack(side="left", fill="both", expand=True)
-        canvas_frame_id = canvas.create_window((0, 0), window=inner_frame, anchor="nw")
-
-        def _on_inner_frame_configure(event=None):
-             canvas.after_idle(lambda: canvas.configure(scrollregion=canvas.bbox("all")))
-
-        def _on_inner_canvas_configure(event):
-             canvas_width = event.width
-             canvas.itemconfig(canvas_frame_id, width=canvas_width)
-             inner_frame.config(width=canvas_width)
-             canvas.after_idle(lambda: canvas.configure(scrollregion=canvas.bbox("all")))
-
-        def _on_inner_mousewheel(event):
-            if event.num == 4: delta = -1
-            elif event.num == 5: delta = 1
-            else:
-                try: delta = -1 if event.delta > 0 else 1
-                except AttributeError: return
-            canvas.yview_scroll(delta, "units")
-            return "break"
-
-        inner_frame.bind("<Configure>", _on_inner_frame_configure)
-        canvas.bind('<Configure>', _on_inner_canvas_configure)
-
-        for widget in [canvas, inner_frame]:
-            widget.bind("<MouseWheel>", _on_inner_mousewheel)
-            widget.bind("<Button-4>", _on_inner_mousewheel)
-            widget.bind("<Button-5>", _on_inner_mousewheel)
-
-        return canvas, inner_frame
     
     def _show_notebook_view(self):
         if self.detail_area_frame and self.detail_area_frame.winfo_exists():
@@ -837,28 +794,6 @@ class StoreWindow(tk.Tk):
     def _on_menu_unmap(self, event=None):
         if event is None or event.widget == self.user_dropdown_menu:
              self.user_dropdown_menu = None
-
-    def _on_global_click(self, event):
-        if self.user_dropdown_menu:
-            try:
-                clicked_widget = event.widget
-                is_click_on_menu = False
-                try:
-                    if str(self.user_dropdown_menu) in str(clicked_widget.winfo_pathname(clicked_widget.winfo_id())):
-                        is_click_on_menu = True
-                except tk.TclError:
-                    pass
-
-                is_click_on_trigger = (clicked_widget == self.username_label or
-                                       (hasattr(self, 'arrow_label') and clicked_widget == self.arrow_label) )
-
-                if not is_click_on_menu and not is_click_on_trigger:
-                    print("Global click detected outside menu/trigger, unposting menu.")
-                    self.user_dropdown_menu.unpost()
-            except tk.TclError:
-                 self.user_dropdown_menu = None
-            except Exception as e:
-                print(f"Error in _on_global_click during menu check: {e}")
                 
     def _logout(self):
         if messagebox.askyesno("Вихід", "Ви впевнені, що хочете вийти з акаунту?", parent=self):
@@ -997,31 +932,6 @@ class StoreWindow(tk.Tk):
                 self.order_label.config(bg=self.original_bg)
         except tk.TclError:
             pass
-
-    def _create_scrollable_list_frame_content(self, parent):
-        canvas = tk.Canvas(parent, borderwidth=0, background=self.original_bg, highlightthickness=0)
-        scrollbar = ttk.Scrollbar(parent, orient="vertical", command=canvas.yview)
-        inner_frame = tk.Frame(canvas, background=self.original_bg)
-
-        canvas.configure(yscrollcommand=scrollbar.set)
-        scrollbar.pack(side="right", fill="y")
-        canvas.pack(side="left", fill="both", expand=True)
-
-        canvas_frame_id = canvas.create_window((0, 0), window=inner_frame, anchor="nw")
-
-        def _on_inner_frame_configure(event=None):
-             canvas.after_idle(lambda: canvas.configure(scrollregion=canvas.bbox("all")))
-
-        def _on_inner_canvas_configure(event):
-             canvas_width = event.width
-             canvas.itemconfig(canvas_frame_id, width=canvas_width)
-             inner_frame.config(width=canvas_width)
-             canvas.after_idle(lambda: canvas.configure(scrollregion=canvas.bbox("all")))
-
-        inner_frame.bind("<Configure>", _on_inner_frame_configure)
-        canvas.bind('<Configure>', _on_inner_canvas_configure)
-
-        return canvas, inner_frame
     
     def _on_sort_change(self, event=None):
         criteria_map = {"Назвою": "title", "Ціною": "price"}
@@ -1035,26 +945,6 @@ class StoreWindow(tk.Tk):
 
         print(f"Sort selection changed to: Key='{self.current_sort_key}', Reverse={self.current_sort_reverse}. Reloading games...")
         self.load_games_store()
-
-    def _display_games(self, games_to_display):
-        for widget in self.store_list_frame.winfo_children():
-            widget.destroy()
-        self._game_widgets_store = []
-
-        if not games_to_display:
-            tk.Label(self.store_list_frame, text="В магазині поки немає ігор.",
-                     font=self.fonts['ui'], bg=self.original_bg).pack(pady=20)
-        else:
-            print(f"Displaying {len(games_to_display)} games.")
-            for game in games_to_display:
-                game_widget = self._create_game_entry(self.store_list_frame, game)
-                if game_widget:
-                    game_widget.pack(fill=tk.X, pady=2, padx=2)
-                    self._game_widgets_store.append(game_widget)
-
-        self.store_list_frame.update_idletasks()
-        self.store_canvas.configure(scrollregion=self.store_canvas.bbox("all"))
-        self.store_canvas.yview_moveto(0)
 
     def _setup_workshop_tab(self):
         for widget in self.workshop_tab_frame.winfo_children():
