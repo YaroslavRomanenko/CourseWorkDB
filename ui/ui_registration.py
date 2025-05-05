@@ -5,6 +5,7 @@ from tkinter import messagebox, ttk
 from .ui_utils import center_window, setup_text_widget_editing
 
 class RegistrationWindow(tk.Tk):
+    """The user registration window. Allows users to create a new account"""
     def __init__(self, db_manager, open_login_func):
         super().__init__()
         self.db_manager = db_manager
@@ -67,6 +68,7 @@ class RegistrationWindow(tk.Tk):
         self.protocol("WM_DELETE_WINDOW", self.on_close)
         
     def submit_registration(self):
+        """Validates user input and attempts to register the user via the DatabaseManager"""
         messagebox_title = "Реєстрація"
 
         username = self.login_entry.get().strip()

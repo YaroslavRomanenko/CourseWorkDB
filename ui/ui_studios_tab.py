@@ -12,6 +12,7 @@ from .ui_utils import *
 class StudiosTab(tk.Frame):
     def __init__(self, parent, db_manager, user_id, is_developer_initial,
                  fonts, colors, styles, store_window_ref, **kwargs):
+        """Initializes the Studios Tab frame"""
         super().__init__(parent, bg=colors.get('original_bg', 'white'), **kwargs)
 
         self.db_manager = db_manager
@@ -43,9 +44,7 @@ class StudiosTab(tk.Frame):
         self._setup_ui()
         
     def _setup_ui(self):
-        self.load_studios_list()
-        
-    def load_studios_list(self):
+        """Fetches the list of all studios from the database and populates the main content area using the create_scrollable_list utility"""
         print("StudiosTab: Loading studios list...")
         studios_data = None
         try:
@@ -70,6 +69,7 @@ class StudiosTab(tk.Frame):
         print(f"Studios list created/updated. Found {len(self._studio_widgets)} studio widgets.")
             
     def _create_studio_entry(self, parent, studio_data):
+        """Creates a tk.Frame widget representing a single studio in the list"""
         studio_id = studio_data.get('studio_id')
         name = studio_data.get('name', 'Невідома студія')
         logo_filename = studio_data.get('logo')
@@ -131,6 +131,7 @@ class StudiosTab(tk.Frame):
         return entry_frame
 
     def _on_studio_select(self, studio_name, event=None):
+        """Handles the click event on a studio entry in the list"""
         print(f"StudiosTab: Selected studio: {studio_name}")
         if self.store_window_ref and hasattr(self.store_window_ref, '_show_studio_detail_view'):
             self.store_window_ref._show_studio_detail_view(studio_name)
@@ -138,5 +139,6 @@ class StudiosTab(tk.Frame):
             messagebox.showerror("Помилка", "Не вдалося відкрити деталі студії.", parent=self)
 
     def refresh_content(self):
+        """Refreshes the content of the Studios tab by reloading the list"""
         print("StudiosTab: Refreshing studios list.")
-        self.load_studios_list()
+        self._setup_ui()

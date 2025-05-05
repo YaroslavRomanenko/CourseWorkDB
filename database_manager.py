@@ -27,14 +27,12 @@ class DatabaseManager:
 
             if 'database' not in config:
                 print(f"Error: Key 'database' not found in the file")
-                messagebox.showerror("Помилка конфігурації", "Ключ 'database' не знайдено у файлі.")
                 return None
 
             required_keys = {"host", "port", "dbname", "user", "password"}
             if not required_keys.issubset(config['database'].keys()):
                 missing_keys = required_keys - config['database'].keys()
                 print(f"Error: Keys {missing_keys} missing from 'database' section")
-                messagebox.showerror("Помилка конфігурації", f"Відсутні ключі у секції 'database': {missing_keys}")
                 return None
 
             print("Configuration loaded successfully!")
@@ -42,11 +40,9 @@ class DatabaseManager:
 
         except json.JSONDecodeError:
             print(f"Error: Unable to parse JSON in '{filename}' file")
-            messagebox.showerror("Помилка конфігурації", f"Не вдалося розпарсити JSON у файлі '{filename}'.")
             return None
         except Exception as e:
             print(f"Unexpected error when loading configuration: {e}")
-            messagebox.showerror("Помилка конфігурації", f"Неочікувана помилка: {e}")
             return None
 
     def _connect(self):
@@ -87,7 +83,7 @@ class DatabaseManager:
                 self.connection.close()
                 print("\n--- Connection with PostgreSQL is closed ---")
             except Exception as e:
-                 print(f"Error closing database connection: {e}")
+                print(f"Error closing database connection: {e}")
         self.connection = None
 
     def execute_many_query(self, query, params_list):
@@ -195,7 +191,6 @@ class DatabaseManager:
             hashed_password_str = hashed_password_bytes.decode('utf-8')
         except Exception as e:
             print(f"DB: Помилка хешування пароля для {username}: {e}")
-            messagebox.showerror("Помилка Реєстрації", f"Внутрішня помилка під час обробки пароля: {e}")
             return False
 
         query = sql.SQL("""
@@ -224,7 +219,6 @@ class DatabaseManager:
             print(f"\nDB: Error during user registration for '{username}': {error}")
             print(f"Query: {query.as_string(conn) if conn else query}")
             print(f"Parameters: {params}")
-            messagebox.showerror("Помилка Бази Даних", f"Не вдалося зареєструвати користувача:\n{error}")
             return False
 
 
@@ -375,7 +369,6 @@ class DatabaseManager:
         conn = self.get_connection()
         if not conn:
             print("Cannot purchase game: No active database connection")
-            messagebox.showerror("Помилка Бази Даних", "Немає активного підключення до бази даних.")
             return False
 
         try:
@@ -385,7 +378,6 @@ class DatabaseManager:
                 final_price = decimal.Decimal(str(price_at_purchase)).quantize(decimal.Decimal("0.01"))
         except (ValueError, TypeError, decimal.InvalidOperation) as e:
              print(f"Error: Invalid price format for purchase: {price_at_purchase} - {e}")
-             messagebox.showerror("Помилка ціни", f"Некоректний формат ціни для покупки: {price_at_purchase}")
              return False
 
         purchase_id = None
@@ -442,7 +434,6 @@ class DatabaseManager:
         except (Exception, psycopg2.Error) as error:
             print(f"\nUnexpected error during game purchase transaction: {error}")
             traceback.print_exc()
-            messagebox.showerror("Помилка Транзакції", f"Сталася неочікувана помилка під час покупки:\n{error}")
             return False
         
     def check_ownership(self, user_id, game_id):
@@ -488,7 +479,6 @@ class DatabaseManager:
             print(f"\nDB: Error adding review for game {game_id}, user {user_id}: {error}")
             print(f"Query: {query.as_string(conn) if conn else query}")
             print(f"Parameters: {params}")
-            messagebox.showerror("Помилка Бази Даних", f"Не вдалося додати рецензію:\n{error}")
             return False
     
     def fetch_game_reviews(self, game_id):
@@ -541,7 +531,6 @@ class DatabaseManager:
             return True
         except (Exception, psycopg2.Error) as error:
             print(f"\nDB: Error adding comment to review {review_id} by user {user_id}: {error}")
-            messagebox.showerror("Помилка Бази Даних", f"Не вдалося додати коментар:\n{error}")
             return False
         
     def fetch_game_genres(self, game_id):
@@ -756,7 +745,6 @@ class DatabaseManager:
                     contact_email = user_info[0]
                     print(f"DB: No contact email provided for becoming developer (user {user_id}). Using primary email: {contact_email}")
                 else:
-                    messagebox.showerror("Помилка", "Не вдалося визначити контактну пошту для розробника.")
                     print(f"DB Error: Cannot set developer status for user {user_id} without a contact email.")
                     return False
 
@@ -782,12 +770,10 @@ class DatabaseManager:
             return True
         except psycopg2.Error as db_error:
             print(f"\nDB Error during '{action_desc}' for user {user_id}: {db_error}")
-            messagebox.showerror("Помилка Бази Даних", f"Не вдалося {('встановити' if status else 'зняти')} статус розробника:\n{db_error}")
             return False
         except Exception as e:
             print(f"\nDB Unexpected error during '{action_desc}' for user {user_id}: {e}")
             traceback.print_exc()
-            messagebox.showerror("Неочікувана Помилка", f"Сталася неочікувана помилка під час {('встановлення' if status else 'зняття')} статусу:\n{e}")
             return False
           
     def delete_user_account(self, user_id):
@@ -810,16 +796,13 @@ class DatabaseManager:
                         return True
                     else:
                         print(f"DB: User account with ID: {user_id} not found for deletion.")
-                        messagebox.showerror("Помилка видалення", f"Користувача з ID {user_id} не знайдено.")
                         return False
         except psycopg2.Error as db_error:
             print(f"\nDB: Error deleting user account {user_id}: {db_error}")
-            messagebox.showerror("Помилка Бази Даних", f"Не вдалося видалити акаунт:\n{db_error}")
             return False
         except Exception as e:
             print(f"\nDB: Unexpected error deleting user account {user_id}: {e}")
             traceback.print_exc()
-            messagebox.showerror("Неочікувана Помилка", f"Сталася неочікувана помилка під час видалення акаунту:\n{e}")
             return False
         
           
@@ -888,11 +871,9 @@ class DatabaseManager:
             existing_pending_app = self.execute_query(query_check_pending, (user_id,), fetch_one=True)
             if existing_pending_app:
                 print(f"DB: User {user_id} already has a pending application.")
-                messagebox.showwarning("Заявка вже існує", "Ви вже маєте активну заявку до іншої студії, що очікує на розгляд. Дочекайтеся її обробки або скасуйте.")
                 return False
         except Exception as e:
              print(f"DB: Error checking for existing pending applications for user {user_id}: {e}")
-             messagebox.showerror("Помилка перевірки", "Не вдалося перевірити наявність активних заявок.")
              return False
 
         query_insert = sql.SQL("""
@@ -912,16 +893,13 @@ class DatabaseManager:
                         return True
                     else:
                         print(f"DB: Pending application likely already exists for user {user_id}, studio {studio_id} (ON CONFLICT triggered).")
-                        messagebox.showwarning("Заявка вже існує", "Ви вже подали заявку до цієї студії, яка очікує на розгляд.")
                         return False
         except psycopg2.Error as db_error:
             print(f"DB Error submitting application for user {user_id}, studio {studio_id}: {db_error}")
-            messagebox.showerror("Помилка Бази Даних", f"Не вдалося подати заявку:\n{db_error}")
             return False
         except Exception as e:
             print(f"DB Unexpected error submitting application: {e}")
             traceback.print_exc()
-            messagebox.showerror("Неочікувана Помилка", f"Сталася помилка під час подання заявки:\n{e}")
             return False
         
     def process_studio_application(self, application_id, new_status, admin_user_id):
@@ -950,7 +928,6 @@ class DatabaseManager:
                     app_data = cur.fetchone()
                     if not app_data:
                         print(f"DB: Application {application_id} not found or not pending.")
-                        messagebox.showwarning("Помилка", "Заявку не знайдено або вона вже оброблена.", parent=self.store_window_ref if hasattr(self, 'store_window_ref') else None)
                         return False
                     applicant_user_id, studio_id = app_data
 
@@ -960,7 +937,6 @@ class DatabaseManager:
                     """, (admin_user_id, studio_id))
                     if cur.fetchone() is None:
                         print(f"DB: User {admin_user_id} is not authorized (not Admin) to process applications for studio {studio_id}.")
-                        messagebox.showerror("Відмовлено в доступі", "Ви не маєте прав (Адміністратор) обробляти заявки для цієї студії.", parent=self.store_window_ref if hasattr(self, 'store_window_ref') else None)
                         conn.rollback()
                         return False
 
@@ -982,19 +958,17 @@ class DatabaseManager:
                         if cur.rowcount == 0:
                             print(f"DB Warning: Could not assign accepted user {applicant_user_id} to studio {studio_id}. User not found in Developers or already has a studio.")
                         else:
-                             print(f"DB: User {applicant_user_id} successfully added to studio {studio_id} as Member.")
+                            print(f"DB: User {applicant_user_id} successfully added to studio {studio_id} as Member.")
 
             print(f"DB: Application {application_id} processed successfully to status '{new_status}'.")
             return True
 
         except psycopg2.Error as db_error:
             print(f"DB Error processing application {application_id}: {db_error}")
-            messagebox.showerror("Помилка Бази Даних", f"Не вдалося обробити заявку:\n{db_error}", parent=self.store_window_ref if hasattr(self, 'store_window_ref') else None)
             return False
         except Exception as e:
             print(f"DB Unexpected error processing application {application_id}: {e}")
             traceback.print_exc()
-            messagebox.showerror("Неочікувана Помилка", f"Сталася помилка під час обробки заявки:\n{e}", parent=self.store_window_ref if hasattr(self, 'store_window_ref') else None)
             return False
     
     def fetch_pending_applications(self, studio_id, admin_user_id):
@@ -1124,7 +1098,6 @@ class DatabaseManager:
                     params.append(validated_price)
             except (ValueError, TypeError, InvalidOperation) as e:
                 print(f"DB Error: Invalid price format '{new_price}': {e}")
-                messagebox.showerror("Помилка Формату", f"Некоректний формат ціни: {new_price}. Введіть число.", parent=None)
                 return False
 
         update_fields.append(sql.SQL("updated_at = CURRENT_TIMESTAMP"))
@@ -1156,10 +1129,8 @@ class DatabaseManager:
 
         except psycopg2.Error as db_error:
             print(f"\nDB Error updating game {game_id}: {db_error}")
-            messagebox.showerror("Помилка Бази Даних", f"Не вдалося оновити дані гри:\n{db_error}", parent=None)
             return False
         except Exception as e:
             print(f"\nDB Unexpected error updating game {game_id}: {e}")
             traceback.print_exc()
-            messagebox.showerror("Неочікувана Помилка", f"Сталася неочікувана помилка під час оновлення:\n{e}", parent=None)
             return False

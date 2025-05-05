@@ -39,6 +39,7 @@ def start_registration_window():
     print("Registration Window mainloop finished")
     
 def start_store_window(user_id):
+    """Creates and runs the store window"""
     print(f"Opening Store Window for user_id: {user_id}...")
     store_app = StoreWindow(
         db_manager=db_manager,

@@ -15,6 +15,7 @@ class StudioDetailView(tk.Frame):
                  scroll_target_canvas, store_window_ref,
                  image_cache, placeholder_detail, studio_logo_folder,
                  **kwargs):
+        """Initializes the Studio Detail View frame"""
         super().__init__(parent, bg=colors.get('original_bg', 'white'), **kwargs)
         self.db_manager = db_manager
         self.studio_name = studio_name
@@ -45,6 +46,7 @@ class StudioDetailView(tk.Frame):
         self.bind("<Configure>", lambda e: self.after_idle(lambda: self._update_wraplengths(e.width)))
           
     def _check_admin_status(self):
+        """Checks if the current user is an Admin of this studio"""
         self.is_current_user_admin = False
         if self.studio_details and self.store_window_ref and self.db_manager:
             studio_id = self.studio_details.get('studio_id')
@@ -61,6 +63,7 @@ class StudioDetailView(tk.Frame):
                      print(f"Error checking admin status: {e}")
           
     def _fetch_studio_data(self):
+        """Fetches detailed data for the studio from the database"""
         print(f"StudioDetailView: Fetching details for studio: {self.studio_name}")
         if hasattr(self.db_manager, 'fetch_studio_details_by_name'):
             try:
@@ -79,6 +82,7 @@ class StudioDetailView(tk.Frame):
             self.studio_details = None
 
     def _setup_ui(self):
+        """Builds the user interface elements for the studio detail view"""
         for widget in self.winfo_children(): widget.destroy()
         self.grid_columnconfigure(0, weight=1)
         current_row = 0
@@ -207,6 +211,7 @@ class StudioDetailView(tk.Frame):
         bind_recursive_mousewheel(self, self.scroll_target_canvas)
         
     def _accept_application(self, application_id):
+        """Handles the 'Accept' button click for a pending application"""
         if not self.is_current_user_admin: return
         current_user_id = self.store_window_ref.current_user_id
         print(f"UI: Admin {current_user_id} accepting application {application_id}")
@@ -220,6 +225,7 @@ class StudioDetailView(tk.Frame):
              self._load_and_display_applications()
         
     def _reject_application(self, application_id):
+        """Handles the 'Reject' button click for a pending application"""
         if not self.is_current_user_admin: return
         current_user_id = self.store_window_ref.current_user_id
         print(f"UI: Admin {current_user_id} rejecting application {application_id}")
@@ -233,6 +239,7 @@ class StudioDetailView(tk.Frame):
              self._load_and_display_applications()
         
     def _submit_application(self):
+        """Handles the 'Apply to Join' button click"""
         if not self.store_window_ref or not hasattr(self.store_window_ref, 'is_developer'):
             messagebox.showerror("Помилка", "Не вдалося перевірити статус розробника.", parent=self)
             return
@@ -275,6 +282,7 @@ class StudioDetailView(tk.Frame):
                  self.has_pending_application = True         
     
     def _update_wraplengths(self, container_width):
+        """Adjusts the wraplength of labels based on the container width"""
         try:
             if not self.winfo_exists(): return
             if not isinstance(container_width, (int, float)) or container_width <= 1:
@@ -311,6 +319,7 @@ class StudioDetailView(tk.Frame):
             traceback.print_exc()
     
     def _open_website(self, url, event=None):
+        """Opens the provided URL in the default web browser"""
         if url:
             try:
                 if not url.startswith(('http://', 'https://')):
@@ -324,6 +333,7 @@ class StudioDetailView(tk.Frame):
             print("No URL provided to open.")
             
     def _load_and_display_applications(self):
+        """Fetches and displays pending applications in the dedicated frame"""
         if not self.applications_frame or not self.is_current_user_admin:
             return
 
@@ -371,6 +381,7 @@ class StudioDetailView(tk.Frame):
                 app_row += 1
                 
     def _check_if_already_applied(self):
+        """Checks if the current user has already submitted a pending application to this studio"""
         self.has_pending_application = False
         if self.studio_details and self.store_window_ref and self.db_manager:
             studio_id = self.studio_details.get('studio_id')

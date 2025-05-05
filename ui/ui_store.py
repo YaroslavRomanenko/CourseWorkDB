@@ -15,6 +15,7 @@ from .ui_studio_details import StudioDetailView
 class StoreWindow(tk.Tk):
     def __init__(self, db_manager, user_id, image_folder, studio_logo_folder,
                  placeholder_image_path, placeholder_image_name, open_login_func):
+        """Initializes the StoreWindow"""
         super().__init__()
         self.db_manager = db_manager
         self.current_user_id = user_id
@@ -206,6 +207,7 @@ class StoreWindow(tk.Tk):
         self.bind_all("<Button-5>", self._on_mousewheel, add='+')
     
     def _show_notebook_view(self):
+        """Hides detail views and shows the main notebook view"""
         if self.detail_area_frame and self.detail_area_frame.winfo_exists():
             self.detail_area_frame.destroy()
             self.detail_area_frame = None
@@ -221,6 +223,7 @@ class StoreWindow(tk.Tk):
         self.title("Universal Games")
         
     def _show_detail_view(self, game_id, event=None):
+        """Hides the notebook and displays the GameDetailView for the selected game"""
         self.notebook.pack_forget()
         if self.studio_detail_area_frame and self.studio_detail_area_frame.winfo_exists():
             self.studio_detail_area_frame.destroy()
@@ -333,6 +336,7 @@ class StoreWindow(tk.Tk):
     
           
     def _on_mousewheel(self, event):
+        """Global mousewheel handler to scroll the appropriate canvas"""
         grab_holder = self.grab_current()
         if grab_holder is not None and grab_holder != self:
              return
@@ -414,6 +418,7 @@ class StoreWindow(tk.Tk):
         return "break"
 
     def _create_game_entry(self, parent, game_data):
+        """Creates a tk.Frame widget representing a single game in the store list"""
         try:
             game_id, title, _, price, image_filename, purchase_count = game_data[:6]
         except (ValueError, TypeError) as e:
@@ -478,6 +483,7 @@ class StoreWindow(tk.Tk):
         return entry_frame
     
     def load_games_store(self):
+        """Fetches game data based on current sort settings and populates the store list using the create_scrollable_list utility"""
         print(f"Loading store games. Sort by: {self.current_sort_key}, Reverse: {self.current_sort_reverse}")
         db_sort_key = self.current_sort_key
         db_sort_order = 'DESC' if self.current_sort_reverse else 'ASC'
@@ -507,6 +513,7 @@ class StoreWindow(tk.Tk):
         print(f"Store list created/updated. Found {len(self._game_widgets_store)} game widgets.")
 
     def load_games_library(self):
+        """Triggers a refresh of the library tab view"""
         if hasattr(self, 'library_view') and self.library_view:
             print("Triggering library refresh from StoreWindow...")
             self.library_view.load_library_games()
@@ -514,6 +521,7 @@ class StoreWindow(tk.Tk):
             print("Warning: Library view is not initialized yet, cannot refresh.")
             
     def _show_studio_detail_view(self, studio_name):
+        """Hides the notebook and displays the StudioDetailView for the selected studio"""
         self.notebook.pack_forget()
         if self.detail_area_frame and self.detail_area_frame.winfo_exists():
             self.detail_area_frame.destroy()
@@ -579,6 +587,7 @@ class StoreWindow(tk.Tk):
         self.title(f"Студія: {studio_name}")
 
     def _fetch_and_set_user_info(self):
+        """Fetches current user's info and updates instance variables"""
         self.developer_contact_email = None
         if self.current_user_id and self.db_manager:
             user_data = self.db_manager.fetch_user_info(self.current_user_id)
@@ -610,6 +619,7 @@ class StoreWindow(tk.Tk):
              self.current_balance = decimal.Decimal('0.00')
             
     def _create_user_info_panel(self, parent):
+        """Creates the user info panel with username, balance, and dropdown arrow"""
         panel_bg = self.colors.get('user_panel_bg', '#ededed')
         panel_fg = self.colors.get('user_panel_text_fg', 'black')
 
@@ -643,12 +653,14 @@ class StoreWindow(tk.Tk):
         return frame
     
     def update_developer_status(self, new_status: bool):
+        """Updates the internal developer status flag and refreshes UI elements if status changed"""
         print(f"StoreWindow: Received developer status update. New status: {new_status}")
         if self.is_developer != new_status:
             self.is_developer = new_status
             self.refresh_user_info_display()
 
     def refresh_current_tab(self):
+        """Refreshes the content of the currently active view"""
         active_view = None
         if self.detail_view_instance and self.detail_area_frame and self.detail_area_frame.winfo_ismapped():
             active_view = 'game_detail'
@@ -705,6 +717,7 @@ class StoreWindow(tk.Tk):
              self.refresh_user_info_display()
 
     def _on_dropdown_click(self, event=None):
+        """Handles clicks on the username or dropdown arrow to show the user menu"""
         if self.user_dropdown_menu:
             try:
                 self.user_dropdown_menu.unpost()
@@ -733,10 +746,12 @@ class StoreWindow(tk.Tk):
         return "break"
              
     def _on_menu_unmap(self, event=None):
+        """Callback when the user dropdown menu is closed"""
         if event is None or event.widget == self.user_dropdown_menu:
              self.user_dropdown_menu = None
                 
     def _logout(self):
+        """Logs out the current user and returns to the login screen"""
         if messagebox.askyesno("Вихід", "Ви впевнені, що хочете вийти з акаунту?", parent=self):
             print("Logging out...")
             self.destroy()
@@ -747,6 +762,7 @@ class StoreWindow(tk.Tk):
                 messagebox.showerror("Помилка", "Не вдалося повернутися до вікна входу.")
 
     def _delete_account(self):
+        """Handles the process of deleting the current user's account"""
         print(f"Attempting to delete account for user: {self.username} (ID: {self.current_user_id})")
 
         confirm1 = messagebox.askyesno(
@@ -819,6 +835,7 @@ class StoreWindow(tk.Tk):
             print(f"Failed to delete account for user: {self.username} (ID: {self.current_user_id})")
 
     def _create_sort_panel(self, parent):
+        """Creates the sorting panel with criteria and order comboboxes"""
         frame = tk.Frame(parent, bg=self.original_bg)
 
         disabled_fg = '#777777'
@@ -866,6 +883,7 @@ class StoreWindow(tk.Tk):
         return frame
           
     def _reset_sort_label_bg(self):
+        """Resets the background color of sort labels"""
         try:
             if hasattr(self, 'sort_by_label') and self.sort_by_label.winfo_exists():
                 self.sort_by_label.config(bg=self.original_bg)
@@ -875,6 +893,7 @@ class StoreWindow(tk.Tk):
             pass
     
     def _on_sort_change(self, event=None):
+        """Handles changes in the sorting comboboxes and reloads the store list"""
         criteria_map = {"Назвою": "title", "Ціною": "price"}
         order_map = {"За зростанням": False, "За спаданням": True}
 
@@ -888,6 +907,7 @@ class StoreWindow(tk.Tk):
         self.load_games_store()
 
     def _setup_workshop_tab(self):
+        """Sets up the content of the Workshop tab based on developer status"""
         for widget in self.workshop_tab_frame.winfo_children():
             widget.destroy()
 
@@ -925,6 +945,7 @@ class StoreWindow(tk.Tk):
             become_dev_button.pack(pady=20)
 
     def _prompt_become_developer_from_workshop(self):
+        """Handles the 'Become Developer' button click in the Workshop tab"""
         if self.is_developer:
             messagebox.showinfo("Статус розробника", "Ви вже є розробником.", parent=self)
             return
@@ -987,6 +1008,7 @@ class StoreWindow(tk.Tk):
              print("StoreWindow (Workshop): Becoming developer cancelled by user.")
              
     def refresh_user_info_display(self):
+        """Refreshes the user info panel and potentially the Workshop tab"""
         print("StoreWindow: Refreshing user info display...")
         self._fetch_and_set_user_info()
 
@@ -1013,5 +1035,6 @@ class StoreWindow(tk.Tk):
                   self._setup_workshop_tab()
       
     def on_close(self):
+        """Handles the window close event"""
         self._image_references.clear()
         self.destroy()

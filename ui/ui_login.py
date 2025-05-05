@@ -3,7 +3,9 @@ from tkinter import messagebox, ttk
 from .ui_utils import center_window, setup_text_widget_editing
 
 class LoginWindow(tk.Tk):
+    """The login window for user authentication"""
     def __init__(self, db_manager, open_register_func, open_store_func):
+        """Initializes the LoginWindow"""
         super().__init__()
         self.db_manager = db_manager
         self.open_registr_func = open_register_func

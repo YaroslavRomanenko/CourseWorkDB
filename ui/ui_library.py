@@ -9,6 +9,7 @@ from ui.ui_utils import *
 
 class LibraryTab:
     def __init__(self, parent, db_manager, user_id, image_cache, placeholder_list, placeholder_detail, image_folder_path, fonts, colors):
+        """Initializes the Library Tab frame"""
         self.parent = parent
         self.db_manager = db_manager
         self.user_id = user_id
@@ -54,6 +55,7 @@ class LibraryTab:
         self.load_library_games()
 
     def _create_library_entry(self, parent, game_data):
+        """Creates a tk.Frame widget representing a single game in the library list"""
         try:
             game_id, title, _, _, image_filename = game_data
         except (ValueError, TypeError):
@@ -98,6 +100,7 @@ class LibraryTab:
         return entry_frame
 
     def _on_game_select(self, game_id, event=None):
+        """Handles the click event on a game entry in the library list"""
         print(f"Library: Selected game ID: {game_id}")
         try:
             game_details = self.db_manager.fetch_game_details(game_id)
@@ -114,6 +117,7 @@ class LibraryTab:
             self._display_placeholder_details()
 
     def _display_placeholder_details(self):
+        """Clears the right frame and displays a placeholder message"""
         for widget in self.right_frame.winfo_children():
             widget.destroy()
         placeholder_label = tk.Label(self.right_frame, text="Виберіть гру зі списку зліва", font=self.detail_font, fg="grey", bg=self.original_bg)
@@ -121,6 +125,7 @@ class LibraryTab:
 
 
     def _display_game_details(self, game_data):
+        """Clears the right frame and displays the details for the selected game"""    
         for widget in self.right_frame.winfo_children():
             widget.destroy()
 
@@ -150,11 +155,16 @@ class LibraryTab:
         play_button.pack(pady=10)
 
     def _play_game(self, game_id):
+        """Placeholder action for when the "Play" button is clicked"""
         print(f"Attempting to 'Play' game with ID: {game_id}")
-        messagebox.showinfo("Запуск гри", f"Запуск гри з ID: {game_id}\n(Потрібна інтеграція з реальними файлами гри)")
+        messagebox.showinfo("Запуск гри", f"Запуск гри з ID: {game_id}\n(Реалізація відсутня)")
 
 
     def load_library_games(self):
+        """
+        Fetches the list of purchased games for the user and populates the
+        left list pane using the create_scrollable_list utility.
+        """
         print("LibraryTab: Loading library games...")
         games_data = []
         try:
@@ -179,4 +189,5 @@ class LibraryTab:
         print(f"LibraryTab: List updated. Widgets created: {len(self._game_widgets_library)}")
     
     def after(self, ms, func):
+        """Wrapper for the parent widget's 'after' method"""
         self.parent.after(ms, func)

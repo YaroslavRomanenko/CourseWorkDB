@@ -19,6 +19,7 @@ class GameDetailView(tk.Frame):
                  scroll_target_canvas,
                  store_window_ref,
                  **kwargs):
+        """Initializes the GameDetailView frame"""
         super().__init__(parent, bg=colors.get('original_bg', 'white'), **kwargs)
 
         self.db_manager = db_manager
@@ -108,6 +109,10 @@ class GameDetailView(tk.Frame):
         self.bind("<Configure>", lambda e: self.after_idle(lambda: self._update_wraplengths(e.width)))
 
     def _update_wraplengths(self, container_width):
+        """
+        Adjusts the 'wraplength' option for various labels based on the
+        current width of the container, ensuring text wraps correctly
+        """
         try:
             if not self.winfo_exists(): return
             if not isinstance(container_width, (int, float)) or container_width <= 1:
@@ -159,6 +164,7 @@ class GameDetailView(tk.Frame):
             traceback.print_exc()
 
     def _setup_ui(self):
+        """Creates and arranges all the widgets within the GameDetailView frame"""
         self.grid_columnconfigure(0, weight=1)
         current_row = 0
         initial_wraplength = 10000
@@ -351,6 +357,7 @@ class GameDetailView(tk.Frame):
         bind_recursive_mousewheel(self, self.scroll_target_canvas)
 
     def _post_review(self):
+        """Handles the 'Post Review' button click."""
         if not self.review_text_widget:
             print("UI Error: Review text widget not found.")
             messagebox.showerror("Помилка UI", "Не знайдено поле для введення рецензії.")
@@ -392,6 +399,7 @@ class GameDetailView(tk.Frame):
              self.review_text_widget.focus_set()
              
     def _load_reviews(self):
+        """Loads and displays existing reviews and comments for the current game"""
         if not hasattr(self, 'reviews_display_text') or not self.reviews_display_text.winfo_exists():
             return
 
@@ -508,6 +516,7 @@ class GameDetailView(tk.Frame):
         self.reviews_display_text.yview_moveto(0)
 
     def _prompt_add_comment(self, target_review_id):
+        """Opens a simple dialog to ask the user for comment text"""
         if self.user_id is None:
             messagebox.showerror("Помилка", "Не вдалося визначити користувача. Увійдіть в акаунт.", parent=self)
             return
@@ -543,6 +552,7 @@ class GameDetailView(tk.Frame):
              print("UI: Comment input cancelled or empty.")
              
     def _buy_game(self):
+        """Handles the 'Buy' or 'Get' button click"""
         if self.game_id is None:
             messagebox.showerror("Помилка", "Не вдалося визначити ID гри.", parent=self)
             return
@@ -604,6 +614,7 @@ class GameDetailView(tk.Frame):
                  messagebox.showerror("Помилка", f"Під час процесу покупки сталася неочікувана помилка:\n{e}", parent=self)
         
     def _build_price_buy_content(self):
+        """Updates the content of the price/buy button area based on ownership status and price"""
         if not self.price_buy_frame or not self.price_buy_frame.winfo_exists():
             print("Error: price_buy_frame not available for content.")
             return
@@ -650,6 +661,7 @@ class GameDetailView(tk.Frame):
                  buy_button.pack(side=tk.LEFT, padx=(15, 0), anchor='w')
                         
     def _on_studio_click(self, event, studio_names):
+        """Handles clicks on developer/publisher studio name labels"""
         if not studio_names:
             return
         target_studio_name = studio_names[0]
@@ -660,6 +672,7 @@ class GameDetailView(tk.Frame):
             print("Error: Cannot show studio details. Reference to StoreWindow or method is missing.")
             
     def _show_edit_dialog(self):
+        """Shows a modal dialog for editing the game's price and description"""
         if not self.can_edit:
             messagebox.showerror("Помилка", "У вас немає прав редагувати цю гру.", parent=self)
             return
@@ -717,6 +730,7 @@ class GameDetailView(tk.Frame):
         edit_dialog.wait_window()
         
     def _save_edits(self, dialog, price_widget, description_widget):
+        """Validates and saves the edited price and description to the database"""
         new_price_str = price_widget.get().strip().replace(',', '.')
         new_description = description_widget.get("1.0", tk.END).strip()
 
