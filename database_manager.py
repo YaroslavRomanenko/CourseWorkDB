@@ -1075,4 +1075,77 @@ class DatabaseManager:
             return can_edit
         except Exception as e:
             print(f"DB: Error checking game edit permission (link exists) for user {user_id}, game {game_id}: {e}")
+            traceback.print_exc()
+            return False
+        
+    def update_game_details(self, game_id, new_description=None, new_price=None, editor_user_id=None):
+        conn = self.get_connection()
+        if not conn:
+            messagebox.showerror("Помилка Бази Даних", "Немає активного підключення до бази даних для оновлення гри.")
+            return False
+
+        if new_description is None and new_price is None:
+            print("DB: No changes provided to update_game_details.")
+            return True
+
+        update_fields = []
+        params = []
+
+        if new_description is not None:
+            update_fields.append(sql.SQL("description = %s"))
+            params.append(new_description.strip())
+
+        validated_price = None
+        if new_price is not None:
+            try:
+                if isinstance(new_price, str) and new_price.strip() == '':
+                     pass
+                else:
+                    price_decimal = Decimal(str(new_price)).quantize(Decimal("0.01"))
+                    if price_decimal < 0:
+                        messagebox.showerror("Помилка Вводу", "Ціна не може бути від'ємною.", parent=None)
+                        return False
+                    validated_price = price_decimal
+                    update_fields.append(sql.SQL("price = %s"))
+                    params.append(validated_price)
+            except (ValueError, TypeError, InvalidOperation) as e:
+                print(f"DB Error: Invalid price format '{new_price}': {e}")
+                messagebox.showerror("Помилка Формату", f"Некоректний формат ціни: {new_price}. Введіть число.", parent=None)
+                return False
+
+        update_fields.append(sql.SQL("updated_at = CURRENT_TIMESTAMP"))
+        params.append(game_id)
+
+        if not update_fields:
+            print("DB: No valid fields to update after validation.")
+            return True
+
+        set_clause = sql.SQL(", ").join(update_fields)
+        query = sql.SQL("UPDATE Games SET {fields} WHERE game_id = %s").format(fields=set_clause)
+
+        print(f"DB: Attempting to update game {game_id} by user {editor_user_id}.")
+
+        try:
+            with conn:
+                with conn.cursor() as cur:
+                    cur.execute(query, tuple(params))
+                    if cur.rowcount == 1:
+                        print(f"DB: Successfully updated game {game_id}.")
+                        return True
+                    elif cur.rowcount == 0:
+                         print(f"DB Warning: Game with ID {game_id} not found for update, or no changes made.")
+                         return True
+                    else:
+                         print(f"DB Error: Unexpected rowcount ({cur.rowcount}) updating game {game_id}.")
+                         conn.rollback()
+                         return False
+
+        except psycopg2.Error as db_error:
+            print(f"\nDB Error updating game {game_id}: {db_error}")
+            messagebox.showerror("Помилка Бази Даних", f"Не вдалося оновити дані гри:\n{db_error}", parent=None)
+            return False
+        except Exception as e:
+            print(f"\nDB Unexpected error updating game {game_id}: {e}")
+            traceback.print_exc()
+            messagebox.showerror("Неочікувана Помилка", f"Сталася неочікувана помилка під час оновлення:\n{e}", parent=None)
             return False

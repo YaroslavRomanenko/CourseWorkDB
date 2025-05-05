@@ -2,7 +2,7 @@ import tkinter as tk
 import os
 import decimal
 
-from tkinter import ttk, messagebox, scrolledtext, simpledialog
+from tkinter import ttk, messagebox, scrolledtext, simpledialog, Toplevel
 from PIL import Image, ImageTk
 from decimal import Decimal, InvalidOperation
 from functools import partial
@@ -36,6 +36,14 @@ class GameDetailView(tk.Frame):
         self.styles = styles
         self.scroll_target_canvas = scroll_target_canvas
         self.store_window_ref = store_window_ref
+
+        self.can_edit = False
+        if self.user_id and self.game_id:
+            try:
+                self.can_edit = self.db_manager.check_game_edit_permission(self.user_id, self.game_id)
+                print(f"GameDetailView: User {self.user_id} can edit game {self.game_id}: {self.can_edit}")
+            except Exception as e:
+                print(f"Error checking edit permission in GameDetailView init: {e}")
 
         self.genre_names = []
         self.platform_names = []
@@ -72,6 +80,7 @@ class GameDetailView(tk.Frame):
         self.description_font = self.fonts.get('description', ("Verdana", 10))
         self.review_input_font = self.fonts.get('review_input', ("Verdana", 10))
         self.section_header_font = ("Verdana", 12, "bold")
+        self.edit_button_font = self.fonts.get('ui', ("Verdana", 9))
 
         self.original_bg = self.colors.get('original_bg', 'white')
         self.link_fg = self.colors.get('link_fg', 'blue')
@@ -80,6 +89,7 @@ class GameDetailView(tk.Frame):
         self.custom_button_style = self.styles.get('custom_button', 'TButton')
 
         self.title_label = None
+        self.edit_button = None
         self.info_developer_prefix_label = None
         self.info_developer_names_label = None
         self.info_publisher_prefix_label = None
@@ -187,8 +197,23 @@ class GameDetailView(tk.Frame):
         info_frame.grid_columnconfigure(0, weight=1)
         info_row = 0
 
-        self.title_label = tk.Label(info_frame, text=self.game_data.get('title', 'Назва невідома'), font=self.title_font, background=self.original_bg, justify=tk.LEFT, anchor='nw', wraplength=initial_wraplength)
-        self.title_label.grid(row=info_row, column=0, sticky='nw', pady=(0, 5)); info_row += 1
+        title_edit_frame = tk.Frame(info_frame, background=self.original_bg)
+        title_edit_frame.grid(row=info_row, column=0, sticky='nw', pady=(0, 5))
+        title_edit_frame.grid_columnconfigure(0, weight=1)
+        info_row += 1
+
+        self.title_label = tk.Label(title_edit_frame, text=self.game_data.get('title', 'Назва невідома'),
+                                     font=self.title_font, background=self.original_bg, justify=tk.LEFT, anchor='nw', wraplength=initial_wraplength)
+        self.title_label.grid(row=0, column=0, sticky='nw')
+
+        if self.can_edit:
+            self.edit_button = ttk.Button(title_edit_frame, text="✏️ Редагувати",
+                                          command=self._show_edit_dialog,
+                                          style=self.styles.get('custom_button', 'TButton'),
+                                          width=12
+                                          )
+            self.edit_button.grid(row=0, column=1, sticky='ne', padx=(10, 0))
+            title_edit_frame.grid_columnconfigure(1, weight=0)
 
         review_count = self.game_data.get('review_count', 0)
         review_count_text = f"Відгуків: {review_count}"
@@ -267,20 +292,20 @@ class GameDetailView(tk.Frame):
             status_prefix = tk.Label(add_details_frame, text="Стан:", font=self.description_font, bg=self.original_bg, anchor='nw'); status_prefix.grid(row=add_details_row, column=0, sticky='nw', padx=(0,5))
             status_value = tk.Label(add_details_frame, text=status_val, font=self.description_font, bg=self.original_bg, anchor='nw', justify=tk.LEFT); status_value.grid(row=add_details_row, column=1, sticky='nw'); add_details_row += 1
         release_text = "Не вказано"; dt_format = '%d-%m-%Y'
-        if release_date_val: 
-            try: release_text = release_date_val.strftime(dt_format) if isinstance(release_date_val, datetime) else datetime.strptime(str(release_date_val), '%Y-%m-%d').strftime(dt_format) 
+        if release_date_val:
+            try: release_text = release_date_val.strftime(dt_format) if isinstance(release_date_val, datetime) else datetime.strptime(str(release_date_val), '%Y-%m-%d').strftime(dt_format)
             except Exception: release_text = str(release_date_val)
         release_prefix = tk.Label(add_details_frame, text="Дата релізу:", font=self.description_font, bg=self.original_bg, anchor='nw'); release_prefix.grid(row=add_details_row, column=0, sticky='nw', padx=(0,5))
         release_value = tk.Label(add_details_frame, text=release_text, font=self.description_font, bg=self.original_bg, anchor='nw', justify=tk.LEFT); release_value.grid(row=add_details_row, column=1, sticky='nw'); add_details_row += 1
         created_text = "Не вказано"
-        if created_at_val: 
-            try: created_text = created_at_val.strftime(dt_format) if isinstance(created_at_val, datetime) else datetime.strptime(str(created_at_val), '%Y-%m-%d').strftime(dt_format) 
+        if created_at_val:
+            try: created_text = created_at_val.strftime(dt_format) if isinstance(created_at_val, datetime) else datetime.strptime(str(created_at_val), '%Y-%m-%d').strftime(dt_format)
             except Exception: created_text = str(created_at_val)
         created_prefix = tk.Label(add_details_frame, text="Дата створення:", font=self.description_font, bg=self.original_bg, anchor='nw'); created_prefix.grid(row=add_details_row, column=0, sticky='nw', padx=(0,5))
         created_value = tk.Label(add_details_frame, text=created_text, font=self.description_font, bg=self.original_bg, anchor='nw', justify=tk.LEFT); created_value.grid(row=add_details_row, column=1, sticky='nw'); add_details_row += 1
         updated_text = "Не вказано"
-        if updated_at_val: 
-            try: updated_text = updated_at_val.strftime(dt_format) if isinstance(updated_at_val, datetime) else datetime.strptime(str(updated_at_val), '%Y-%m-%d').strftime(dt_format) 
+        if updated_at_val:
+            try: updated_text = updated_at_val.strftime(dt_format) if isinstance(updated_at_val, datetime) else datetime.strptime(str(updated_at_val), '%Y-%m-%d').strftime(dt_format)
             except Exception: updated_text = str(updated_at_val)
         updated_prefix = tk.Label(add_details_frame, text="Дата оновлення:", font=self.description_font, bg=self.original_bg, anchor='nw'); updated_prefix.grid(row=add_details_row, column=0, sticky='nw', padx=(0,5))
         updated_value = tk.Label(add_details_frame, text=updated_text, font=self.description_font, bg=self.original_bg, anchor='nw', justify=tk.LEFT); updated_value.grid(row=add_details_row, column=1, sticky='nw'); add_details_row += 1
@@ -710,3 +735,132 @@ class GameDetailView(tk.Frame):
             self.store_window_ref._show_studio_detail_view(target_studio_name)
         else:
             print("Error: Cannot show studio details. Reference to StoreWindow or method is missing.")
+            
+    def _show_edit_dialog(self):
+        if not self.can_edit:
+            messagebox.showerror("Помилка", "У вас немає прав редагувати цю гру.", parent=self)
+            return
+
+        edit_dialog = Toplevel(self)
+        edit_dialog.title(f"Редагування '{self.game_data.get('title', '')}'")
+        edit_dialog.transient(self.store_window_ref)
+        edit_dialog.grab_set()
+        edit_dialog.resizable(False, False)
+
+        dialog_frame = ttk.Frame(edit_dialog, padding="10 10 10 10")
+        dialog_frame.pack(expand=True, fill=tk.BOTH)
+
+        current_price_raw = self.game_data.get('price')
+        current_price_str = ""
+        if current_price_raw is not None:
+            try:
+                price_decimal = Decimal(str(current_price_raw))
+                current_price_str = f"{price_decimal:.2f}"
+            except (InvalidOperation, TypeError):
+                current_price_str = "N/A"
+        current_description = self.game_data.get('description', '')
+
+        price_label = ttk.Label(dialog_frame, text="Ціна (₴):")
+        price_label.grid(row=0, column=0, sticky=tk.W, pady=(0, 10))
+        price_entry = ttk.Entry(dialog_frame, width=15)
+        price_entry.grid(row=0, column=1, sticky=tk.EW, pady=(0, 10))
+        price_entry.insert(0, current_price_str if current_price_str != "N/A" else "")
+        setup_text_widget_editing(price_entry)
+
+
+        desc_label = ttk.Label(dialog_frame, text="Опис:")
+        desc_label.grid(row=1, column=0, columnspan=2, sticky=tk.W, pady=(0, 5))
+        desc_text = scrolledtext.ScrolledText(dialog_frame, width=60, height=10, wrap=tk.WORD, font=self.fonts['review_input'])
+        desc_text.grid(row=2, column=0, columnspan=2, sticky=tk.EW, pady=(0, 10))
+        desc_text.insert(tk.END, current_description)
+        setup_text_widget_editing(desc_text)
+
+        button_frame = ttk.Frame(dialog_frame)
+        button_frame.grid(row=3, column=0, columnspan=2, sticky=tk.E)
+
+        save_button = ttk.Button(button_frame, text="Зберегти",
+                                 command=lambda: self._save_edits(edit_dialog, price_entry, desc_text),
+                                 style=self.custom_button_style)
+        save_button.pack(side=tk.LEFT, padx=5)
+
+        cancel_button = ttk.Button(button_frame, text="Скасувати",
+                                   command=edit_dialog.destroy,
+                                   style=self.custom_button_style)
+        cancel_button.pack(side=tk.LEFT)
+
+        edit_dialog.update_idletasks()
+        center_window(edit_dialog, edit_dialog.winfo_reqwidth(), edit_dialog.winfo_reqheight())
+
+        edit_dialog.wait_window()
+        
+    def _save_edits(self, dialog, price_widget, description_widget):
+        new_price_str = price_widget.get().strip().replace(',', '.')
+        new_description = description_widget.get("1.0", tk.END).strip()
+
+        final_price = None
+        if new_price_str:
+            try:
+                price_decimal = Decimal(new_price_str).quantize(Decimal("0.01"))
+                if price_decimal < 0:
+                    messagebox.showerror("Помилка Вводу", "Ціна не може бути від'ємною.", parent=dialog)
+                    return
+                original_price_raw = self.game_data.get('price')
+                original_price_decimal = None
+                if original_price_raw is not None:
+                    try:
+                         original_price_decimal = Decimal(str(original_price_raw)).quantize(Decimal("0.01"))
+                    except (InvalidOperation, TypeError):
+                         pass
+
+                if price_decimal != original_price_decimal:
+                    final_price = price_decimal
+                else:
+                    print("Price entered is the same as the current price. No price update needed.")
+
+            except (ValueError, InvalidOperation) as e:
+                messagebox.showerror("Помилка Формату", f"Некоректний формат ціни: {new_price_str}. Введіть число.", parent=dialog)
+                return
+        else:
+            final_price = None
+
+        final_description = None
+        original_description = self.game_data.get('description', '')
+        if new_description != original_description:
+            final_description = new_description
+        else:
+             print("Description is the same as the current description. No description update needed.")
+
+        if final_price is None and final_description is None:
+            print("No changes detected. Closing edit dialog.")
+            dialog.destroy()
+            return
+
+        print(f"UI: Saving edits for game {self.game_id}. Price: {final_price}, Desc changed: {final_description is not None}")
+        success = False
+        try:
+            success = self.db_manager.update_game_details(
+                game_id=self.game_id,
+                new_description=final_description,
+                new_price=final_price,
+                editor_user_id=self.user_id
+            )
+        except AttributeError:
+             messagebox.showerror("Помилка", "Функціонал оновлення гри не реалізовано (DB method missing).", parent=dialog)
+             return
+        except Exception as e:
+             print(f"UI Error calling update_game_details: {e}")
+             traceback.print_exc()
+             messagebox.showerror("Неочікувана Помилка", f"Сталася помилка під час збереження змін:\n{e}", parent=dialog)
+             return
+
+        if success:
+             messagebox.showinfo("Успіх", "Зміни успішно збережено!", parent=self.store_window_ref)
+             dialog.destroy()
+             if self.store_window_ref and hasattr(self.store_window_ref, 'refresh_current_tab'):
+                 print("Triggering StoreWindow refresh after edit.")
+                 self.store_window_ref.after(50, self.store_window_ref.refresh_current_tab)
+             else:
+                  print("Cannot refresh store window - reference missing.")
+        else:
+             print("UI: Failed to save edits (DB error likely shown).")
+             price_widget.focus_set()
