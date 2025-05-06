@@ -487,7 +487,7 @@ class GameDetailView(tk.Frame):
                                     c_user, c_text, c_date_obj = comment[:3]
                                     c_date_str = c_date_obj.strftime('%d %b, %Y @ %H:%M') if c_date_obj else "..."
                                     self.reviews_display_text.insert(tk.END, f"{c_user}\n", "comment_author")
-                                    self.reviews_display_text.insert(tk.END, f" {c_date_str}\n", "comment_date")
+                                    self.reviews_display_text.insert(tk.END, f"{c_date_str}\n", "comment_date")
                                     self.reviews_display_text.insert(tk.END, f"{c_text or '[Порожній коментар]'}\n", "comment_text")
                                 else:
                                     print(f"UI Warning: Skipping invalid comment data format: {comment}")
