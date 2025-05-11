@@ -162,14 +162,14 @@ class DatabaseManager:
     def validate_user(self, username, password):
         """Checks whether a user with that username exists and whether the provided password matches the stored hash in the database"""
         print(f"DBManager validating user: {username}")
-        query = "SELECT user_id, password_hash FROM Users WHERE username = %s;"
+        query = "SELECT user_id, password_hash, is_app_admin FROM Users WHERE username = %s;"
         result = self.execute_query(query, (username,), fetch_one=True)
 
         if result:
-            user_id, stored_hash = result
+            user_id, stored_hash, is_app_admin = result
             if bcrypt.checkpw(password.encode('utf-8'), stored_hash.encode('utf-8')):
-                print(f"User {username} validated successfully. User ID: {user_id}")
-                return user_id
+                print(f"User {username} validated successfully. User ID: {user_id}, Is App Admin: {is_app_admin}")
+                return user_id, is_app_admin
             else:
                 print(f"Password validation failed for user {username}")
                 return None
@@ -1134,3 +1134,161 @@ class DatabaseManager:
             print(f"\nDB Unexpected error updating game {game_id}: {e}")
             traceback.print_exc()
             return False
+        
+    def fetch_all_users_for_admin(self, search_term=None, sort_by='username', sort_order='ASC'):
+        """Fetches a list of all users for the admin panel."""
+        conn = self.get_connection()
+        if not conn:
+            print("DB: No connection to fetch users for admin.")
+            return None
+
+        allowed_sort_columns = {'user_id', 'username', 'email', 'registration_date', 'balance'}
+        if sort_by not in allowed_sort_columns:
+            sort_by = 'username'
+        sort_order_sql = sql.SQL(sort_order.upper())
+        if sort_order_sql not in (sql.SQL('ASC'), sql.SQL('DESC')):
+            sort_order_sql = sql.SQL('ASC')
+
+        base_query_parts = [
+            sql.SQL("""
+            SELECT
+                u.user_id, u.username, u.email, u.registration_date, u.balance,
+                u.is_app_admin, u.is_banned,
+                EXISTS (SELECT 1 FROM Developers d WHERE d.user_id = u.user_id) as is_developer
+            FROM Users u
+            """)
+        ]
+        params = []
+
+        if search_term:
+            base_query_parts.append(sql.SQL("WHERE u.username ILIKE %s OR u.email ILIKE %s"))
+            like_pattern = f"%{search_term}%"
+            params.extend([like_pattern, like_pattern])
+
+        base_query_parts.append(sql.SQL("ORDER BY {sort_col} {sort_dir}").format(
+            sort_col=sql.Identifier(sort_by),
+            sort_dir=sort_order_sql
+        ))
+
+        query = sql.SQL(" ").join(base_query_parts)
+
+        print(f"DB: Fetching all users for admin. Sort: {sort_by} {sort_order}. Search: '{search_term}'")
+        try:
+            users_data = self.execute_query(query, tuple(params) if params else None, fetch_all=True)
+            if users_data is None:
+                print("DB: Failed to fetch users for admin.")
+                return None
+            
+            columns = ['user_id', 'username', 'email', 'registration_date', 'balance',
+                       'is_app_admin', 'is_banned', 'is_developer']
+            return [dict(zip(columns, row)) for row in users_data]
+        except Exception as e:
+            print(f"DB: Unexpected error fetching users for admin: {e}")
+            traceback.print_exc()
+            return None
+        
+    def set_user_ban_status(self, target_user_id, ban_status, admin_user_id):
+        """Sets the ban status for a target user."""
+        conn = self.get_connection()
+        if not conn:
+            messagebox.showerror("Помилка Бази Даних", "Немає підключення до бази даних.")
+            return False
+        
+        query_check_target_admin = "SELECT is_app_admin FROM Users WHERE user_id = %s;"
+        target_admin_status = self.execute_query(query_check_target_admin, (target_user_id,), fetch_one=True)
+
+        if target_admin_status and target_admin_status[0] and target_user_id != admin_user_id:
+            messagebox.showerror("Помилка", "Неможливо заблокувати іншого адміністратора додатку.", parent=None)
+            return False
+        if target_user_id == admin_user_id and ban_status:
+             messagebox.showerror("Помилка", "Неможливо заблокувати самого себе.", parent=None)
+             return False
+
+
+        query = sql.SQL("UPDATE Users SET is_banned = %s WHERE user_id = %s;")
+        params = (ban_status, target_user_id)
+
+        try:
+            print(f"DB: Admin {admin_user_id} attempting to set ban_status={ban_status} for user_id {target_user_id}")
+            with conn:
+                with conn.cursor() as cur:
+                    cur.execute(query, params)
+                    if cur.rowcount == 1:
+                        print(f"DB: Successfully updated ban status for user_id {target_user_id}.")
+                        return True
+                    else:
+                        print(f"DB Error: User with user_id {target_user_id} not found for ban status update.")
+                        return False
+        except psycopg2.Error as db_error:
+            print(f"\nDB Error updating ban status for user {target_user_id}: {db_error}")
+            return False
+        except Exception as e:
+            print(f"\nDB Unexpected error updating ban status for user {target_user_id}: {e}")
+            traceback.print_exc()
+            return False
+        
+    def fetch_all_users_for_admin(self, search_term=None, sort_by='username', sort_order='ASC'):
+        conn = self.get_connection()
+        if not conn:
+            print("DB: No connection to fetch users for admin.")
+            return None
+
+        allowed_sort_columns = {'user_id', 'username', 'email', 'registration_date', 'balance', 'owned_games_count'}
+        if sort_by not in allowed_sort_columns:
+            sort_by = 'username'
+        
+        sort_order_sql_literal = sort_order.upper()
+        if sort_order_sql_literal not in ('ASC', 'DESC'):
+            sort_order_sql_literal = 'ASC'
+        
+        sort_order_sql = sql.SQL(sort_order_sql_literal)
+
+
+        base_query_parts = [
+            sql.SQL("""
+            SELECT
+                u.user_id, u.username, u.email, u.registration_date, u.balance,
+                u.is_app_admin, u.is_banned,
+                EXISTS (SELECT 1 FROM Developers d WHERE d.user_id = u.user_id) as is_developer,
+                (SELECT s.name FROM Studios s JOIN Developers d ON s.studio_id = d.studio_id WHERE d.user_id = u.user_id LIMIT 1) as developer_studio_name,
+                (SELECT COUNT(DISTINCT pi.game_id)
+                    FROM Purchases_Items pi
+                    JOIN Purchases p ON pi.purchase_id = p.purchase_id
+                    WHERE p.user_id = u.user_id AND p.status = 'Completed'
+                ) as owned_games_count
+            FROM Users u
+            """)
+        ]
+        params = []
+
+        if search_term:
+            base_query_parts.append(sql.SQL("WHERE u.username ILIKE %s OR u.email ILIKE %s"))
+            like_pattern = f"%{search_term}%"
+            params.extend([like_pattern, like_pattern])
+
+        base_query_parts.append(sql.SQL("ORDER BY {sort_col} {sort_dir}").format(
+            sort_col=sql.Identifier(sort_by),
+            sort_dir=sort_order_sql
+        ))
+        
+        if sort_by != 'user_id':
+            base_query_parts.append(sql.SQL(", u.user_id {sort_dir}").format(sort_dir=sort_order_sql))
+
+
+        query = sql.SQL(" ").join(base_query_parts)
+
+        print(f"DB: Fetching all users for admin. Sort: {sort_by} {sort_order_sql_literal}. Search: '{search_term}'")
+        try:
+            users_data = self.execute_query(query, tuple(params) if params else None, fetch_all=True)
+            if users_data is None:
+                print("DB: Failed to fetch users for admin.")
+                return None
+            
+            columns = ['user_id', 'username', 'email', 'registration_date', 'balance',
+                       'is_app_admin', 'is_banned', 'is_developer', 
+                       'developer_studio_name', 'owned_games_count']
+            return [dict(zip(columns, row)) for row in users_data]
+        except Exception as e:
+            print(f"DB: Unexpected error fetching users for admin: {e}")
+            traceback.print_exc()
+            return None

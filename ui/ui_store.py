@@ -11,14 +11,17 @@ from .ui_library import LibraryTab
 from .ui_studios_tab import StudiosTab
 from .ui_game_details import GameDetailView
 from .ui_studio_details import StudioDetailView
+from .ui_admin_user_management import AdminUserManagementPanel
 
 class StoreWindow(tk.Tk):
-    def __init__(self, db_manager, user_id, image_folder, studio_logo_folder,
+    def __init__(self, db_manager, user_id, is_app_admin,
+                 image_folder, studio_logo_folder,
                  placeholder_image_path, placeholder_image_name, open_login_func):
         """Initializes the StoreWindow"""
         super().__init__()
         self.db_manager = db_manager
         self.current_user_id = user_id
+        self.is_app_admin = is_app_admin
         self.username = "User"
         self.current_balance = decimal.Decimal('0.00')
         self._image_references = {}
@@ -196,6 +199,26 @@ class StoreWindow(tk.Tk):
         self.notebook.add(self.workshop_tab_frame, text='Майстерня')
         self.workshop_tab_frame.grid_columnconfigure(0, weight=1)
         self._setup_workshop_tab()
+        
+        if self.is_app_admin:
+            self.admin_panel_tab_frame = ttk.Frame(self.notebook, style='TFrame') 
+            self.notebook.add(self.admin_panel_tab_frame, text='👑 Адмін-панель')
+            
+            self.admin_notebook = ttk.Notebook(self.admin_panel_tab_frame)
+            self.admin_notebook.pack(fill=tk.BOTH, expand=True, padx=5, pady=5)
+
+            self.user_mgmt_tab = ttk.Frame(self.admin_notebook, style='TFrame')
+            self.admin_notebook.add(self.user_mgmt_tab, text='Користувачі')
+            
+            self.admin_user_management_panel_instance = AdminUserManagementPanel(
+                parent=self.user_mgmt_tab,
+                db_manager=self.db_manager,
+                store_window_ref=self,
+                fonts=self.fonts,
+                colors=self.colors,
+                styles=self.styles
+            )
+            self.admin_user_management_panel_instance.pack(fill=tk.BOTH, expand=True)
 
         refresh_button = ttk.Button(self, text="Оновити", command=self.refresh_current_tab, style=self.custom_button_style)
         refresh_button.grid(row=2, column=0, pady=10)
@@ -397,6 +420,12 @@ class StoreWindow(tk.Tk):
                               except tk.TclError: pass
                           elif self.studios_tab_instance.studios_canvas:
                                 target_canvas = self.studios_tab_instance.studios_canvas
+                elif tab_name == '👑 Адмін-панель' and self.is_app_admin:
+                    if hasattr(self, 'admin_notebook') and self.admin_notebook.winfo_exists():
+                        admin_current_tab_idx = self.admin_notebook.index(self.admin_notebook.select())
+                        admin_tab_name = self.admin_notebook.tab(admin_current_tab_idx, "text")
+                        if admin_tab_name == 'Користувачі' and self.admin_user_management_panel_instance:
+                            pass
 
             except (tk.TclError, AttributeError): pass
 
@@ -703,8 +732,16 @@ class StoreWindow(tk.Tk):
                 elif tab_name == 'Майстерня':
                      print("Refreshing Workshop Tab...")
                      self._setup_workshop_tab()
-
+                
+                elif tab_name == '👑 Адмін-панель' and self.is_app_admin:
+                    print("Refreshing Admin Panel...")
+                    if hasattr(self, 'admin_notebook') and self.admin_notebook.winfo_exists():
+                        admin_current_tab_idx = self.admin_notebook.index(self.admin_notebook.select())
+                        admin_tab_name = self.admin_notebook.tab(admin_current_tab_idx, "text")
+                        if admin_tab_name == 'Користувачі' and self.admin_user_management_panel_instance:
+                            self.admin_user_management_panel_instance.refresh_panel_content()
                 self.refresh_user_info_display()
+                
             except tk.TclError:
                 print("Could not get selected tab (Notebook might not be visible).")
                 self.refresh_user_info_display()

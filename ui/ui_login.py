@@ -61,15 +61,16 @@ class LoginWindow(tk.Tk):
         password = self.password_entry.get()
 
         if not username or not password:
-             messagebox.showwarning("Вхід", "Ви не ввели логін та пароль!", parent=self)
-             return
+            messagebox.showwarning("Вхід", "Ви не ввели логін та пароль!", parent=self)
+            return
 
-        user_id = self.db_manager.validate_user(username, password)
+        validation_result = self.db_manager.validate_user(username, password)
 
-        if user_id is not None:
+        if validation_result:
+            user_id, is_app_admin_status = validation_result 
             messagebox.showinfo("Вхід", "Вхід успішний!", parent=self)
             self.destroy()
-            self.open_store_func(user_id) 
+            self.open_store_func(user_id, is_app_admin_status)
         else:
             messagebox.showerror("Вхід", "Неправильний логін або пароль", parent=self)
             self.password_entry.delete(0, tk.END)

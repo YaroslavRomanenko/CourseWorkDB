@@ -38,12 +38,13 @@ def start_registration_window():
     register_app.mainloop()
     print("Registration Window mainloop finished")
     
-def start_store_window(user_id):
+def start_store_window(user_id, is_app_admin):
     """Creates and runs the store window"""
-    print(f"Opening Store Window for user_id: {user_id}...")
+    print(f"Opening Store Window for user_id: {user_id}, Is App Admin: {is_app_admin}...")
     store_app = StoreWindow(
         db_manager=db_manager,
         user_id=user_id,
+        is_app_admin=is_app_admin,
         image_folder=IMAGE_FOLDER_PATH,
         studio_logo_folder=STUDIO_LOGO_FOLDER_PATH,
         placeholder_image_path=PLACEHOLDER_IMG_PATH,
