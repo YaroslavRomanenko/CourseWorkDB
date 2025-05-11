@@ -21,10 +21,15 @@ CREATE TABLE Users (
 	email VARCHAR(30) UNIQUE NOT NULL,
 	password_hash VARCHAR(64) NOT NULL,
 	registration_date TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP,
-	balance DECIMAL(10, 2) NOT NULL DEFAULT 0.00
+	balance DECIMAL(10, 2) NOT NULL DEFAULT 0.00,
+	is_app_admin BOOLEAN NOT NULL DEFAULT FALSE,
+	is_banned BOOLEAN NOT NULL DEFAULT FALSE
 );
 CREATE INDEX idx_users_username ON Users(username);
 CREATE INDEX idx_users_email ON Users(email);
+
+ALTER TABLE Users
+ADD COLUMN is_banned BOOLEAN NOT NULL DEFAULT FALSE;
 
 SELECT * FROM Users;
 
@@ -48,10 +53,14 @@ CREATE TABLE Developers (
 		REFERENCES Studios (studio_id)
 		ON DELETE RESTRICT
 );
+CREATE INDEX idx_developers_studio_id ON Developers(studio_id);
+CREATE INDEX idx_developers_role ON Developers(role);
 
 SELECT * FROM Developers;
 
 /* ### Games_Studios ### */
+
+CREATE TYPE studio_role_type AS ENUM ('Developer', 'Publisher');
 
 CREATE TABLE Game_Studios (
 	game_id INT NOT NULL,
@@ -76,13 +85,6 @@ CREATE INDEX idx_gamestudios_game_id ON Game_Studios(game_id);
 CREATE INDEX idx_gamestudios_studio_id ON Game_Studios(studio_id);
 
 SELECT * FROM Game_Studios;
-
-/* ### studio_role_type ### */
-
-CREATE TYPE studio_role_type AS ENUM (
-	'Developer',
-    'Publisher'
-);
 
 /* ### game_status ### */
 
@@ -111,6 +113,7 @@ CREATE TABLE Games (
 );
 CREATE INDEX idx_games_title ON Games(title);
 CREATE INDEX idx_games_status ON Games(status);
+CREATE INDEX idx_games_price ON Games(price);
 
 SELECT * FROM Games;
 
@@ -231,6 +234,7 @@ CREATE TABLE Reviews (
 );
 CREATE INDEX idx_reviews_user_id ON Reviews(user_id);
 CREATE INDEX idx_reviews_game_id ON Reviews(game_id);
+CREATE INDEX idx_reviews_review_date ON Reviews(review_date);
 
 SELECT * FROM Reviews;
 
@@ -252,6 +256,7 @@ CREATE TABLE ReviewComments (
 );
 CREATE INDEX idx_reviewcomments_review_id ON ReviewComments(review_id);
 CREATE INDEX idx_reviewcomments_user_id ON ReviewComments(user_id);
+CREATE INDEX idx_reviewcomments_comment_date ON ReviewComments(comment_date);
 
 SELECT * FROM ReviewComments;
 
@@ -329,8 +334,38 @@ CREATE TABLE Developers_Games (
         ON DELETE CASCADE
         ON UPDATE CASCADE
 );
-
 CREATE INDEX idx_devgames_developer_id ON Developers_Games(developer_id);
 CREATE INDEX idx_devgames_game_id ON Developers_Games(game_id);
 
 SELECT * FROM Developers_Games;
+
+CREATE OR REPLACE FUNCTION calculate_total_spent(p_user_id INT)
+RETURNS DECIMAL(10, 2)
+LANGUAGE plpgsql
+AS $$
+DECLARE
+    total_spent DECIMAL(10, 2);
+BEGIN
+    SELECT COALESCE(SUM(total_amount), 0.00)
+    INTO total_spent
+    FROM Purchases
+    WHERE user_id = p_user_id AND status = 'Completed';
+
+    RETURN total_spent;
+END;
+$$;
+
+CREATE OR REPLACE FUNCTION update_timestamp_function()
+RETURNS TRIGGER
+LANGUAGE plpgsql
+AS $$
+BEGIN
+   NEW.updated_at = NOW();
+   RETURN NEW;
+END;
+$$;
+
+CREATE TRIGGER update_games_updated_at_trigger
+BEFORE UPDATE ON Games
+FOR EACH ROW
+EXECUTE FUNCTION update_timestamp_function();

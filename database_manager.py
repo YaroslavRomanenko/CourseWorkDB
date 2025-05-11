@@ -55,9 +55,9 @@ class DatabaseManager:
             conn = psycopg2.connect(**self.db_params)
             print("The Connection is Successful!")
             with conn.cursor() as cur:
-                 cur.execute("SELECT version();")
-                 db_version = cur.fetchone()
-                 if db_version:
+                cur.execute("SELECT version();")
+                db_version = cur.fetchone()
+                if db_version:
                     print(f"Postgre Version: {db_version[0]}")
             return conn
 
