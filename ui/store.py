@@ -11,20 +11,17 @@ from .library import LibraryTab
 from .studios_tab import StudiosTab
 from .game_details import GameDetailView
 from .studio_details import StudioDetailView
+
 from .admin import *
 
 class StoreWindow(tk.Tk):
-    def __init__(self, db_manager, user_id, is_app_admin,
+    def __init__(self, db_manager, user_id, is_app_admin, 
                  image_folder, studio_logo_folder,
                  placeholder_image_path, placeholder_image_name, open_login_func):
-        """Initializes the StoreWindow"""
         super().__init__()
         self.db_manager = db_manager
         self.current_user_id = user_id
         self.is_app_admin = is_app_admin
-        self.admin_user_management_panel_instance = None
-        self.admin_studio_management_panel_instance = None
-        self.admin_game_management_panel_instance = None
         self.username = "User"
         self.current_balance = decimal.Decimal('0.00')
         self._image_references = {}
@@ -33,6 +30,9 @@ class StoreWindow(tk.Tk):
         self._game_widgets_store = []
         self.is_developer = False
         self.studios_tab_instance = None
+        self.admin_user_management_panel_instance = None
+        self.admin_studio_management_panel_instance = None
+        self.admin_game_management_panel_instance = None
 
         self.current_sort_key = 'title'
         self.current_sort_reverse = False
@@ -106,7 +106,7 @@ class StoreWindow(tk.Tk):
 
         style = ttk.Style(self)
         try:
-            pass
+            pass 
         except tk.TclError as e:
             print(f"Error setting theme: {e}")
 
@@ -202,7 +202,7 @@ class StoreWindow(tk.Tk):
         self.notebook.add(self.workshop_tab_frame, text='Майстерня')
         self.workshop_tab_frame.grid_columnconfigure(0, weight=1)
         self._setup_workshop_tab()
-        
+
         if self.is_app_admin:
             self.admin_panel_tab_frame = ttk.Frame(self.notebook, style='TFrame')
             self.notebook.add(self.admin_panel_tab_frame, text='Адмін-панель')
@@ -239,6 +239,16 @@ class StoreWindow(tk.Tk):
                 fonts=self.fonts, colors=self.colors, styles=self.styles
             )
             self.admin_game_management_panel_instance.pack(fill=tk.BOTH, expand=True)
+
+            self.notifications_tab = ttk.Frame(self.admin_notebook, style='TFrame')
+            self.admin_notebook.add(self.notifications_tab, text='Сповіщення')
+            self.admin_notifications_panel_instance = AdminNotificationsPanel(
+                parent=self.notifications_tab,
+                db_manager=self.db_manager,
+                store_window_ref=self,
+                fonts=self.fonts, colors=self.colors, styles=self.styles
+            )
+            self.admin_notifications_panel_instance.pack(fill=tk.BOTH, expand=True)
 
         refresh_button = ttk.Button(self, text="Оновити", command=self.refresh_current_tab, style=self.custom_button_style)
         refresh_button.grid(row=2, column=0, pady=10)
@@ -742,16 +752,20 @@ class StoreWindow(tk.Tk):
                      print("Refreshing Workshop Tab...")
                      self._setup_workshop_tab()
                 elif tab_name == 'Адмін-панель' and self.is_app_admin:
-                    print("Refreshing Admin Panel sub-tab...")
                     if hasattr(self, 'admin_notebook') and self.admin_notebook.winfo_exists():
-                        admin_current_tab_idx = self.admin_notebook.index(self.admin_notebook.select())
-                        admin_tab_name = self.admin_notebook.tab(admin_current_tab_idx, "text")
-                        if admin_tab_name == 'Користувачі' and self.admin_user_management_panel_instance:
-                            self.admin_user_management_panel_instance.refresh_panel_content()
-                        elif admin_tab_name == 'Студії' and self.admin_studio_management_panel_instance:
-                            self.admin_studio_management_panel_instance.refresh_panel_content()
-                        elif admin_tab_name == 'Ігри' and self.admin_game_management_panel_instance:
-                            self.admin_game_management_panel_instance.refresh_panel_content()
+                        try: 
+                            admin_current_tab_idx = self.admin_notebook.index(self.admin_notebook.select())
+                            admin_tab_name = self.admin_notebook.tab(admin_current_tab_idx, "text")
+                            if admin_tab_name == 'Користувачі' and self.admin_user_management_panel_instance:
+                                self.admin_user_management_panel_instance.refresh_panel_content()
+                            elif admin_tab_name == 'Студії' and self.admin_studio_management_panel_instance:
+                                self.admin_studio_management_panel_instance.refresh_panel_content()
+                            elif admin_tab_name == 'Ігри' and self.admin_game_management_panel_instance:
+                                self.admin_game_management_panel_instance.refresh_panel_content()
+                            elif admin_tab_name == 'Сповіщення' and self.admin_notifications_panel_instance: 
+                                self.admin_notifications_panel_instance.refresh_panel_content()
+                        except tk.TclError:
+                            print("Admin panel sub-tab not selected or notebook not ready for refresh.")
                 self.refresh_user_info_display()
             except tk.TclError:
                 print("Could not get selected tab (Notebook might not be visible).")
@@ -821,8 +835,18 @@ class StoreWindow(tk.Tk):
             print(f"Attempt to delete app admin account {self.username} (ID: {self.current_user_id}) was blocked.")
             return
 
-        print(f"Attempting to delete account for user: {self.username} (ID: {self.current_user_id})")
+        if self.is_developer:
+            messagebox.showerror(
+                "Дія неможлива",
+                "Ви не можете видалити акаунт, маючи статус розробника.\n"
+                "Будь ласка, спочатку відмовтеся від статусу розробника у вкладці 'Майстерня'.",
+                parent=self
+            )
+            print(f"Attempt to delete developer account {self.username} (ID: {self.current_user_id}) was blocked.")
+            return
 
+        print(f"Attempting to delete account for user: {self.username} (ID: {self.current_user_id})")
+        
         confirm1 = messagebox.askyesno(
             "Видалення Акаунту",
             f"ПОПЕРЕДЖЕННЯ!\n\nВи впевнені, що хочете видалити акаунт '{self.username}'?\n\n"
@@ -963,45 +987,66 @@ class StoreWindow(tk.Tk):
         self.load_games_store()
 
     def _setup_workshop_tab(self):
-        """Sets up the content of the Workshop tab based on developer status"""
         for widget in self.workshop_tab_frame.winfo_children():
             widget.destroy()
 
         self.workshop_tab_frame.grid_columnconfigure(0, weight=1)
-        self.workshop_tab_frame.grid_rowconfigure(0, weight=1)
-        self.workshop_tab_frame.grid_rowconfigure(2, weight=1)
+        self.workshop_tab_frame.grid_rowconfigure(0, weight=1) 
+        self.workshop_tab_frame.grid_rowconfigure(2, weight=1) 
 
         content_frame = tk.Frame(self.workshop_tab_frame, bg=self.original_bg)
         content_frame.grid(row=1, column=0, sticky='')
 
         if self.is_developer:
-            info_label = tk.Label(content_frame, text="Ви розробник!",
+            title_text = "Майстерня розробника"
+            if self.is_app_admin:
+                title_text += " (Адміністратор)"
+            
+            info_label = tk.Label(content_frame, text=title_text,
                                  font=self.fonts.get('title', ("Verdana", 16, "bold")),
                                  bg=self.original_bg)
             info_label.pack(pady=20)
+            
+            dev_info_text = "Тут ви зможете керувати своїми ігровими проєктами, \nподавати ігри на розгляд та взаємодіяти зі спільнотою."
+            if self.is_app_admin:
+                dev_info_text += "\n\nЯк адміністратор, ви маєте доступ до всіх функцій розробника."
 
-        else:
-            title_label = tk.Label(content_frame, text="Майстерня",
+            developer_specific_info_label = tk.Label(content_frame,
+                                 text=dev_info_text,
+                                 font=self.fonts.get('detail', ("Verdana", 11)),
+                                 bg=self.original_bg, justify=tk.CENTER, wraplength=500)
+            developer_specific_info_label.pack(pady=20)
+
+            if not self.is_app_admin:
+                revoke_dev_status_button = ttk.Button(content_frame, text="Відмовитися від статусу розробника",
+                                               command=self._prompt_revoke_developer_status,
+                                               style=self.custom_button_style)
+                revoke_dev_status_button.pack(pady=(10,20))
+
+        else: 
+            title_label = tk.Label(content_frame, text="Стати розробником",
                                   font=self.fonts.get('title', ("Verdana", 16, "bold")),
                                   bg=self.original_bg)
             title_label.pack(pady=(0, 20))
 
+            info_text = (
+                "Станьте розробником на нашій платформі!\n\n"
+                "Отримайте доступ до інструментів для публікації ваших ігор та приєднуйтесь до спільноти творців.\n"
+                "Щоб отримати статус розробника, натисніть кнопку нижче та надайте вашу контактну електронну пошту. "
+                "Вона може бути використана для зв'язку щодо ваших проєктів або співпраці зі студіями."
+            )
             info_label = tk.Label(content_frame,
-                                 text="Бажаєте створювати та публікувати власні ігри чи модифікації?\n"
-                                      "Для доступу до Майстерні потрібно отримати статус розробника.\n\n"
-                                      "Натисніть кнопку нижче та вкажіть вашу **робочу електронну пошту**\n"
-                                      "для можливого контакту зі студіями чи адміністрацією.",
+                                 text=info_text,
                                  font=self.fonts.get('detail', ("Verdana", 11)),
-                                 bg=self.original_bg, justify=tk.CENTER, wraplength=500)
+                                 bg=self.original_bg, justify=tk.CENTER, wraplength=550)
             info_label.pack(pady=20)
-
-            become_dev_button = ttk.Button(content_frame, text="Стати розробником",
-                                           command=self._prompt_become_developer_from_workshop,
+            
+            request_dev_status_button = ttk.Button(content_frame, text="Подати запит на статус розробника",
+                                           command=self._prompt_formal_developer_request,
                                            style=self.custom_button_style)
-            become_dev_button.pack(pady=20)
+            request_dev_status_button.pack(pady=(10,20))
 
     def _prompt_become_developer_from_workshop(self):
-        """Handles the 'Become Developer' button click in the Workshop tab"""
         if self.is_app_admin:
             messagebox.showinfo(
                 "Статус адміністратора",
@@ -1016,7 +1061,7 @@ class StoreWindow(tk.Tk):
             return
         
         dialog_prompt = (
-            "Будь ласка, введіть вашу **робочу** електронну пошту.\n"
+            "Будь ласка, введіть вашу робочу електронну пошту.\n"
             "Вона може бути використана для зв'язку зі студіями або адміністрацією.\n\n"
             "Ваша основна пошта акаунту залишиться незмінною."
         )
@@ -1065,8 +1110,8 @@ class StoreWindow(tk.Tk):
 
                  if success:
                      messagebox.showinfo("Успіх", "Вітаємо! Ви отримали статус розробника.", parent=self)
-                     self.update_developer_status(True)
-                     self._setup_workshop_tab()
+                     self.update_developer_status(True) 
+                     self._setup_workshop_tab() 
                  else:
                      print("StoreWindow (Workshop): Failed to set developer status in DB (error message should have been shown by DBManager).")
         else:
@@ -1098,7 +1143,64 @@ class StoreWindow(tk.Tk):
              if current_tab_name == 'Майстерня':
                   print("StoreWindow: Refreshing workshop tab as part of user info refresh (because it's active).")
                   self._setup_workshop_tab()
-      
+                  
+    def _prompt_formal_developer_request(self):
+        if self.is_app_admin:
+            messagebox.showinfo("Інформація", "Адміністратори вже мають розширені права.", parent=self)
+            return
+        if self.is_developer:
+            messagebox.showinfo("Інформація", "Ви вже є розробником.", parent=self)
+            return
+
+        dialog_prompt = (
+            "Будь ласка, введіть вашу робочу електронну пошту для цього запиту.\n"
+            "Вона буде розглянута адміністратором.\n"
+            "Ваша основна пошта акаунту залишиться незмінною."
+        )
+        dialog = CustomAskStringDialog(self, title="Запит на статус розробника", prompt=dialog_prompt)
+        contact_email = dialog.result
+
+        if contact_email is not None:
+             contact_email = contact_email.strip()
+             if not contact_email:
+                 messagebox.showwarning("Помилка", "Ви не ввели електронну пошту.", parent=self)
+                 return
+             if "@" not in contact_email or "." not in contact_email.split('@')[-1]:
+                  messagebox.showwarning("Помилка", "Будь ласка, введіть дійсну адресу електронної пошти.", parent=self)
+                  return
+            
+             if messagebox.askyesno("Підтвердження запиту",
+                                    f"Надіслати запит на отримання статусу розробника з контактною поштою:\n{contact_email}\n\nВаш запит буде розглянуто адміністратором.",
+                                    parent=self):
+                
+                success = self.db_manager.create_developer_status_request(self.current_user_id, contact_email)
+                if success:
+                    messagebox.showinfo("Запит надіслано", "Ваш запит на отримання статусу розробника було успішно надіслано та очікує на розгляд.", parent=self)
+        else:
+            print("Formal developer request cancelled by user.")
+    
+    def _prompt_revoke_developer_status(self):
+        if not self.is_developer or self.is_app_admin :
+            messagebox.showerror("Дія неможлива", "Ця дія доступна лише для розробників (не адміністраторів).", parent=self)
+            return
+
+        if messagebox.askyesno("Відмова від статусу розробника",
+                               "Ви впевнені, що хочете відмовитися від статусу розробника?\n"
+                               "Ви втратите доступ до функцій розробника, але ваш акаунт та ігри залишаться.\n"
+                               "(Якщо ви є учасником студії, спочатку покиньте її).",
+                               icon='warning', parent=self):
+            
+            success = self.db_manager.set_developer_status(self.current_user_id, status=False)
+            if success:
+                messagebox.showinfo("Статус оновлено", "Ви успішно відмовилися від статусу розробника.", parent=self)
+                self.is_developer = False 
+                self._fetch_and_set_user_info() 
+                self._setup_workshop_tab() 
+                self.refresh_user_info_display()
+                if self.studios_tab_instance: 
+                    self.studios_tab_instance.is_developer = False 
+                    self.studios_tab_instance.refresh_content()
+    
     def on_close(self):
         """Handles the window close event"""
         self._image_references.clear()

@@ -28,9 +28,6 @@ CREATE TABLE Users (
 CREATE INDEX idx_users_username ON Users(username);
 CREATE INDEX idx_users_email ON Users(email);
 
-ALTER TABLE Users
-ADD COLUMN is_banned BOOLEAN NOT NULL DEFAULT FALSE;
-
 SELECT * FROM Users;
 
 /* ### Developers ### */
@@ -369,3 +366,36 @@ CREATE TRIGGER update_games_updated_at_trigger
 BEFORE UPDATE ON Games
 FOR EACH ROW
 EXECUTE FUNCTION update_timestamp_function();
+
+CREATE TYPE notification_type AS ENUM (
+    'developer_status_request'
+);
+
+CREATE TYPE notification_status AS ENUM (
+    'pending',
+    'approved',
+    'rejected'
+);
+
+CREATE TABLE AdminNotifications (
+    notification_id SERIAL PRIMARY KEY,
+    user_id INT NULL,                            
+    target_user_id INT NULL,                     
+    target_entity_id INT NULL,                   
+    notification_type notification_type NOT NULL,
+    message TEXT NULL,                           
+    status notification_status NOT NULL DEFAULT 'pending', 
+    created_at TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP, 
+    reviewed_by_admin_id INT NULL,               
+    reviewed_at TIMESTAMPTZ NULL,
+
+    CONSTRAINT fk_notification_user
+        FOREIGN KEY (user_id) REFERENCES Users (user_id) ON DELETE SET NULL,
+    CONSTRAINT fk_notification_target_user
+        FOREIGN KEY (target_user_id) REFERENCES Users (user_id) ON DELETE CASCADE,
+    CONSTRAINT fk_notification_reviewed_by
+        FOREIGN KEY (reviewed_by_admin_id) REFERENCES Users (user_id) ON DELETE SET NULL
+);
+
+CREATE INDEX idx_adminnotifications_status_type ON AdminNotifications(status, notification_type);
+CREATE INDEX idx_adminnotifications_target_user_id ON AdminNotifications(target_user_id);

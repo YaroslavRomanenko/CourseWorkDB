@@ -751,27 +751,37 @@ class DatabaseManager:
                     contact_email = user_info[0]
                     print(f"DB: No contact email provided for becoming developer (user {user_id}). Using primary email: {contact_email}")
                 else:
-                    print(f"DB Error: Cannot set developer status for user {user_id} without a contact email.")
+                    print(f"DB Error: Cannot set developer status for user {user_id} without a contact email if status is True.")
+                    messagebox.showerror("Помилка", "Не вдалося отримати контактну пошту для встановлення статусу розробника.", parent=None)
                     return False
 
             insert_query = sql.SQL("""
-                INSERT INTO Developers (user_id, studio_id, contact_email)
+                INSERT INTO Developers (user_id, studio_id, contact_email) 
                 VALUES (%s, NULL, %s)
-                ON CONFLICT (user_id) DO NOTHING;
+                ON CONFLICT (user_id) DO UPDATE SET contact_email = EXCLUDED.contact_email, studio_id = NULL, role = 'Member'; 
             """)
             params = (user_id, contact_email)
-            action_desc = "ensure developer entry"
-
-        else:
-            insert_query = sql.SQL("DELETE FROM Developers WHERE user_id = %s;")
+            action_desc = "ensure/update developer entry"
+            current_query_to_execute = insert_query
+        else: 
+            dev_studio_id = self.get_developer_studio_id(user_id)
+            if dev_studio_id is not None:
+                messagebox.showerror("Дія неможлива",
+                                     "Ви не можете зняти статус розробника, оскільки ви є учасником студії.\n"
+                                     "Будь ласка, спочатку покиньте студію.",
+                                     parent=None)
+                return False
+            
+            delete_query = sql.SQL("DELETE FROM Developers WHERE user_id = %s;")
             params = (user_id,)
             action_desc = "remove developer status"
+            current_query_to_execute = delete_query
 
         try:
             print(f"DB: Attempting to {action_desc} for user {user_id}.")
             with conn:
                 with conn.cursor() as cur:
-                    cur.execute(insert_query, params)
+                    cur.execute(current_query_to_execute, params)
                     print(f"DB: Operation '{action_desc}' complete for user {user_id}. Affected rows: {cur.rowcount}")
             return True
         except psycopg2.Error as db_error:
@@ -1413,5 +1423,139 @@ class DatabaseManager:
             return [dict(zip(columns, row)) for row in games_data]
         except Exception as e:
             print(f"DB: Unexpected error fetching games for admin: {e}")
+            traceback.print_exc()
+            return None
+    
+    def process_developer_status_request(self, notification_id, admin_user_id, approve=True):
+        conn = self.get_connection()
+        if not conn:
+            messagebox.showerror("Помилка", "Немає підключення до бази даних.")
+            return False
+
+        query_get_request = """
+            SELECT target_user_id, message FROM AdminNotifications
+            WHERE notification_id = %s AND status = 'pending' AND notification_type = 'developer_status_request';
+        """
+        request_details = self.execute_query(query_get_request, (notification_id,), fetch_one=True)
+
+        if not request_details:
+            messagebox.showerror("Помилка", "Запит не знайдено або вже оброблено.", parent=None)
+            return False
+        
+        target_user_id, contact_email_from_request = request_details
+        new_status = 'approved' if approve else 'rejected'
+
+        try:
+            with conn: 
+                if approve:
+                    if not self.set_developer_status(target_user_id, status=True, contact_email=contact_email_from_request):
+                        conn.rollback() 
+                        print(f"DB: Failed to set developer status for user {target_user_id} during request approval.")
+                        return False 
+                
+                query_update_notification = sql.SQL("""
+                    UPDATE AdminNotifications
+                    SET status = %s, reviewed_by_admin_id = %s, reviewed_at = CURRENT_TIMESTAMP 
+                    WHERE notification_id = %s; 
+                """) 
+                params_update = (new_status, admin_user_id, notification_id)
+                
+                with conn.cursor() as cur:
+                    cur.execute(query_update_notification, params_update)
+                    if cur.rowcount != 1:
+                        conn.rollback()
+                        print(f"DB: Failed to update notification status for ID {notification_id}")
+                        messagebox.showerror("Помилка", "Не вдалося оновити статус сповіщення.", parent=None)
+                        return False
+            
+            print(f"DB: Admin {admin_user_id} processed developer_status_request {notification_id} to '{new_status}' for user {target_user_id}.")
+            return True
+        except Exception as e:
+            print(f"DB: Error processing developer status request {notification_id}: {e}")
+            traceback.print_exc()
+            messagebox.showerror("Помилка", f"Помилка при обробці запиту: {e}", parent=None)
+            return False
+    
+    def create_developer_status_request(self, user_id, contact_email_for_request):
+        conn = self.get_connection()
+        if not conn:
+            messagebox.showerror("Помилка", "Немає підключення до бази даних.")
+            return False
+
+        if self.check_developer_status(user_id):
+            messagebox.showinfo("Інформація", "Ви вже є розробником.", parent=None)
+            return False
+
+        query_check_pending = """
+            SELECT 1 FROM AdminNotifications
+            WHERE user_id = %s AND notification_type = 'developer_status_request' AND status = 'pending';
+        """
+        if self.execute_query(query_check_pending, (user_id,), fetch_one=True):
+            messagebox.showinfo("Інформація", "У вас вже є активний запит на отримання статусу розробника.", parent=None)
+            return False
+
+        query = sql.SQL("""
+            INSERT INTO AdminNotifications (user_id, target_user_id, notification_type, message, status)
+            VALUES (%s, %s, %s, %s, %s) RETURNING notification_id;
+        """)
+        params = (user_id, user_id, 'developer_status_request', contact_email_for_request, 'pending')
+        try:
+            result = self.execute_query(query, params, fetch_one=True)
+            if result and result[0]:
+                print(f"DB: Created developer status request with ID: {result[0]} for user {user_id}")
+                return True
+            else:
+                print(f"DB: Failed to create developer status request for user {user_id}")
+                return False
+        except Exception as e:
+            print(f"DB: Error creating developer status request for user {user_id}: {e}")
+            return False
+
+    def fetch_pending_admin_notifications(self, notification_type_filter=None, sort_by='created_at', sort_order='ASC'):
+        conn = self.get_connection()
+        if not conn: return None
+
+        allowed_sort_columns = {'notification_id', 'created_at', 'notification_type', 'user_id'}
+        if sort_by not in allowed_sort_columns:
+            sort_by = 'created_at'
+        
+        sort_order_sql_literal = sort_order.upper()
+        if sort_order_sql_literal not in ('ASC', 'DESC'):
+            sort_order_sql_literal = 'ASC'
+        sort_order_sql = sql.SQL(sort_order_sql_literal)
+        
+        query_parts = [
+            sql.SQL("""
+            SELECT an.notification_id, an.user_id, u.username as initiator_username,
+                   an.target_user_id, tu.username as target_username,
+                   an.notification_type, an.message, an.status, an.created_at
+            FROM AdminNotifications an
+            LEFT JOIN Users u ON an.user_id = u.user_id
+            LEFT JOIN Users tu ON an.target_user_id = tu.user_id
+            WHERE an.status = 'pending'
+            """)
+        ]
+        params = []
+
+        if notification_type_filter:
+            query_parts.append(sql.SQL("AND an.notification_type = %s"))
+            params.append(notification_type_filter)
+        
+        query_parts.append(sql.SQL("ORDER BY {sort_col} {sort_dir}").format(
+            sort_col=sql.Identifier(sort_by), sort_dir=sort_order_sql
+        ))
+
+        query = sql.SQL(" ").join(query_parts)
+        
+        try:
+            notifications_data = self.execute_query(query, tuple(params) if params else None, fetch_all=True)
+            if notifications_data is None: return None
+
+            columns = ['notification_id', 'user_id', 'initiator_username', 
+                       'target_user_id', 'target_username',
+                       'notification_type', 'message', 'status', 'created_at']
+            return [dict(zip(columns, row)) for row in notifications_data]
+        except Exception as e:
+            print(f"DB: Error fetching pending admin notifications: {e}")
             traceback.print_exc()
             return None
