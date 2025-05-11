@@ -7,7 +7,7 @@ import datetime
 from PIL import Image, ImageTk
 from functools import partial
 
-from .ui_utils import *
+from .utils import *
 
 class StudiosTab(tk.Frame):
     def __init__(self, parent, db_manager, user_id, is_developer_initial,

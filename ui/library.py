@@ -5,7 +5,7 @@ from PIL import Image, ImageTk
 from functools import partial
 import decimal
 
-from ui.ui_utils import *
+from ui.utils import *
 
 class LibraryTab:
     def __init__(self, parent, db_manager, user_id, image_cache, placeholder_list, placeholder_detail, image_folder_path, fonts, colors):

@@ -673,14 +673,17 @@ class DatabaseManager:
         conn = self.get_connection()
         if not conn:
             print("DB Error: No connection to add funds.")
+            messagebox.showerror("Помилка Бази Даних", "Немає підключення до бази даних.", parent=None)
             return False
 
         try:
             amount_decimal = decimal.Decimal(str(amount_to_add)).quantize(decimal.Decimal("0.01"))
             if amount_decimal <= 0:
+                messagebox.showerror("Помилка Вводу", "Сума для нарахування повинна бути позитивною.", parent=None)
                 print(f"DB Error: Amount to add must be positive ({amount_decimal}).")
                 return False
         except (ValueError, TypeError, decimal.InvalidOperation) as e:
+            messagebox.showerror("Помилка Вводу", f"Некоректний формат суми: '{amount_to_add}'.", parent=None)
             print(f"DB Error: Invalid amount format '{amount_to_add}': {e}")
             return False
 
@@ -696,12 +699,15 @@ class DatabaseManager:
                         print(f"DB: Successfully added funds for user_id {user_id}.")
                         return True
                     else:
-                        print(f"DB Error: User with user_id {user_id} not found.")
+                        messagebox.showerror("Помилка", f"Користувача з ID {user_id} не знайдено.", parent=None)
+                        print(f"DB Error: User with user_id {user_id} not found when adding funds.")
                         return False
         except psycopg2.Error as db_error:
+            messagebox.showerror("Помилка Бази Даних", f"Помилка під час нарахування коштів:\n{db_error}", parent=None)
             print(f"\nDB Error adding funds for user {user_id}: {db_error}")
             return False
         except Exception as e:
+            messagebox.showerror("Неочікувана Помилка", f"Неочікувана помилка під час нарахування коштів:\n{e}", parent=None)
             print(f"\nDB Unexpected error adding funds for user {user_id}: {e}")
             traceback.print_exc()
             return False
@@ -1290,5 +1296,122 @@ class DatabaseManager:
             return [dict(zip(columns, row)) for row in users_data]
         except Exception as e:
             print(f"DB: Unexpected error fetching users for admin: {e}")
+            traceback.print_exc()
+            return None
+        
+    def fetch_all_studios_for_admin(self, search_term=None, sort_by='name', sort_order='ASC'):
+        conn = self.get_connection()
+        if not conn:
+            print("DB: No connection to fetch studios for admin.")
+            return None
+
+        allowed_sort_columns = {'studio_id', 'name', 'country', 'established_date', 'game_count', 'developer_count'}
+        if sort_by not in allowed_sort_columns:
+            sort_by = 'name'
+        
+        sort_order_sql_literal = sort_order.upper()
+        if sort_order_sql_literal not in ('ASC', 'DESC'):
+            sort_order_sql_literal = 'ASC'
+        sort_order_sql = sql.SQL(sort_order_sql_literal)
+
+        base_query_parts = [
+            sql.SQL("""
+            SELECT
+                s.studio_id, s.name, s.logo, s.country, s.established_date,
+                (SELECT COUNT(DISTINCT gs.game_id) FROM Game_Studios gs WHERE gs.studio_id = s.studio_id) as game_count,
+                (SELECT COUNT(d.developer_id) FROM Developers d WHERE d.studio_id = s.studio_id) as developer_count
+            FROM Studios s
+            """)
+        ]
+        params = []
+
+        if search_term:
+            base_query_parts.append(sql.SQL("WHERE s.name ILIKE %s"))
+            params.append(f"%{search_term}%")
+
+        base_query_parts.append(sql.SQL("ORDER BY {sort_col} {sort_dir}").format(
+            sort_col=sql.Identifier(sort_by),
+            sort_dir=sort_order_sql
+        ))
+        if sort_by != 'studio_id':
+            base_query_parts.append(sql.SQL(", s.studio_id {sort_dir}").format(sort_dir=sort_order_sql))
+
+
+        query = sql.SQL(" ").join(base_query_parts)
+
+        print(f"DB: Fetching all studios for admin. Sort: {sort_by} {sort_order_sql_literal}. Search: '{search_term}'")
+        try:
+            studios_data = self.execute_query(query, tuple(params) if params else None, fetch_all=True)
+            if studios_data is None:
+                print("DB: Failed to fetch studios for admin.")
+                return None
+            
+            columns = ['studio_id', 'name', 'logo', 'country', 'established_date', 'game_count', 'developer_count']
+            return [dict(zip(columns, row)) for row in studios_data]
+        except Exception as e:
+            print(f"DB: Unexpected error fetching studios for admin: {e}")
+            traceback.print_exc()
+            return None
+        
+    def fetch_all_games_for_admin(self, search_term=None, sort_by='title', sort_order='ASC'):
+        conn = self.get_connection()
+        if not conn:
+            return None
+
+        allowed_sort_columns = {'game_id', 'title', 'price', 'status', 'release_date', 'purchase_count'}
+        if sort_by not in allowed_sort_columns:
+            sort_by = 'title'
+        
+        sort_order_sql_literal = sort_order.upper()
+        if sort_order_sql_literal not in ('ASC', 'DESC'):
+            sort_order_sql_literal = 'ASC'
+        sort_order_sql = sql.SQL(sort_order_sql_literal)
+
+        base_query_parts = [
+            sql.SQL("""
+            SELECT
+                g.game_id, g.title, g.price, g.status, g.release_date, g.image,
+                (SELECT COUNT(pi.purchase_item_id)
+                FROM Purchases_Items pi
+                JOIN Purchases p ON pi.purchase_id = p.purchase_id
+                WHERE pi.game_id = g.game_id AND p.status = 'Completed'
+                ) AS purchase_count
+            FROM games g
+            """)
+        ]
+        params = []
+
+        if search_term:
+            base_query_parts.append(sql.SQL("WHERE g.title ILIKE %s"))
+            params.append(f"%{search_term}%")
+        
+        order_by_clause = sql.SQL("ORDER BY {sort_col} {sort_dir}")
+    
+        if sort_by == 'price':
+            nulls_placement = sql.SQL("NULLS FIRST") if sort_order_sql_literal == 'ASC' else sql.SQL("NULLS LAST")
+            primary_order = order_by_clause.format(sort_col=sql.Identifier(sort_by), sort_dir=sort_order_sql)
+            secondary_order_col = sql.Identifier('title')
+            secondary_order_dir = sql.SQL('ASC')
+            base_query_parts.append(sql.SQL(" ").join([primary_order, nulls_placement, sql.SQL(","), secondary_order_col, secondary_order_dir]))
+        elif sort_by == 'game_id': 
+            primary_order = order_by_clause.format(sort_col=sql.Identifier(sort_by), sort_dir=sort_order_sql)
+            base_query_parts.append(primary_order)
+        else: 
+            primary_order = order_by_clause.format(sort_col=sql.Identifier(sort_by), sort_dir=sort_order_sql)
+            secondary_order_col = sql.Identifier('game_id')
+            secondary_order_dir = sql.SQL('ASC') 
+            base_query_parts.append(sql.SQL(" ").join([primary_order, sql.SQL(","), secondary_order_col, secondary_order_dir]))
+
+        query = sql.SQL(" ").join(base_query_parts)
+        print(f"DB: Fetching all games for admin. Sort: {sort_by} {sort_order_sql_literal}. Search: '{search_term}'")
+        
+        try:
+            games_data = self.execute_query(query, tuple(params) if params else None, fetch_all=True)
+            if games_data is None: return None
+            
+            columns = ['game_id', 'title', 'price', 'status', 'release_date', 'image', 'purchase_count']
+            return [dict(zip(columns, row)) for row in games_data]
+        except Exception as e:
+            print(f"DB: Unexpected error fetching games for admin: {e}")
             traceback.print_exc()
             return None

@@ -6,12 +6,14 @@ from functools import partial
 import decimal
 import traceback
 
-from .ui_utils import *
-from .ui_library import LibraryTab
-from .ui_studios_tab import StudiosTab
-from .ui_game_details import GameDetailView
-from .ui_studio_details import StudioDetailView
-from .ui_admin_user_management import AdminUserManagementPanel
+from .utils import *
+from .library import LibraryTab
+from .studios_tab import StudiosTab
+from .game_details import GameDetailView
+from .studio_details import StudioDetailView
+from .admin.user_management import AdminUserManagementPanel
+from .admin.game_management import AdminGameManagementPanel
+from .admin.studio_management import AdminStudioManagementPanel
 
 class StoreWindow(tk.Tk):
     def __init__(self, db_manager, user_id, is_app_admin,
@@ -22,6 +24,9 @@ class StoreWindow(tk.Tk):
         self.db_manager = db_manager
         self.current_user_id = user_id
         self.is_app_admin = is_app_admin
+        self.admin_user_management_panel_instance = None
+        self.admin_studio_management_panel_instance = None
+        self.admin_game_management_panel_instance = None
         self.username = "User"
         self.current_balance = decimal.Decimal('0.00')
         self._image_references = {}
@@ -201,24 +206,41 @@ class StoreWindow(tk.Tk):
         self._setup_workshop_tab()
         
         if self.is_app_admin:
-            self.admin_panel_tab_frame = ttk.Frame(self.notebook, style='TFrame') 
-            self.notebook.add(self.admin_panel_tab_frame, text='👑 Адмін-панель')
+            self.admin_panel_tab_frame = ttk.Frame(self.notebook, style='TFrame')
+            self.notebook.add(self.admin_panel_tab_frame, text='Адмін-панель')
             
             self.admin_notebook = ttk.Notebook(self.admin_panel_tab_frame)
             self.admin_notebook.pack(fill=tk.BOTH, expand=True, padx=5, pady=5)
 
             self.user_mgmt_tab = ttk.Frame(self.admin_notebook, style='TFrame')
             self.admin_notebook.add(self.user_mgmt_tab, text='Користувачі')
-            
             self.admin_user_management_panel_instance = AdminUserManagementPanel(
                 parent=self.user_mgmt_tab,
                 db_manager=self.db_manager,
                 store_window_ref=self,
-                fonts=self.fonts,
-                colors=self.colors,
-                styles=self.styles
+                fonts=self.fonts, colors=self.colors, styles=self.styles
             )
             self.admin_user_management_panel_instance.pack(fill=tk.BOTH, expand=True)
+
+            self.studio_mgmt_tab = ttk.Frame(self.admin_notebook, style='TFrame')
+            self.admin_notebook.add(self.studio_mgmt_tab, text='Студії')
+            self.admin_studio_management_panel_instance = AdminStudioManagementPanel(
+                parent=self.studio_mgmt_tab,
+                db_manager=self.db_manager,
+                store_window_ref=self,
+                fonts=self.fonts, colors=self.colors, styles=self.styles
+            )
+            self.admin_studio_management_panel_instance.pack(fill=tk.BOTH, expand=True)
+            
+            self.game_mgmt_tab = ttk.Frame(self.admin_notebook, style='TFrame')
+            self.admin_notebook.add(self.game_mgmt_tab, text='Ігри')
+            self.admin_game_management_panel_instance = AdminGameManagementPanel(
+                parent=self.game_mgmt_tab,
+                db_manager=self.db_manager,
+                store_window_ref=self,
+                fonts=self.fonts, colors=self.colors, styles=self.styles
+            )
+            self.admin_game_management_panel_instance.pack(fill=tk.BOTH, expand=True)
 
         refresh_button = ttk.Button(self, text="Оновити", command=self.refresh_current_tab, style=self.custom_button_style)
         refresh_button.grid(row=2, column=0, pady=10)
@@ -374,7 +396,6 @@ class StoreWindow(tk.Tk):
                     if is_child: return
                  except tk.TclError: pass
             target_canvas = self.detail_canvas
-
         elif self.studio_detail_view_instance and self.studio_detail_area_frame and self.studio_detail_area_frame.winfo_ismapped():
             if widget_under_cursor.winfo_exists():
                  try:
@@ -382,7 +403,6 @@ class StoreWindow(tk.Tk):
                     if is_child: return
                  except tk.TclError: pass
             target_canvas = self.studio_detail_canvas
-
         elif self.notebook.winfo_ismapped():
             try:
                 current_tab_index = self.notebook.index(self.notebook.select())
@@ -420,12 +440,10 @@ class StoreWindow(tk.Tk):
                               except tk.TclError: pass
                           elif self.studios_tab_instance.studios_canvas:
                                 target_canvas = self.studios_tab_instance.studios_canvas
-                elif tab_name == '👑 Адмін-панель' and self.is_app_admin:
+                elif tab_name == 'Адмін-панель' and self.is_app_admin:
                     if hasattr(self, 'admin_notebook') and self.admin_notebook.winfo_exists():
                         admin_current_tab_idx = self.admin_notebook.index(self.admin_notebook.select())
-                        admin_tab_name = self.admin_notebook.tab(admin_current_tab_idx, "text")
-                        if admin_tab_name == 'Користувачі' and self.admin_user_management_panel_instance:
-                            pass
+                        admin_tab_name_selected = self.admin_notebook.tab(admin_current_tab_idx, "text")
 
             except (tk.TclError, AttributeError): pass
 
@@ -689,14 +707,12 @@ class StoreWindow(tk.Tk):
             self.refresh_user_info_display()
 
     def refresh_current_tab(self):
-        """Refreshes the content of the currently active view"""
         active_view = None
         if self.detail_view_instance and self.detail_area_frame and self.detail_area_frame.winfo_ismapped():
             active_view = 'game_detail'
             print("Refreshing Game Detail View...")
             game_id = self.detail_view_instance.game_id
             self._show_detail_view(game_id)
-
         elif self.studio_detail_view_instance and self.studio_detail_area_frame and self.studio_detail_area_frame.winfo_ismapped():
             active_view = 'studio_detail'
             print("Refreshing Studio Detail View...")
@@ -706,7 +722,6 @@ class StoreWindow(tk.Tk):
             else:
                  print("Cannot refresh studio details: studio_name not found in instance.")
                  self._show_notebook_view()
-
         elif self.notebook.winfo_ismapped():
             active_view = 'notebook'
             try:
@@ -721,27 +736,25 @@ class StoreWindow(tk.Tk):
                     print("Refreshing Library Tab...")
                     if hasattr(self, 'library_view') and self.library_view:
                         self.library_view.load_library_games()
-                    else:
-                        print("Library view not initialized or available.")
                 elif tab_name == 'Студії':
                     print("Refreshing Studios Tab...")
                     if self.studios_tab_instance:
                         self.studios_tab_instance.refresh_content()
-                    else:
-                        print("Studios tab instance not found.")
                 elif tab_name == 'Майстерня':
                      print("Refreshing Workshop Tab...")
                      self._setup_workshop_tab()
-                
-                elif tab_name == '👑 Адмін-панель' and self.is_app_admin:
-                    print("Refreshing Admin Panel...")
+                elif tab_name == 'Адмін-панель' and self.is_app_admin:
+                    print("Refreshing Admin Panel sub-tab...")
                     if hasattr(self, 'admin_notebook') and self.admin_notebook.winfo_exists():
                         admin_current_tab_idx = self.admin_notebook.index(self.admin_notebook.select())
                         admin_tab_name = self.admin_notebook.tab(admin_current_tab_idx, "text")
                         if admin_tab_name == 'Користувачі' and self.admin_user_management_panel_instance:
                             self.admin_user_management_panel_instance.refresh_panel_content()
+                        elif admin_tab_name == 'Студії' and self.admin_studio_management_panel_instance:
+                            self.admin_studio_management_panel_instance.refresh_panel_content()
+                        elif admin_tab_name == 'Ігри' and self.admin_game_management_panel_instance:
+                            self.admin_game_management_panel_instance.refresh_panel_content()
                 self.refresh_user_info_display()
-                
             except tk.TclError:
                 print("Could not get selected tab (Notebook might not be visible).")
                 self.refresh_user_info_display()
@@ -800,6 +813,16 @@ class StoreWindow(tk.Tk):
 
     def _delete_account(self):
         """Handles the process of deleting the current user's account"""
+        if self.is_app_admin:
+            messagebox.showerror(
+                "Дія заборонена",
+                "Ви не можете видалити акаунт адміністратора додатку.\n"
+                "Для цього зверніться до розробників системи або іншого адміністратора.",
+                parent=self
+            )
+            print(f"Attempt to delete app admin account {self.username} (ID: {self.current_user_id}) was blocked.")
+            return
+
         print(f"Attempting to delete account for user: {self.username} (ID: {self.current_user_id})")
 
         confirm1 = messagebox.askyesno(
@@ -865,9 +888,7 @@ class StoreWindow(tk.Tk):
                  print("Error: Login callback function is not set in StoreWindow.")
                  self.after(10, self.destroy)
                  return
-
             self.after(20, self.destroy)
-
         else:
             print(f"Failed to delete account for user: {self.username} (ID: {self.current_user_id})")
 
@@ -983,10 +1004,19 @@ class StoreWindow(tk.Tk):
 
     def _prompt_become_developer_from_workshop(self):
         """Handles the 'Become Developer' button click in the Workshop tab"""
+        if self.is_app_admin:
+            messagebox.showinfo(
+                "Статус адміністратора",
+                "Ви є адміністратором додатку і вже маєте розширені права.\n"
+                "Отримання окремого статусу розробника не потрібне.",
+                parent=self
+            )
+            return
+
         if self.is_developer:
             messagebox.showinfo("Статус розробника", "Ви вже є розробником.", parent=self)
             return
-
+        
         dialog_prompt = (
             "Будь ласка, введіть вашу **робочу** електронну пошту.\n"
             "Вона може бути використана для зв'язку зі студіями або адміністрацією.\n\n"

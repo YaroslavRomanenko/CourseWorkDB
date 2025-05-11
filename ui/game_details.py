@@ -9,7 +9,7 @@ from functools import partial
 import traceback
 
 from datetime import datetime
-from .ui_utils import *
+from .utils import *
 
 class GameDetailView(tk.Frame):
     def __init__(self, parent, db_manager, user_id, game_id, game_data,

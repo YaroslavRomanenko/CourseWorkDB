@@ -2,7 +2,7 @@ import tkinter as tk
 import re
 
 from tkinter import messagebox, ttk
-from .ui_utils import center_window, setup_text_widget_editing
+from .utils import center_window, setup_text_widget_editing
 
 class RegistrationWindow(tk.Tk):
     """The user registration window. Allows users to create a new account"""

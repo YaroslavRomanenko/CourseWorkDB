@@ -7,7 +7,7 @@ import traceback
 import os
 
 from PIL import Image, ImageTk
-from .ui_utils import *
+from .utils import *
 
 class StudioDetailView(tk.Frame):
     def __init__(self, parent, db_manager, studio_name,
@@ -114,10 +114,18 @@ class StudioDetailView(tk.Frame):
 
         apply_button_text = "Подати заявку на вступ"
         apply_button_state = tk.NORMAL
-        if self.has_pending_application:
+
+        is_app_admin_user = False
+        if self.store_window_ref and hasattr(self.store_window_ref, 'is_app_admin'):
+            is_app_admin_user = self.store_window_ref.is_app_admin
+
+        if is_app_admin_user:
+            apply_button_text = "Адміністратор"
+            apply_button_state = tk.DISABLED
+        elif self.has_pending_application:
              apply_button_text = "Заявку вже подано"
              apply_button_state = tk.DISABLED
-        elif self.store_window_ref and hasattr(self.db_manager, 'get_developer_studio_id'):
+        elif self.store_window_ref and hasattr(self.db_manager, 'get_developer_studio_id') and self.store_window_ref.current_user_id is not None:
              user_studio_id = self.db_manager.get_developer_studio_id(self.store_window_ref.current_user_id)
              if self.studio_details and user_studio_id == self.studio_details.get('studio_id'):
                  apply_button_text = "Ви вже учасник"
@@ -134,7 +142,7 @@ class StudioDetailView(tk.Frame):
              self.apply_button.pack(pady=(5, 0))
         else:
              self.apply_button = None
-
+        
         separator1 = ttk.Separator(self, orient='horizontal')
         separator1.grid(row=current_row, column=0, sticky='ew', padx=10, pady=(5, 10)); current_row += 1
         desc_title_label = None; error_label = None
@@ -164,7 +172,14 @@ class StudioDetailView(tk.Frame):
             date_val = self.studio_details.get('established_date')
             if date_val:
                 formatted_date = str(date_val) 
-                try: formatted_date = (date_val.strftime('%d-%m-%Y') if isinstance(date_val, datetime) else datetime.strptime(str(date_val), '%Y-%m-%d').strftime('%d-%m-%Y')) 
+                try: 
+                    if isinstance(date_val, str):
+                        date_val = date_val.split(" ")[0]
+                        formatted_date = datetime.strptime(date_val, '%Y-%m-%d').strftime('%d-%m-%Y')
+                    elif isinstance(date_val, datetime):
+                        formatted_date = date_val.strftime('%d-%m-%Y')
+                    elif isinstance(date_val, date): # для datetime.date
+                         formatted_date = date_val.strftime('%d-%m-%Y')
                 except Exception: pass
                 
                 tk.Label(details_frame, text="Засновано:", font=target_font, bg=bg_color, anchor='nw').grid(row=details_row_internal, column=0, sticky='nw', padx=(0,5))
@@ -178,7 +193,10 @@ class StudioDetailView(tk.Frame):
             website_url = self.studio_details.get('website_url')
             if website_url:
                 tk.Label(details_frame, text="Веб-сайт:", font=target_font, bg=bg_color, anchor='nw').grid(row=details_row_internal, column=0, sticky='nw', padx=(0,5))
-                link_font_tuple = list(target_font); link_font_tuple.append("underline"); link_font = tuple(link_font_tuple)
+                link_font_tuple = list(target_font); 
+                if len(link_font_tuple) == 2: link_font_tuple.append("underline")
+                elif len(link_font_tuple) > 2: link_font_tuple[2] = f"{link_font_tuple[2]} underline".replace(" normal","").strip()
+                link_font = tuple(link_font_tuple)
                 website_link_label = tk.Label(details_frame, text=website_url, font=link_font, fg=self.colors.get('link_fg', 'blue'), cursor="hand2", bg=bg_color, anchor='nw', justify=tk.LEFT); website_link_label.grid(row=details_row_internal, column=1, sticky='nw')
                 website_link_label.bind("<Button-1>", partial(self._open_website, website_url)); details_row_internal += 1
 
@@ -240,19 +258,19 @@ class StudioDetailView(tk.Frame):
         
     def _submit_application(self):
         """Handles the 'Apply to Join' button click"""
-        if not self.store_window_ref or not hasattr(self.store_window_ref, 'is_developer'):
-            messagebox.showerror("Помилка", "Не вдалося перевірити статус розробника.", parent=self)
+        if not self.store_window_ref or not hasattr(self.store_window_ref, 'current_user_id'):
+            messagebox.showerror("Помилка", "Не вдалося визначити поточного користувача.", parent=self)
             return
-        if not self.studio_details or 'studio_id' not in self.studio_details:
-            messagebox.showerror("Помилка", "Не вдалося визначити ID студії.", parent=self)
+        
+        if hasattr(self.store_window_ref, 'is_app_admin') and self.store_window_ref.is_app_admin:
+            messagebox.showerror(
+                "Дія заборонена",
+                "Адміністратори додатку не можуть подавати заявки на вступ до студій.",
+                parent=self
+            )
             return
 
-        is_dev = self.store_window_ref.is_developer
-        user_id = self.store_window_ref.current_user_id
-        studio_id = self.studio_details['studio_id']
-        studio_name_display = self.studio_details.get('name', self.studio_name)
-
-        if not is_dev:
+        if not hasattr(self.store_window_ref, 'is_developer') or not self.store_window_ref.is_developer:
             messagebox.showinfo(
                 "Потрібен статус розробника",
                 "Щоб подати заявку на вступ до студії, вам потрібно спочатку отримати статус розробника.\n\n"
@@ -260,6 +278,14 @@ class StudioDetailView(tk.Frame):
                 parent=self
             )
             return
+        
+        if not self.studio_details or 'studio_id' not in self.studio_details:
+            messagebox.showerror("Помилка", "Не вдалося визначити ID студії.", parent=self)
+            return
+
+        user_id = self.store_window_ref.current_user_id
+        studio_id = self.studio_details['studio_id']
+        studio_name_display = self.studio_details.get('name', self.studio_name)
 
         print(f"User {user_id} (developer) is applying to studio {studio_id} ('{studio_name_display}')")
 
@@ -279,7 +305,7 @@ class StudioDetailView(tk.Frame):
              messagebox.showinfo("Заявку подано", f"Вашу заявку на вступ до студії '{studio_name_display}' подано.\nОчікуйте на розгляд.", parent=self)
              if self.apply_button:
                  self.apply_button.config(state=tk.DISABLED, text="Заявку вже подано")
-                 self.has_pending_application = True         
+                 self.has_pending_application = True   
     
     def _update_wraplengths(self, container_width):
         """Adjusts the wraplength of labels based on the container width"""

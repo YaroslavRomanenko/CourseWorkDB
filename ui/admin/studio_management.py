@@ -3,7 +3,7 @@ from tkinter import ttk, messagebox, simpledialog
 from functools import partial
 import datetime
 
-from .ui_utils import setup_text_widget_editing
+from ..utils import setup_text_widget_editing
 
 class AdminStudioManagementPanel(ttk.Frame):
     def __init__(self, parent, db_manager, store_window_ref, fonts, colors, styles, **kwargs):
@@ -38,10 +38,8 @@ class AdminStudioManagementPanel(ttk.Frame):
         self.search_entry.bind("<Return>", lambda e: self.load_studios_list())
 
         search_button = ttk.Button(search_refresh_frame, text="Знайти", command=self.load_studios_list, style=self.custom_button_style)
-        search_button.pack(side=tk.LEFT, padx=(5,10))
-        refresh_button = ttk.Button(search_refresh_frame, text="Оновити", command=self.load_studios_list, style=self.custom_button_style)
-        refresh_button.pack(side=tk.LEFT)
-
+        search_button.pack(side=tk.LEFT, padx=(5,0))
+        
         tree_frame = ttk.Frame(self, style='TFrame')
         tree_frame.grid(row=1, column=0, sticky='nsew', padx=5)
         tree_frame.grid_rowconfigure(0, weight=1)
@@ -55,7 +53,7 @@ class AdminStudioManagementPanel(ttk.Frame):
         self.studios_tree.heading('country', text='Країна', command=lambda: self._sort_tree_column('country'))
         self.studios_tree.heading('established_date', text='Засновано', command=lambda: self._sort_tree_column('established_date'))
         self.studios_tree.heading('game_count', text='Ігор', command=lambda: self._sort_tree_column('game_count'))
-        self.studios_tree.heading('developer_count', text='Розробників', command=lambda: self._sort_tree_column('developer_count'))
+        self.studios_tree.heading('developer_count', text='Розробників', command=lambda: self._sort_tree_column('developer_count')) 
 
         self.studios_tree.column('studio_id', width=50, stretch=tk.NO, anchor='center')
         self.studios_tree.column('name', width=200, anchor='w')
@@ -74,7 +72,7 @@ class AdminStudioManagementPanel(ttk.Frame):
 
         action_frame = ttk.Frame(self, style='TFrame')
         action_frame.grid(row=2, column=0, sticky='ew', pady=(10,5), padx=5)
-
+        
         self.load_studios_list()
 
     def _sort_tree_column(self, col_identifier):
@@ -109,17 +107,33 @@ class AdminStudioManagementPanel(ttk.Frame):
 
         if studios_data:
             for studio in studios_data:
-                est_date_str = studio.get('established_date')
-                if est_date_str:
+                est_date_raw = studio.get('established_date')
+                est_date_display = "N/A"
+
+                if est_date_raw:
                     try:
-                        if isinstance(est_date_str, str):
-                            est_date_str = est_date_str.split(' ')[0] 
-                            est_date_obj = datetime.datetime.strptime(est_date_str, '%Y-%m-%d').date()
-                            est_date_obj = est_date_str
-                        est_date_display = est_date_obj.strftime('%d-%m-%Y')
-                    except ValueError:
-                        est_date_display = str(est_date_str)
-                else:
+                        if isinstance(est_date_raw, str):
+                            date_part_str = est_date_raw.split(' ')[0]
+                            est_date_obj = datetime.datetime.strptime(date_part_str, '%Y-%m-%d').date()
+                        elif isinstance(est_date_raw, datetime.datetime): 
+                            est_date_obj = est_date_raw.date()
+                        elif isinstance(est_date_raw, datetime.date): 
+                            est_date_obj = est_date_raw
+                        else:
+                            est_date_obj = None 
+
+                        if est_date_obj: 
+                            est_date_display = est_date_obj.strftime('%d-%m-%Y')
+                        else: 
+                            est_date_display = str(est_date_raw) 
+                    except ValueError as e_parse:
+                        print(f"ValueError parsing date '{est_date_raw}': {e_parse}")
+                        est_date_display = str(est_date_raw)
+                    except Exception as e_generic: 
+                        print(f"Generic error processing date '{est_date_raw}': {e_generic}")
+                        est_date_display = str(est_date_raw)
+                
+                if est_date_display is None: 
                     est_date_display = "N/A"
 
                 values = (
@@ -145,17 +159,13 @@ class AdminStudioManagementPanel(ttk.Frame):
         if not selected_items:
             return
         item_iid = selected_items[0]
-        studio_name = self.studios_tree.item(item_iid, 'values')[1]
-        if studio_name and studio_name != 'N/A':
-            if self.store_window_ref and hasattr(self.store_window_ref, '_show_studio_detail_view'):
-                self.store_window_ref._show_studio_detail_view(studio_name)
-
-
-    def _edit_studio(self):
-        messagebox.showinfo("В розробці", "Функція редагування студії знаходиться в розробці.", parent=self)
-
-    def _toggle_verify_studio(self):
-        messagebox.showinfo("В розробці", "Функція верифікації студії знаходиться в розробці.", parent=self)
+        studio_name_values = self.studios_tree.item(item_iid, 'values')
+        if studio_name_values:
+            studio_name_idx = self.studios_tree['columns'].index('name')
+            studio_name = studio_name_values[studio_name_idx]
+            if studio_name and studio_name != 'N/A':
+                if self.store_window_ref and hasattr(self.store_window_ref, '_show_studio_detail_view'):
+                    self.store_window_ref._show_studio_detail_view(studio_name)
     
     def refresh_panel_content(self):
         print("AdminStudioManagementPanel: Refreshing content...")
