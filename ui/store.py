@@ -11,9 +11,7 @@ from .library import LibraryTab
 from .studios_tab import StudiosTab
 from .game_details import GameDetailView
 from .studio_details import StudioDetailView
-from .admin.user_management import AdminUserManagementPanel
-from .admin.game_management import AdminGameManagementPanel
-from .admin.studio_management import AdminStudioManagementPanel
+from .admin import *
 
 class StoreWindow(tk.Tk):
     def __init__(self, db_manager, user_id, is_app_admin,

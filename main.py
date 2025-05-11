@@ -2,9 +2,7 @@ import os
 
 from functools import partial
 
-from ui.login import LoginWindow
-from ui.registration import RegistrationWindow
-from ui.store import StoreWindow
+from ui import LoginWindow, RegistrationWindow, StoreWindow
 
 from database_manager import DatabaseManager
 
