@@ -1082,7 +1082,7 @@ class DatabaseManager:
             return False
         
     def update_game_details(self, game_id, new_description=None, new_price=None, editor_user_id=None):
-        """Updates the description and/or price for a specific game"""
+        """Updates the description and/or price for a specific game. Relies on DB trigger for updated_at.""" 
         conn = self.get_connection()
         if not conn:
             messagebox.showerror("Помилка Бази Даних", "Немає активного підключення до бази даних для оновлення гри.")
@@ -1103,7 +1103,7 @@ class DatabaseManager:
         if new_price is not None:
             try:
                 if isinstance(new_price, str) and new_price.strip() == '':
-                     pass
+                     pass 
                 else:
                     price_decimal = Decimal(str(new_price)).quantize(Decimal("0.01"))
                     if price_decimal < 0:
@@ -1115,8 +1115,6 @@ class DatabaseManager:
             except (ValueError, TypeError, InvalidOperation) as e:
                 print(f"DB Error: Invalid price format '{new_price}': {e}")
                 return False
-
-        update_fields.append(sql.SQL("updated_at = CURRENT_TIMESTAMP"))
         params.append(game_id)
 
         if not update_fields:
@@ -1127,21 +1125,23 @@ class DatabaseManager:
         query = sql.SQL("UPDATE Games SET {fields} WHERE game_id = %s").format(fields=set_clause)
 
         print(f"DB: Attempting to update game {game_id} by user {editor_user_id}.")
+        print(f"DB: Query: {query.as_string(conn)}")
+        print(f"DB: Params: {tuple(params)}")
 
         try:
             with conn:
                 with conn.cursor() as cur:
                     cur.execute(query, tuple(params))
                     if cur.rowcount == 1:
-                        print(f"DB: Successfully updated game {game_id}.")
+                        print(f"DB: Successfully updated game {game_id} (trigger handled updated_at).")
                         return True
                     elif cur.rowcount == 0:
-                         print(f"DB Warning: Game with ID {game_id} not found for update, or no changes made.")
-                         return True
+                        print(f"DB Warning: Game with ID {game_id} not found for update, or no actual changes made.")
+                        return True
                     else:
-                         print(f"DB Error: Unexpected rowcount ({cur.rowcount}) updating game {game_id}.")
-                         conn.rollback()
-                         return False
+                        print(f"DB Error: Unexpected rowcount ({cur.rowcount}) updating game {game_id}.")
+                        conn.rollback()
+                        return False
 
         except psycopg2.Error as db_error:
             print(f"\nDB Error updating game {game_id}: {db_error}")
@@ -1152,25 +1152,38 @@ class DatabaseManager:
             return False
         
     def fetch_all_users_for_admin(self, search_term=None, sort_by='username', sort_order='ASC'):
-        """Fetches a list of all users for the admin panel."""
         conn = self.get_connection()
         if not conn:
             print("DB: No connection to fetch users for admin.")
             return None
 
-        allowed_sort_columns = {'user_id', 'username', 'email', 'registration_date', 'balance'}
-        if sort_by not in allowed_sort_columns:
-            sort_by = 'username'
-        sort_order_sql = sql.SQL(sort_order.upper())
-        if sort_order_sql not in (sql.SQL('ASC'), sql.SQL('DESC')):
-            sort_order_sql = sql.SQL('ASC')
+        allowed_sort_columns = {'user_id', 'username', 'email', 'registration_date', 'balance', 'owned_games_count', 'total_spent'}
+        db_sort_key = sort_by
+        if sort_by == 'total_spent':
+             print("DB Warning: Sorting by calculated 'total_spent' might be slow or complex. Sorting by username instead for now.")
+             db_sort_key = 'username'
+        elif sort_by not in allowed_sort_columns:
+            db_sort_key = 'username'
+
+        sort_order_sql_literal = sort_order.upper()
+        if sort_order_sql_literal not in ('ASC', 'DESC'):
+            sort_order_sql_literal = 'ASC'
+
+        sort_order_sql = sql.SQL(sort_order_sql_literal)
 
         base_query_parts = [
             sql.SQL("""
             SELECT
                 u.user_id, u.username, u.email, u.registration_date, u.balance,
                 u.is_app_admin, u.is_banned,
-                EXISTS (SELECT 1 FROM Developers d WHERE d.user_id = u.user_id) as is_developer
+                EXISTS (SELECT 1 FROM Developers d WHERE d.user_id = u.user_id) as is_developer,
+                (SELECT s.name FROM Studios s JOIN Developers d ON s.studio_id = d.studio_id WHERE d.user_id = u.user_id LIMIT 1) as developer_studio_name,
+                (SELECT COUNT(DISTINCT pi.game_id)
+                    FROM Purchases_Items pi
+                    JOIN Purchases p ON pi.purchase_id = p.purchase_id
+                    WHERE p.user_id = u.user_id AND p.status = 'Completed'
+                ) as owned_games_count,
+                calculate_total_spent(u.user_id) as total_spent
             FROM Users u
             """)
         ]
@@ -1182,21 +1195,25 @@ class DatabaseManager:
             params.extend([like_pattern, like_pattern])
 
         base_query_parts.append(sql.SQL("ORDER BY {sort_col} {sort_dir}").format(
-            sort_col=sql.Identifier(sort_by),
+            sort_col=sql.Identifier(db_sort_key),
             sort_dir=sort_order_sql
         ))
 
+        if db_sort_key != 'user_id':
+            base_query_parts.append(sql.SQL(", u.user_id {sort_dir}").format(sort_dir=sort_order_sql))
+
         query = sql.SQL(" ").join(base_query_parts)
 
-        print(f"DB: Fetching all users for admin. Sort: {sort_by} {sort_order}. Search: '{search_term}'")
+        print(f"DB: Fetching all users for admin. Sort: {db_sort_key} {sort_order_sql_literal}. Search: '{search_term}'")
         try:
             users_data = self.execute_query(query, tuple(params) if params else None, fetch_all=True)
             if users_data is None:
                 print("DB: Failed to fetch users for admin.")
                 return None
-            
+
             columns = ['user_id', 'username', 'email', 'registration_date', 'balance',
-                       'is_app_admin', 'is_banned', 'is_developer']
+                       'is_app_admin', 'is_banned', 'is_developer',
+                       'developer_studio_name', 'owned_games_count', 'total_spent']
             return [dict(zip(columns, row)) for row in users_data]
         except Exception as e:
             print(f"DB: Unexpected error fetching users for admin: {e}")
@@ -1559,3 +1576,96 @@ class DatabaseManager:
             print(f"DB: Error fetching pending admin notifications: {e}")
             traceback.print_exc()
             return None
+        
+    def get_user_total_spent(self, user_id):
+        conn = self.get_connection()
+        if not conn:
+            print("DB: Cannot get total spent: No active database connection")
+            return None
+
+        query = sql.SQL("SELECT calculate_total_spent(%s);")
+        params = (user_id,)
+
+        print(f"DB: Calculating total spent for user_id {user_id} using SQL function...")
+        try:
+            result = self.execute_query(query, params, fetch_one=True)
+            if result and result[0] is not None:
+                total_spent = Decimal(str(result[0])).quantize(Decimal("0.01"))
+                print(f"DB: Total spent for user {user_id}: {total_spent}")
+                return total_spent
+            else:
+                print(f"DB: Total spent for user {user_id}: 0.00 (or error occurred)")
+                return Decimal('0.00')
+        except (InvalidOperation, TypeError) as e:
+            print(f"DB: Error converting result to Decimal for user {user_id}: {e}")
+            return Decimal('0.00')
+        except Exception as e:
+            print(f"DB: Unexpected error getting total spent for user {user_id}: {e}")
+            traceback.print_exc()
+            return None
+        
+    def get_developer_studio_details(self, user_id):
+        query = """
+            SELECT d.studio_id, s.name
+            FROM Developers d
+            JOIN Studios s ON d.studio_id = s.studio_id
+            WHERE d.user_id = %s AND d.studio_id IS NOT NULL;
+        """
+        result = self.execute_query(query, (user_id,), fetch_one=True)
+        if result:
+            return {'studio_id': result[0], 'studio_name': result[1]}
+        return None
+
+    def leave_studio(self, user_id):
+        conn = self.get_connection()
+        if not conn:
+            messagebox.showerror("Помилка Бази Даних", "Немає підключення до бази даних.")
+            return False
+
+        dev_info_query = "SELECT studio_id, role FROM Developers WHERE user_id = %s AND studio_id IS NOT NULL;"
+        dev_info = self.execute_query(dev_info_query, (user_id,), fetch_one=True)
+
+        if not dev_info:
+            messagebox.showinfo("Інформація", "Ви не є учасником жодної студії.", parent=None)
+            return False
+
+        studio_id, role = dev_info
+
+        if role == 'Admin':
+            other_admins_query = "SELECT COUNT(*) FROM Developers WHERE studio_id = %s AND role = 'Admin' AND user_id != %s;"
+            other_admins_count = self.execute_query(other_admins_query, (studio_id, user_id), fetch_one=True)
+
+            if other_admins_count and other_admins_count[0] == 0:
+                other_members_query = "SELECT COUNT(*) FROM Developers WHERE studio_id = %s AND role = 'Member';"
+                other_members_count = self.execute_query(other_members_query, (studio_id,), fetch_one=True)
+                if other_members_count and other_members_count[0] > 0:
+                    messagebox.showerror("Дія неможлива",
+                                         "Ви єдиний адміністратор у студії, де є інші учасники.\n",
+                                         parent=None)
+                    return False
+
+        query = sql.SQL("""
+            UPDATE Developers
+            SET studio_id = NULL, role = 'Member'
+            WHERE user_id = %s AND studio_id IS NOT NULL;
+        """)
+
+        try:
+            with conn:
+                with conn.cursor() as cur:
+                    cur.execute(query, (user_id,))
+                    if cur.rowcount > 0:
+                        print(f"DB: User {user_id} successfully left studio {studio_id}.")
+                        return True
+                    else:
+                        print(f"DB: User {user_id} was not part of a studio or update failed.")
+                        return False
+        except psycopg2.Error as db_error:
+            print(f"DB Error when user {user_id} trying to leave studio: {db_error}")
+            messagebox.showerror("Помилка Бази Даних", f"Не вдалося покинути студію:\n{db_error}", parent=None)
+            return False
+        except Exception as e:
+            print(f"DB Unexpected error when user {user_id} trying to leave studio: {e}")
+            traceback.print_exc()
+            messagebox.showerror("Неочікувана Помилка", f"Сталася помилка: {e}", parent=None)
+            return False

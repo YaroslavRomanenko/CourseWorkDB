@@ -991,8 +991,8 @@ class StoreWindow(tk.Tk):
             widget.destroy()
 
         self.workshop_tab_frame.grid_columnconfigure(0, weight=1)
-        self.workshop_tab_frame.grid_rowconfigure(0, weight=1) 
-        self.workshop_tab_frame.grid_rowconfigure(2, weight=1) 
+        self.workshop_tab_frame.grid_rowconfigure(0, weight=1)
+        self.workshop_tab_frame.grid_rowconfigure(2, weight=1)
 
         content_frame = tk.Frame(self.workshop_tab_frame, bg=self.original_bg)
         content_frame.grid(row=1, column=0, sticky='')
@@ -1001,12 +1001,12 @@ class StoreWindow(tk.Tk):
             title_text = "Майстерня розробника"
             if self.is_app_admin:
                 title_text += " (Адміністратор)"
-            
+
             info_label = tk.Label(content_frame, text=title_text,
                                  font=self.fonts.get('title', ("Verdana", 16, "bold")),
                                  bg=self.original_bg)
-            info_label.pack(pady=20)
-            
+            info_label.pack(pady=10)
+
             dev_info_text = "Тут ви зможете керувати своїми ігровими проєктами, \nподавати ігри на розгляд та взаємодіяти зі спільнотою."
             if self.is_app_admin:
                 dev_info_text += "\n\nЯк адміністратор, ви маєте доступ до всіх функцій розробника."
@@ -1015,19 +1015,51 @@ class StoreWindow(tk.Tk):
                                  text=dev_info_text,
                                  font=self.fonts.get('detail', ("Verdana", 11)),
                                  bg=self.original_bg, justify=tk.CENTER, wraplength=500)
-            developer_specific_info_label.pack(pady=20)
+            developer_specific_info_label.pack(pady=(10, 15))
+
+            developer_studio_info = None
+            if self.current_user_id and self.db_manager:
+                 try:
+                      developer_studio_info = self.db_manager.get_developer_studio_details(self.current_user_id)
+                 except AttributeError:
+                      print("Warning: db_manager.get_developer_studio_details method not found.")
+                 except Exception as e:
+                      print(f"Error fetching developer studio details: {e}")
+
+
+            if developer_studio_info and developer_studio_info.get('studio_id'):
+                studio_name = developer_studio_info.get('studio_name', 'Невідома студія')
+                studio_info_frame = tk.Frame(content_frame, bg=self.original_bg)
+                studio_info_frame.pack(pady=(5,10))
+
+                studio_label_text = f"Ви є учасником студії: {studio_name}"
+                studio_label = tk.Label(studio_info_frame, text=studio_label_text,
+                                         font=self.fonts.get('detail', ("Verdana", 10)),
+                                         bg=self.original_bg)
+                studio_label.pack(side=tk.LEFT, padx=(0, 10))
+
+                leave_studio_button = ttk.Button(studio_info_frame, text="Покинути студію",
+                                                 command=self._prompt_leave_studio,
+                                                 style=self.custom_button_style)
+                leave_studio_button.pack(side=tk.LEFT)
 
             if not self.is_app_admin:
-                revoke_dev_status_button = ttk.Button(content_frame, text="Відмовитися від статусу розробника",
-                                               command=self._prompt_revoke_developer_status,
-                                               style=self.custom_button_style)
-                revoke_dev_status_button.pack(pady=(10,20))
-
-        else: 
+                if not (developer_studio_info and developer_studio_info.get('studio_id')):
+                    revoke_dev_status_button = ttk.Button(content_frame, text="Відмовитися від статусу розробника",
+                                                   command=self._prompt_revoke_developer_status,
+                                                   style=self.custom_button_style)
+                    revoke_dev_status_button.pack(pady=(10,15))
+                else:
+                    revoke_info_label = tk.Label(content_frame,
+                                              text="(Щоб відмовитися від статусу розробника, спочатку покиньте студію)",
+                                              font=self.fonts.get('comment', ("Verdana", 9)),
+                                              fg="grey", bg=self.original_bg)
+                    revoke_info_label.pack(pady=(0, 15))
+        else:
             title_label = tk.Label(content_frame, text="Стати розробником",
                                   font=self.fonts.get('title', ("Verdana", 16, "bold")),
                                   bg=self.original_bg)
-            title_label.pack(pady=(0, 20))
+            title_label.pack(pady=(0, 15))
 
             info_text = (
                 "Станьте розробником на нашій платформі!\n\n"
@@ -1039,12 +1071,12 @@ class StoreWindow(tk.Tk):
                                  text=info_text,
                                  font=self.fonts.get('detail', ("Verdana", 11)),
                                  bg=self.original_bg, justify=tk.CENTER, wraplength=550)
-            info_label.pack(pady=20)
-            
+            info_label.pack(pady=15)
+
             request_dev_status_button = ttk.Button(content_frame, text="Подати запит на статус розробника",
                                            command=self._prompt_formal_developer_request,
                                            style=self.custom_button_style)
-            request_dev_status_button.pack(pady=(10,20))
+            request_dev_status_button.pack(pady=(10,15))
 
     def _prompt_become_developer_from_workshop(self):
         if self.is_app_admin:
@@ -1184,24 +1216,56 @@ class StoreWindow(tk.Tk):
             messagebox.showerror("Дія неможлива", "Ця дія доступна лише для розробників (не адміністраторів).", parent=self)
             return
 
+        developer_studio_info = self.db_manager.get_developer_studio_details(self.current_user_id)
+        if developer_studio_info and developer_studio_info.get('studio_id'):
+             messagebox.showerror("Дія неможлива",
+                                  "Ви не можете відмовитися від статусу розробника, будучи учасником студії.\n"
+                                  "Будь ласка, спочатку покиньте студію.",
+                                  parent=self)
+             return
+
         if messagebox.askyesno("Відмова від статусу розробника",
                                "Ви впевнені, що хочете відмовитися від статусу розробника?\n"
-                               "Ви втратите доступ до функцій розробника, але ваш акаунт та ігри залишаться.\n"
-                               "(Якщо ви є учасником студії, спочатку покиньте її).",
+                               "Ви втратите доступ до функцій розробника, але ваш акаунт та ігри залишаться.",
                                icon='warning', parent=self):
-            
+
             success = self.db_manager.set_developer_status(self.current_user_id, status=False)
             if success:
                 messagebox.showinfo("Статус оновлено", "Ви успішно відмовилися від статусу розробника.", parent=self)
-                self.is_developer = False 
-                self._fetch_and_set_user_info() 
-                self._setup_workshop_tab() 
+                self._fetch_and_set_user_info()
+                self._setup_workshop_tab()
                 self.refresh_user_info_display()
-                if self.studios_tab_instance: 
-                    self.studios_tab_instance.is_developer = False 
+                if self.studios_tab_instance:
+                    self.studios_tab_instance.refresh_content()
+
+    def _prompt_leave_studio(self):
+        if not self.is_developer:
+            messagebox.showinfo("Інформація", "Ця дія доступна лише для розробників.", parent=self)
+            return
+
+        developer_studio_info = self.db_manager.get_developer_studio_details(self.current_user_id)
+        if not developer_studio_info or not developer_studio_info.get('studio_id'):
+            messagebox.showinfo("Інформація", "Ви не є учасником жодної студії.", parent=self)
+            return
+
+        studio_name = developer_studio_info.get('studio_name', 'поточної студії')
+
+        if messagebox.askyesno("Покинути студію",
+                               f"Ви впевнені, що хочете покинути студію '{studio_name}'?\n"
+                               "Ви втратите зв'язок зі студією, але ваш статус розробника залишиться.",
+                               icon='warning', parent=self):
+            success = self.db_manager.leave_studio(self.current_user_id)
+            if success:
+                messagebox.showinfo("Успіх", f"Ви успішно покинули студію '{studio_name}'.", parent=self)
+                self._fetch_and_set_user_info()
+                self._setup_workshop_tab()
+                self.refresh_user_info_display()
+                if self.studios_tab_instance:
                     self.studios_tab_instance.refresh_content()
     
     def on_close(self):
         """Handles the window close event"""
         self._image_references.clear()
         self.destroy()
+        
+    
