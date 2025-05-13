@@ -1280,16 +1280,19 @@ class DatabaseManager:
             print("DB: No connection to fetch users for admin.")
             return None
 
-        allowed_sort_columns = {'user_id', 'username', 'email', 'registration_date', 'balance', 'owned_games_count'}
-        if sort_by not in allowed_sort_columns:
-            sort_by = 'username'
+        allowed_sort_columns = {'user_id', 'username', 'email', 'registration_date', 'balance', 'owned_games_count', 'total_spent'}
+        db_sort_key = sort_by
+        
+        if sort_by == 'total_spent':
+            pass 
+        elif sort_by not in allowed_sort_columns:
+            db_sort_key = 'username'
         
         sort_order_sql_literal = sort_order.upper()
         if sort_order_sql_literal not in ('ASC', 'DESC'):
             sort_order_sql_literal = 'ASC'
         
         sort_order_sql = sql.SQL(sort_order_sql_literal)
-
 
         base_query_parts = [
             sql.SQL("""
@@ -1302,7 +1305,8 @@ class DatabaseManager:
                     FROM Purchases_Items pi
                     JOIN Purchases p ON pi.purchase_id = p.purchase_id
                     WHERE p.user_id = u.user_id AND p.status = 'Completed'
-                ) as owned_games_count
+                ) as owned_games_count,
+                calculate_total_spent(u.user_id) as total_spent
             FROM Users u
             """)
         ]
@@ -1314,27 +1318,31 @@ class DatabaseManager:
             params.extend([like_pattern, like_pattern])
 
         base_query_parts.append(sql.SQL("ORDER BY {sort_col} {sort_dir}").format(
-            sort_col=sql.Identifier(sort_by),
+            sort_col=sql.Identifier(db_sort_key), 
             sort_dir=sort_order_sql
         ))
         
-        if sort_by != 'user_id':
+        if db_sort_key != 'user_id':
             base_query_parts.append(sql.SQL(", u.user_id {sort_dir}").format(sort_dir=sort_order_sql))
-
 
         query = sql.SQL(" ").join(base_query_parts)
 
-        print(f"DB: Fetching all users for admin. Sort: {sort_by} {sort_order_sql_literal}. Search: '{search_term}'")
+        print(f"DB: Fetching all users for admin (using calculate_total_spent). Sort: {db_sort_key} {sort_order_sql_literal}. Search: '{search_term}'")
         try:
-            users_data = self.execute_query(query, tuple(params) if params else None, fetch_all=True)
-            if users_data is None:
+            users_data_tuples = self.execute_query(query, tuple(params) if params else None, fetch_all=True)
+            if users_data_tuples is None:
                 print("DB: Failed to fetch users for admin.")
                 return None
             
             columns = ['user_id', 'username', 'email', 'registration_date', 'balance',
                        'is_app_admin', 'is_banned', 'is_developer', 
-                       'developer_studio_name', 'owned_games_count']
-            return [dict(zip(columns, row)) for row in users_data]
+                       'developer_studio_name', 'owned_games_count', 'total_spent']
+            
+            users_list_of_dicts = []
+            for row_tuple in users_data_tuples:
+                users_list_of_dicts.append(dict(zip(columns, row_tuple)))
+            
+            return users_list_of_dicts
         except Exception as e:
             print(f"DB: Unexpected error fetching users for admin: {e}")
             traceback.print_exc()

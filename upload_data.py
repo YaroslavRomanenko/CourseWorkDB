@@ -1,5 +1,8 @@
 import bcrypt
 import decimal
+import random
+import datetime
+import timedelta
 
 from database_manager import DatabaseManager
 
@@ -17,8 +20,12 @@ def main():
     print("8. Insert Game-Platform Links")
     print("9. Insert Developer-Game Links")
     print("10. Insert Game-Studio Links")
-    print("11. Delete All Data")
-    print("12. Add Funds to User")
+    print("11. Insert Reviews and Comments")
+    print("12. Insert Purchases")
+    print("13. Insert StudioApplications")
+    print("14. Insert AdminNotifications")
+    print("15. Delete All Data")
+    print("16. Add Funds to User")
     print("-------------------------")
     print("\nChoose and Enter the command: ", end="")
     
@@ -43,8 +50,8 @@ def main():
                 ("FoodBarbarian", "FoodBarbarian@gmail.com", hash_password("FoodBarbarian"), "2014-09-03", False),
                 
                 # --- Don't Starve Together  --- #
-                ("MatthewMarteinsson", "MatthewMarteinsson@gmail.com", hash_password("MatthewMarteinsson"), "2011-03-26", False),
-                ("BryceDoig", "BryceDoig@gmail.com", hash_password("BryceDoig"), "2013-05-11", False), 
+                ("MatthewMarteinsson", "MatthewMarteinsson@gmail.com", hash_password("MatthewMarteinsson"), "2011-03-26", False), # have special rights in the oxygen not included page
+                ("BryceDoig", "BryceDoig@gmail.com", hash_password("BryceDoig"), "2013-05-11", False), # have special rights in the don't starve together page
                 ("AlexSavin", "AlexSavin@gmail.com", hash_password("AlexSavin"), "2014-03-21", False),
                 
                 # --- Astroneer --- #
@@ -292,7 +299,10 @@ def main():
                 ("Hearts of Iron IV", "Victory is at your fingertips! Your ability to lead your nation is your supreme weapon, the strategy game Hearts of Iron IV lets you take command of any nation in World War II.", 1219.00, "2016-06-06", "hearts_of_iron_iv_icon_14.jpg", "Released", "2014-01-23", "2025-04-09"),
                 
                 # --- Geometry Dash --- #
-                ("Geometry Dash", "Jump and fly your way through danger in this rhythm-based action platformer!", 124.00, "2013-08-13", "geometry_dash_icon_15.jpg", "Released", "2013-08-13", "2025-04-05")
+                ("Geometry Dash", "Jump and fly your way through danger in this rhythm-based action platformer!", 124.00, "2013-08-13", "geometry_dash_icon_15.jpg", "Released", "2013-08-13", "2025-04-05"),
+                
+                # --- Oxygen not included --- #
+                ("Oxygen not included", "Oxygen Not Included is a space-colony simulation game. Deep inside an alien space rock your industrious crew will need to master science, overcome strange new lifeforms, and harness incredible space tech to survive, and possibly, thrive.", 329.00, "2019-07-30", "oxygen_not_incluede_icon_15.png", "Released", "2017-02-15", "2025-04-09")
             ]
             
             print("--- Inserting Games Data ---")
@@ -337,7 +347,7 @@ def main():
                 (3, 1), (3, 6), (3, 2), (3, 5), (4, 7), (4, 8), (4, 9), (4, 10), (4, 5), (5, 7), (5, 3),
                 (5, 11), (5, 5), (6, 8), (6, 12), (6, 13), (7, 14), (7, 15), (7, 16), (7, 17), (8, 18), (8, 3), (8, 17), (8, 5),
                 (10, 3), (10, 19), (10, 17), (10, 2), (11, 7), (11, 20), (11, 21), (11, 22), (11, 17), (11, 14), (12, 17), (12, 3), (13, 8),
-                (13, 23), (13, 7), (13, 27), (14, 24), (14, 25), (14, 17), (14, 26), (14, 5)
+                (13, 23), (13, 7), (13, 27), (14, 24), (14, 25), (14, 17), (14, 26), (14, 5), (15, 4), (15, 8)
             ]
             
             print("--- Inserting Game_Genres Data ---")
@@ -348,7 +358,7 @@ def main():
         elif command == 8:
             game_platforms = [
                 (1, 1), (1, 2), (1, 3), (1, 4), (2, 1), (2, 2), (2, 3), (3, 1), (4, 1), (4, 2), (4, 3), (5, 1), (5, 2), (5, 3), (5, 4), (6, 1),
-                (6, 2), (6, 3), (7, 1), (8, 1), (10, 1), (11, 1), (13, 1), (13, 2), (13, 3), (14, 1), (14, 4)
+                (6, 2), (6, 3), (7, 1), (8, 1), (10, 1), (11, 1), (13, 1), (13, 2), (13, 3), (14, 1), (14, 4), (15, 1), (15, 2), (15, 3)
             ]
             
             print("--- Inserting Game_Platforms Data ---")
@@ -359,7 +369,7 @@ def main():
         elif command == 9:
             developer_games = [
                 (1, 1), (2, 1), (6, 2), (10, 3), (12, 4), (14, 5), (16, 6),
-                (22, 7), (24, 8), (28, 9), (30, 10), (34, 11), (35, 12), (38, 13), (40, 14)
+                (22, 7), (24, 8), (28, 9), (30, 10), (34, 11), (35, 12), (38, 13), (40, 14), (5, 15)
             ]
             
             print("--- Inserting Developers_Games Data ---")
@@ -373,7 +383,7 @@ def main():
                 (4, 4, 'Developer'), (4, 4, 'Publisher'), (5, 5, 'Developer'), (5, 5, 'Publisher'), (6, 6, 'Developer'), (6, 7, 'Publisher'),
                 (7, 8, 'Developer'), (7, 8, 'Publisher'), (8, 9, 'Developer'), (8, 9, 'Publisher'), (9, 10, 'Developer'), (9, 10, 'Publisher'),
                 (10, 11, 'Developer'), (10, 11, 'Publisher'), (11, 12, 'Developer'), (11, 12, 'Publisher'), (12, 13, 'Developer'), (12, 13, 'Publisher'),
-                (13, 14, 'Developer'), (13, 14, 'Publisher'), (14, 15, 'Developer'), (14, 15, 'Publisher')
+                (13, 14, 'Developer'), (13, 14, 'Publisher'), (14, 15, 'Developer'), (14, 15, 'Publisher'), (15, 2, 'Developer'), (15, 2, 'Publisher')
             ]
             
             print("--- Inserting Game_Studios Data ---")
@@ -382,28 +392,204 @@ def main():
             break
             
         elif command == 11:
-            print("--- Deleting Data ---")
+            print("--- Inserting Reviews and Comments Data ---")
+
+            reviews = [
+                (1, 1, "Absolutely fantastic game! The atmosphere and gameplay are top-notch.", "2025-05-10 08:32:47"),
+                (2, 1, "Pretty good, but I expected a bit more. There's room for improvement.", "2025-05-03 12:47:47"),
+                (3, 2, "This is a masterpiece! Highly recommend everyone to try it out.", "2025-05-03 23:33:47"),
+                (4, 2, "The graphics are stunning, but the storyline felt a little weak.", "2025-05-09 04:41:47"),
+                (5, 3, "Hooked from the first few minutes. Hours just fly by!", "2025-05-10 12:52:47"),
+                (6, 3, "Technical issues really spoil the experience. Needs patching ASAP.", "2025-05-13 07:26:47"),
+                (7, 4, "Interesting concept, but the execution could have been better.", "2025-05-11 12:16:47"),
+                (8, 4, "Worth every penny. Lots of content and replayability.", "2025-05-04 02:02:47"),
+                (9, 5, "A must-have for fans of this genre! You won't be disappointed.", "2025-05-10 09:57:47"),
+                (10, 5, "It was challenging at first, but once I got the hang of it, I had a blast.", "2025-05-05 18:11:47"),
+                (11, 1, "Simple yet incredibly addictive. Great for unwinding after a long day.", "2025-05-10 15:25:47"),
+                (12, 2, "Unfortunately, it didn't live up to my expectations at all.", "2025-05-04 18:49:47"),
+                (13, 3, "A very original take on familiar mechanics. Refreshing!", "2025-05-05 13:30:47"),
+                (14, 4, "More fun with friends, but the solo experience is also quite enjoyable.", "2025-05-12 17:35:47"),
+                (15, 5, "Eagerly awaiting a sequel or some substantial DLC!", "2025-05-03 11:36:47")
+            ]
+
+            print("--- Inserting Reviews ---")
+            insert_query = "INSERT INTO Reviews (user_id, game_id, review_text, review_date) VALUES (%s, %s, %s, %s) RETURNING review_id;"
+            db_manager.execute_many_query(insert_query, reviews)
             
-            db_manager.clear_specified_table("studios")
-            db_manager.clear_specified_table("users")
-            db_manager.clear_specified_table("developers")
-            db_manager.clear_specified_table("game_studios")
-            db_manager.clear_specified_table("games")
-            db_manager.clear_specified_table("developers_games")
-            db_manager.clear_specified_table("reviews")
-            db_manager.clear_specified_table("ReviewComments")
-            db_manager.clear_specified_table("game_platforms")
-            db_manager.clear_specified_table("studioapplications")
-            db_manager.clear_specified_table("purchases")
-            db_manager.clear_specified_table("purchases_items")
-            db_manager.clear_specified_table("platforms")
-            db_manager.clear_specified_table("genres")
-            db_manager.clear_specified_table("game_genres")
+            comments_on_review = [
+                (7, 7, "Spot on! Great observation.", "2025-05-10 08:32:47"),
+                (12, 7, "You might be right about that.", "2025-05-03 12:47:47"),
+                (11, 8, "Couldn't agree more!", "2025-05-03 23:33:47"),
+                (6, 4, "I'll have to give that a try.", "2025-05-09 04:41:47"),
+                (13, 15, "This is worth considering.", "2025-05-10 12:52:47"),
+                (1, 12, "Exactly my thoughts.", "2025-05-13 07:26:47"),
+                (3, 10, "Actually, that's the part I liked the most.", "2025-05-11 12:16:47"),
+                (8, 9, "Thanks for the detailed review!", "2025-05-04 02:02:47"),
+                (9, 12, "Well, I have a different opinion on this.", "2025-05-10 09:57:47"),
+                (14, 7, "Appreciate you sharing your insights.", "2025-05-05 18:11:47"),
+                (5, 1, "Well said, indeed.", "2025-05-10 15:25:47"),
+                (10, 8, "That's an interesting point of view.", "2025-05-04 18:49:47"),
+                (2, 9, "There's definitely an element of that.", "2025-05-05 13:30:47"),
+                (4, 15, "I second every word of this.", "2025-05-12 17:35:47"),
+                (15, 4, "Haha, so true!", "2025-05-03 11:36:47")
+            ]
             
-            print("--- The Data is Successfully Deleted ---")
-            break
+            print("--- Inserting Comments ---")
+            insert_query = "INSERT INTO ReviewComments (review_id, user_id, comment_text, comment_date) VALUES (%s, %s, %s, %s);"
+            db_manager.execute_many_query(insert_query, comments_on_review)
+            break;
         
         elif command == 12:
+            purchases = [
+                (1, "2025-02-12 10:38:47", 225.00, 'Completed'),
+                (2, "2025-02-14 10:39:48", 229.00, 'Completed'),
+                (3, "2025-02-16 10:40:47", 600.00, 'Completed'),
+                (1, "2025-02-18 10:41:47", 300.00, 'Completed'),
+                (4, "2025-02-20 10:42:47", 229.00, 'Completed'),
+                (5, "2025-02-22 10:43:47", 525.00, 'Completed'),
+                (2, "2025-02-24 10:44:47", 0.00, 'Completed'),
+                (6, "2025-02-26 10:45:47", 460.00, 'Completed'),
+                (7, "2025-02-28 10:46:47", 0.00, 'Completed'),
+                (3, "2025-03-02 10:47:47", 0.00, 'Completed'),
+                (8, "2025-03-04 10:48:47", 225.0, 'Completed'),
+                (9, "2025-03-06 10:49:47", 229.00, 'Completed'),
+                (10, "2025-03-08 10:50:47", 600.00, 'Completed'),
+                (11, "2025-03-08 10:10:47", 229.00, 'Completed'),
+                (12, "2025-04-09 11:51:47", 525.00, 'Completed'),
+            ]
+            
+            print("--- Inserting Purchase ---")
+            insert_query = "INSERT INTO Purchases (user_id, purchase_date, total_amount, status) VALUES (%s, %s, %s, %s);"
+            db_manager.execute_many_query(insert_query, purchases)
+            
+            purchases_items = [
+                (1, 1, 225.00),
+                (2, 2, 229.00),
+                (3, 3, 600.00),
+                (4, 4, 300.00),
+                (5, 5, 229.00),
+                (6, 6, 525.00),
+                (7, 7, 0.00),
+                (8, 8, 460.00),
+                (9, 9, 0.00),
+                (10, 10, 0.00),
+                (11, 1, 225.00),
+                (12, 2, 229.00),
+                (13, 3, 600.00),
+                (14, 5, 229.00),
+                (15, 6, 525.00)
+            ]
+            
+            print("--- Inserting Purchase Items ---")
+            insert_query = "INSERT INTO Purchases_Items (purchase_id, game_id, price_at_purchase) VALUES (%s, %s, %s);"
+            db_manager.execute_many_query(insert_query, purchases_items)
+            
+            break
+        
+        elif command == 13:
+            print("--- Inserting Studio Applications ---")
+
+            studio_applications = [
+                (1, 1, 1, "2024-05-13 12:45:18", "Accepted", 41, "2024-05-16 12:46:18"),
+                (2, 2, 1, "2024-05-17 12:47:18", "Accepted", 41, "2024-05-19 12:48:18"),
+                (3, 3, 1, "2024-05-23 12:49:18", "Accepted", 41, "2024-05-26 12:50:18"),
+                (4, 4, 1, "2024-05-29 12:51:18", "Accepted", 41, "2024-06-02 12:52:18"),
+                (5, 5, 2, "2024-06-05 12:53:18", "Accepted", 41, "2024-06-06 12:54:18"),
+                (6, 6, 2, "2024-06-10 12:55:18", "Accepted", 41, "2024-06-15 12:56:18"),
+                (7, 7, 2, "2024-06-13 12:57:18", "Accepted", 41, "2024-06-16 12:58:18"),
+                (8, 8, 3, "2024-06-19 12:59:18", "Accepted", 41, "2024-06-20 12:01:18"),
+                (9, 9, 3, "2024-06-25 12:02:18", "Accepted", 41, "2024-06-28 12:03:18"),
+                (10, 10, 3, "2024-06-29 12:04:18", "Accepted", 41, "2024-07-03 12:05:18"),
+                (11, 11, 4, "2024-07-02 12:06:18", "Accepted", 41, "2024-07-05 12:07:18"),
+                (12, 12, 4, "2024-07-07 12:08:18", "Accepted", 41, "2024-07-11 12:09:18"),
+                (13, 13, 4, "2024-07-10 12:10:18", "Accepted", 41, "2024-07-13 12:11:18"),
+                (14, 14, 5, "2024-07-17 12:12:18", "Accepted", 41, "2024-07-19 12:13:18"),
+                (15, 15, 6, "2024-07-21 12:14:18", "Accepted", 41, "2024-07-22 12:15:18"),
+                (16, 16, 6, "2024-07-25 12:16:18", "Accepted", 41, "2024-07-30 12:17:18"),
+                (17, 17, 6, "2024-07-28 12:18:18", "Accepted", 41, "2024-07-31 12:19:18"),
+                (18, 18, 7, "2024-07-31 12:20:18", "Accepted", 41, "2024-08-01 12:21:18"),
+                (19, 19, 7, "2024-08-06 12:22:18", "Accepted", 41, "2024-08-11 12:23:18"),
+                (20, 20, 7, "2024-08-12 12:24:18", "Accepted", 41, "2024-08-15 12:25:18"),
+                (21, 21, 8, "2024-08-15 12:26:18", "Accepted", 41, "2024-08-19 12:27:18"),
+                (22, 22, 8, "2024-08-19 12:28:18", "Accepted", 41, "2024-08-21 12:29:18"),
+                (23, 23, 8, "2024-08-24 12:30:18", "Accepted", 41, "2024-08-27 12:31:18"),
+                (24, 24, 9, "2024-08-28 12:32:18", "Accepted", 41, "2024-08-31 12:33:18"),
+                (25, 25, 9, "2024-09-03 12:34:18", "Accepted", 41, "2024-09-05 12:35:18"),
+                (26, 26, 9, "2024-09-06 12:36:18", "Accepted", 41, "2024-09-11 12:37:18"),
+                (27, 27, 10, "2024-09-09 12:38:18", "Accepted", 41, "2024-09-11 12:39:18"),
+                (28, 28, 10, "2024-09-12 12:40:18", "Accepted", 41, "2024-09-16 12:41:18"),
+                (29, 29, 10, "2024-09-16 12:42:18", "Accepted", 41, "2024-09-20 12:43:18"),
+                (30, 30, 11, "2024-09-22 12:44:18", "Accepted", 41, "2024-09-26 12:45:18"),
+                (31, 31, 11, "2024-09-29 12:46:18", "Accepted", 41, "2024-10-04 12:47:18"),
+                (32, 32, 11, "2024-10-05 12:48:18", "Accepted", 41, "2024-10-09 12:49:18"),
+                (33, 33, 12, "2024-10-10 12:50:18", "Accepted", 41, "2024-10-14 12:51:18"),
+                (34, 34, 12, "2024-10-14 12:52:18", "Accepted", 41, "2024-10-19 12:53:18"),
+                (35, 35, 13, "2024-10-20 12:54:18", "Accepted", 41, "2024-10-23 12:55:18"),
+                (36, 36, 13, "2024-10-26 12:56:18", "Accepted", 41, "2024-10-28 12:57:18"),
+                (37, 37, 14, "2024-11-02 12:58:18", "Accepted", 41, "2024-11-04 12:59:18"),
+                (38, 38, 14, "2024-11-07 12:01:18", "Accepted", 41, "2024-11-09 12:02:18"),
+                (39, 39, 14, "2024-11-13 12:03:18", "Accepted", 41, "2024-11-17 12:04:18"),
+                (40, 40, 15, "2024-11-19 12:05:18", "Accepted", 41, "2024-11-17 12:06:18"),
+            ]
+
+            insert_query = "INSERT INTO StudioApplications (application_id, user_id, studio_id, application_date, status, reviewed_by, review_date) VALUES (%s, %s, %s, %s, %s, %s, %s);"
+            db_manager.execute_many_query(insert_query, studio_applications)
+            print("--- Studio Applications Data Insertion Attempt Complete ---")
+            break
+        
+        elif command == 14:
+            print("--- Inserting Admin Notifications ---")
+            
+            admin_notifications = [
+                (1, 1, 1, "developer_status_request", "redigit@gmail.com", "approved", "2023-05-14 14:51:48", 41, "2023-05-15 14:52:48"),
+                (2, 2, 2, "developer_status_request", "Cenx@gmail.com", "approved", "2023-05-20 14:53:48", 41, "2023-05-23 14:54:48"),
+                (3, 3, 3, "developer_status_request", "Loki@gmail.com", "approved", "2023-05-27 14:55:48", 41, "2023-06-01 14:56:48"),
+                (4, 4, 4, "developer_status_request", "FoodBarbarian@gmail.com", "approved", "2023-06-01 14:57:48", 41, "2023-06-04 14:58:48"),
+                (5, 5, 5, "developer_status_request", "MatthewMarteinsson@gmail.com", "approved", "2023-06-13 14:59:48", 41, "2023-06-17 14:01:48"),
+                (6, 6, 6, "developer_status_request", "BryceDoig@gmail.com", "approved", "2023-06-26 14:02:48", 41, "2023-06-27 14:03:48"),
+                (7, 7, 7, "developer_status_request", "AlexSavin@gmail.com", "approved", "2023-07-05 14:04:48", 41, "2023-07-09 14:05:48"),
+                (8, 8, 8, "developer_status_request", "AaronBiddlecom@gmail.com", "approved", "2023-07-12 14:06:48", 41, "2023-07-16 14:07:48"),
+                (9, 9, 9, "developer_status_request", "AdamBromell@gmail.com", "approved", "2023-07-25 14:08:48", 41, "2023-07-27 14:09:48"),
+                (10, 10, 10, "developer_status_request", "AndreMaguire@gmail.com", "approved", "2023-08-09 14:10:48", 41, "2023-08-14 14:11:48"),
+                (11, 11, 11, "developer_status_request", "MichalKovarik@gmail.com", "approved", "2023-08-24 14:12:48", 41, "2023-08-30 14:13:48"),
+                (12, 12, 12, "developer_status_request", "Tomax@gmail.com", "approved", "2023-09-02 14:14:48", 41, "2023-09-05 14:15:48"),
+                (13, 13, 13, "developer_status_request", "DanStevens@gmail.com", "approved", "2023-09-16 14:16:48", 41, "2023-09-21 14:17:48"),
+                (14, 14, 14, "developer_status_request", "EricBarone@gmail.com", "approved", "2023-09-21 14:18:48", 41, "2023-09-26 14:19:48"),
+                (15, 15, 15, "developer_status_request", "EdBeach@gmail.com", "approved", "2023-09-28 14:20:48", 41, "2023-10-05 14:21:48"),
+                (16, 16, 16, "developer_status_request", "DennisShirk@gmail.com", "approved", "2023-10-07 14:22:48", 41, "2023-10-12 14:23:48"),
+                (17, 17, 17, "developer_status_request", "AndrewFrederiksen@gmail.com", "approved", "2023-10-22 14:24:48", 41, "2023-10-28 14:25:48"),
+                (18, 18, 18, "developer_status_request", "ChristophHartmann@gmail.com", "approved", "2023-11-04 14:26:48", 41, "2023-11-05 14:27:48"),
+                (19, 19, 19, "developer_status_request", "JohnChowanec@gmail.com", "approved", "2023-11-14 14:28:48", 41, "2023-11-17 14:29:48"),
+                (20, 20, 20, "developer_status_request", "MelissaMiller@gmail.com", "approved", "2023-11-25 14:30:48", 41, "2023-11-29 14:31:48"),
+                (21, 21, 21, "developer_status_request", "ThaddeusSasser@gmail.com", "approved", "2023-12-02 14:32:48", 41, "2023-12-03 14:33:48"),
+                (22, 22, 22, "developer_status_request", "James@gmail.com", "approved", "2023-12-09 14:34:48", 41, "2023-12-15 14:35:48"),
+                (23, 23, 23, "developer_status_request", "GuangyunChen@gmail.com", "approved", "2023-12-18 14:36:48", 41, "2023-12-23 14:37:48"),
+                (24, 24, 24, "developer_status_request", "WillTurnbull@gmail.com", "approved", "2023-12-31 14:38:48", 41, "2024-01-07 14:39:48"),
+                (25, 25, 25, "developer_status_request", "AmirRao@gmail.com", "approved", "2024-01-05 14:40:48", 41, "2024-01-12 14:41:48"),
+                (26, 26, 26, "developer_status_request", "GregKasavin@gmail.com", "approved", "2024-01-18 14:42:48", 41, "2024-01-19 14:43:48"),
+                (27, 27, 27, "developer_status_request", "DanHay@gmail.com", "approved", "2024-01-27 14:44:48", 41, "2024-01-29 14:45:48"),
+                (28, 28, 28, "developer_status_request", "RimaBrek@gmail.com", "approved", "2024-02-11 14:46:48", 41, "2024-02-16 14:47:48"),
+                (29, 29, 29, "developer_status_request", "ClementMarcou@gmail.com", "approved", "2024-02-17 14:48:48", 41, "2024-02-19 14:49:48"),
+                (30, 30, 30, "developer_status_request", "CraigLafferty@gmail.com", "approved", "2024-02-24 14:50:48", 41, "2024-02-27 14:51:48"),
+                (31, 31, 31, "developer_status_request", "MarkLampert@gmail.com", "approved", "2024-03-06 14:52:48", 41, "2024-03-11 14:53:48"),
+                (32, 32, 32, "developer_status_request", "AshleyCheng@gmail.com", "approved", "2024-03-21 14:54:48", 41, "2024-03-27 14:55:48"),
+                (33, 33, 33, "developer_status_request", "ChrisRoberts@gmail.com", "approved", "2024-03-26 14:56:48", 41, "2024-04-02 14:57:48"),
+                (34, 34, 34, "developer_status_request", "PedroCamacho@gmail.com", "approved", "2024-04-06 14:58:48", 41, "2024-04-12 14:59:48"),
+                (35, 35, 35, "developer_status_request", "KenzoTsujimoto@gmail.com", "approved", "2024-04-17 14:01:48", 41, "2024-04-22 14:02:48"),
+                (36, 36, 36, "developer_status_request", "TokuroFujiwara@gmail.com", "approved", "2024-04-28 14:03:48", 41, "2024-04-29 14:04:48"),
+                (37, 37, 37, "developer_status_request", "JohanAndersson@gmail.com", "approved", "2024-05-13 14:05:48", 41, "2024-05-14 14:06:48"),
+                (38, 38, 38, "developer_status_request", "DanLind@gmail.com", "approved", "2024-05-27 14:07:48", 41, "2024-06-02 14:08:48"),
+                (39, 39, 39, "developer_status_request", "LindaKiby@gmail.com", "approved", "2024-06-01 14:09:48", 41, "2024-06-04 14:10:48"),
+                (40, 40, 40, "developer_status_request", "RobTop@gmail.com", "approved", "2024-06-11 14:11:48", 41, "2024-06-16 14:12:48"),
+            ]
+            
+            insert_query = "INSERT INTO AdminNotifications (notification_id, user_id, target_user_id, notification_type, message, status, created_at, reviewed_by_admin_id, reviewed_at) VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s);"
+            db_manager.execute_many_query(insert_query, admin_notifications)
+            print("--- Admin Notifications Data Insertion Attempt Complete ---")
+            
+            break
+        
+        elif command == 16:
             print("--- Add Funds to User Account ---")
             target_user_id = None
             while target_user_id is None:

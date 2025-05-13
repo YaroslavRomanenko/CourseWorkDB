@@ -188,7 +188,7 @@ CREATE TABLE Purchases (
 CREATE INDEX idx_purchases_user_id ON Purchases(user_id);
 CREATE INDEX idx_purchases_purchase_date ON Purchases(purchase_date);
 
-SELECT * FROM Purchases
+SELECT * FROM Purchases;
 
 CREATE TABLE Purchases_Items (
     purchase_item_id SERIAL PRIMARY KEY,
@@ -400,3 +400,12 @@ CREATE INDEX idx_adminnotifications_status_type ON AdminNotifications(status, no
 CREATE INDEX idx_adminnotifications_target_user_id ON AdminNotifications(target_user_id);
 
 SELECT * FROM AdminNotifications;
+
+SELECT 
+    purchase_id, 
+    user_id, 
+    purchase_date, 
+    total_amount, 
+    status 
+FROM Purchases
+WHERE user_id = 3 AND status = 'Completed';
