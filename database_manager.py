@@ -736,62 +736,76 @@ class DatabaseManager:
             traceback.print_exc()
             return False
 
-    def set_developer_status(self, user_id, status=True, contact_email=None):
-        """Adds or removes a user from the Developers table"""
-        conn = self.get_connection()
-        if not conn:
-            messagebox.showerror("Помилка Бази Даних", "Немає активного підключення до бази даних.")
-            return False
+    def set_developer_status(self, user_id, status=True, contact_email=None, cursor=None):
+        """Adds or removes a user from the Developers table. Can operate within an existing transaction if cursor is provided."""
+        manage_connection = cursor is None
+        conn = None
+        if manage_connection:
+            conn = self.get_connection()
+            if not conn:
+                messagebox.showerror("Помилка Бази Даних", "Немає активного підключення до бази даних.")
+                return False
+        else:
+            pass
 
+        try:
+            if manage_connection:
+                with conn:
+                    with conn.cursor() as cur:
+                        result = self._execute_set_developer_status_logic(cur, user_id, status, contact_email)
+                        return result
+            else:
+                 return self._execute_set_developer_status_logic(cursor, user_id, status, contact_email)
+
+        except psycopg2.Error as db_error:
+            if manage_connection and conn and not conn.closed:
+                pass
+            action_desc = "ensure/update developer entry" if status else "remove developer status"
+            print(f"\nDB Error during '{action_desc}' for user {user_id}: {db_error}")
+            return False
+        except Exception as e:
+            if manage_connection and conn and not conn.closed:
+                 pass
+            action_desc = "ensure/update developer entry" if status else "remove developer status"
+            print(f"\nDB Unexpected error during '{action_desc}' for user {user_id}: {e}")
+            traceback.print_exc()
+            return False
+          
+    def _execute_set_developer_status_logic(self, cur, user_id, status, contact_email):
+        """Executes the actual SQL logic for setting developer status using the provided cursor."""
         if status:
             if not contact_email:
-                email_query = sql.SQL("SELECT email FROM Users WHERE user_id = %s;")
-                user_info = self.execute_query(email_query, (user_id,), fetch_one=True)
-                if user_info and user_info[0]:
-                    contact_email = user_info[0]
-                    print(f"DB: No contact email provided for becoming developer (user {user_id}). Using primary email: {contact_email}")
-                else:
-                    print(f"DB Error: Cannot set developer status for user {user_id} without a contact email if status is True.")
-                    messagebox.showerror("Помилка", "Не вдалося отримати контактну пошту для встановлення статусу розробника.", parent=None)
-                    return False
+                 email_query = sql.SQL("SELECT email FROM Users WHERE user_id = %s;")
+                 cur.execute(email_query, (user_id,))
+                 user_info = cur.fetchone()
+                 if user_info and user_info[0]:
+                      contact_email = user_info[0]
+                      print(f"DB: No contact email provided for becoming developer (user {user_id}). Using primary email: {contact_email}")
+                 else:
+                      print(f"DB Error: Cannot set developer status for user {user_id} without a contact email if status is True.")
+                      return False 
 
             insert_query = sql.SQL("""
-                INSERT INTO Developers (user_id, studio_id, contact_email) 
+                INSERT INTO Developers (user_id, studio_id, contact_email)
                 VALUES (%s, NULL, %s)
-                ON CONFLICT (user_id) DO UPDATE SET contact_email = EXCLUDED.contact_email, studio_id = NULL, role = 'Member'; 
+                ON CONFLICT (user_id) DO UPDATE SET contact_email = EXCLUDED.contact_email, studio_id = NULL, role = 'Member';
             """)
             params = (user_id, contact_email)
             action_desc = "ensure/update developer entry"
             current_query_to_execute = insert_query
-        else: 
+        else:
             dev_studio_id = self.get_developer_studio_id(user_id)
-            if dev_studio_id is not None:
-                messagebox.showerror("Дія неможлива",
-                                     "Ви не можете зняти статус розробника, оскільки ви є учасником студії.\n"
-                                     "Будь ласка, спочатку покиньте студію.",
-                                     parent=None)
-                return False
-            
+
             delete_query = sql.SQL("DELETE FROM Developers WHERE user_id = %s;")
             params = (user_id,)
             action_desc = "remove developer status"
             current_query_to_execute = delete_query
 
-        try:
-            print(f"DB: Attempting to {action_desc} for user {user_id}.")
-            with conn:
-                with conn.cursor() as cur:
-                    cur.execute(current_query_to_execute, params)
-                    print(f"DB: Operation '{action_desc}' complete for user {user_id}. Affected rows: {cur.rowcount}")
-            return True
-        except psycopg2.Error as db_error:
-            print(f"\nDB Error during '{action_desc}' for user {user_id}: {db_error}")
-            return False
-        except Exception as e:
-            print(f"\nDB Unexpected error during '{action_desc}' for user {user_id}: {e}")
-            traceback.print_exc()
-            return False
-          
+        print(f"DB: Attempting to {action_desc} for user {user_id} using provided cursor.")
+        cur.execute(current_query_to_execute, params)
+        print(f"DB: Operation '{action_desc}' complete for user {user_id}. Affected rows: {cur.rowcount}")
+        return True
+    
     def delete_user_account(self, user_id):
         """Deletes a user account and all related data via CASCADE constraints"""
         conn = self.get_connection()
@@ -1449,49 +1463,69 @@ class DatabaseManager:
             messagebox.showerror("Помилка", "Немає підключення до бази даних.")
             return False
 
-        query_get_request = """
-            SELECT target_user_id, message FROM AdminNotifications
-            WHERE notification_id = %s AND status = 'pending' AND notification_type = 'developer_status_request';
-        """
-        request_details = self.execute_query(query_get_request, (notification_id,), fetch_one=True)
-
-        if not request_details:
-            messagebox.showerror("Помилка", "Запит не знайдено або вже оброблено.", parent=None)
-            return False
-        
-        target_user_id, contact_email_from_request = request_details
-        new_status = 'approved' if approve else 'rejected'
+        target_user_id = None
+        contact_email_from_request = None
+        success_flag = False
 
         try:
-            with conn: 
-                if approve:
-                    if not self.set_developer_status(target_user_id, status=True, contact_email=contact_email_from_request):
-                        conn.rollback() 
-                        print(f"DB: Failed to set developer status for user {target_user_id} during request approval.")
-                        return False 
-                
-                query_update_notification = sql.SQL("""
-                    UPDATE AdminNotifications
-                    SET status = %s, reviewed_by_admin_id = %s, reviewed_at = CURRENT_TIMESTAMP 
-                    WHERE notification_id = %s; 
-                """) 
-                params_update = (new_status, admin_user_id, notification_id)
-                
+            with conn:
                 with conn.cursor() as cur:
+                    query_get_request = """
+                        SELECT target_user_id, message FROM AdminNotifications
+                        WHERE notification_id = %s AND status = 'pending' AND notification_type = 'developer_status_request'
+                        FOR UPDATE;
+                    """
+                    cur.execute(query_get_request, (notification_id,))
+                    request_details = cur.fetchone()
+
+                    if not request_details:
+                        messagebox.showerror("Помилка", "Запит не знайдено або вже оброблено.", parent=None)
+                        return False
+
+                    target_user_id, contact_email_from_request = request_details
+                    new_status = 'approved' if approve else 'rejected'
+                    
+                    if approve:
+                        set_status_success = self.set_developer_status(
+                            target_user_id,
+                            status=True,
+                            contact_email=contact_email_from_request,
+                            cursor=cur 
+                        )
+                        if not set_status_success:
+                            print(f"DB: Failed to set developer status for user {target_user_id} during request approval (inside transaction).")
+                            conn.rollback() 
+                            messagebox.showerror("Помилка", "Не вдалося оновити статус розробника для користувача.", parent=None)
+                            return False
+                        
+                    query_update_notification = sql.SQL("""
+                        UPDATE AdminNotifications
+                        SET status = %s, reviewed_by_admin_id = %s, reviewed_at = CURRENT_TIMESTAMP
+                        WHERE notification_id = %s;
+                    """)
+                    params_update = (new_status, admin_user_id, notification_id)
+
                     cur.execute(query_update_notification, params_update)
                     if cur.rowcount != 1:
+                        print(f"DB: Failed to update notification status for ID {notification_id} (inside transaction).")
                         conn.rollback()
-                        print(f"DB: Failed to update notification status for ID {notification_id}")
                         messagebox.showerror("Помилка", "Не вдалося оновити статус сповіщення.", parent=None)
                         return False
-            
+
+            success_flag = True
             print(f"DB: Admin {admin_user_id} processed developer_status_request {notification_id} to '{new_status}' for user {target_user_id}.")
-            return True
+
+        except psycopg2.Error as db_error:
+             print(f"DB: Transaction error processing developer status request {notification_id}: {db_error}")
+             messagebox.showerror("Помилка Транзакції", f"Помилка при обробці запиту: {db_error}", parent=None)
+             success_flag = False
         except Exception as e:
-            print(f"DB: Error processing developer status request {notification_id}: {e}")
+            print(f"DB: Unexpected transaction error processing developer status request {notification_id}: {e}")
             traceback.print_exc()
-            messagebox.showerror("Помилка", f"Помилка при обробці запиту: {e}", parent=None)
-            return False
+            messagebox.showerror("Неочікувана Помилка", f"Помилка при обробці запиту: {e}", parent=None)
+            success_flag = False
+
+        return success_flag
     
     def create_developer_status_request(self, user_id, contact_email_for_request):
         conn = self.get_connection()
@@ -1503,12 +1537,8 @@ class DatabaseManager:
             messagebox.showinfo("Інформація", "Ви вже є розробником.", parent=None)
             return False
 
-        query_check_pending = """
-            SELECT 1 FROM AdminNotifications
-            WHERE user_id = %s AND notification_type = 'developer_status_request' AND status = 'pending';
-        """
-        if self.execute_query(query_check_pending, (user_id,), fetch_one=True):
-            messagebox.showinfo("Інформація", "У вас вже є активний запит на отримання статусу розробника.", parent=None)
+        if self.has_pending_developer_status_request(user_id):
+            messagebox.showinfo("Інформація", "У вас вже є активний запит на отримання статусу розробника, що очікує на розгляд.", parent=None)
             return False
 
         query = sql.SQL("""
@@ -1527,20 +1557,51 @@ class DatabaseManager:
         except Exception as e:
             print(f"DB: Error creating developer status request for user {user_id}: {e}")
             return False
+    
+    def has_pending_developer_status_request(self, user_id):
+        conn = self.get_connection()
+        if not conn:
+            print("DB: Cannot check pending developer status request: No active database connection")
+            return False
+
+        query = sql.SQL("""
+            SELECT EXISTS (
+                SELECT 1
+                FROM AdminNotifications
+                WHERE user_id = %s
+                  AND notification_type = 'developer_status_request'
+                  AND status = 'pending'
+            );
+        """)
+        params = (user_id,)
+        print(f"DB: Checking for pending developer_status_request for user_id {user_id}...")
+        try:
+            result = self.execute_query(query, params, fetch_one=True)
+            if result:
+                has_pending = result[0]
+                print(f"DB: User {user_id} has pending developer_status_request: {has_pending}")
+                return has_pending
+            else:
+                print(f"DB Warning: Failed to execute pending developer_status_request check for user {user_id}.")
+                return False
+        except Exception as e:
+            print(f"DB: Error checking pending developer_status_request for user {user_id}: {e}")
+            traceback.print_exc()
+            return False
 
     def fetch_pending_admin_notifications(self, notification_type_filter=None, sort_by='created_at', sort_order='ASC'):
         conn = self.get_connection()
         if not conn: return None
 
-        allowed_sort_columns = {'notification_id', 'created_at', 'notification_type', 'user_id'}
+        allowed_sort_columns = {'notification_id', 'created_at', 'notification_type', 'user_id', 'target_user_id'}
         if sort_by not in allowed_sort_columns:
             sort_by = 'created_at'
-        
+
         sort_order_sql_literal = sort_order.upper()
         if sort_order_sql_literal not in ('ASC', 'DESC'):
             sort_order_sql_literal = 'ASC'
         sort_order_sql = sql.SQL(sort_order_sql_literal)
-        
+
         query_parts = [
             sql.SQL("""
             SELECT an.notification_id, an.user_id, u.username as initiator_username,
@@ -1557,18 +1618,18 @@ class DatabaseManager:
         if notification_type_filter:
             query_parts.append(sql.SQL("AND an.notification_type = %s"))
             params.append(notification_type_filter)
-        
+
         query_parts.append(sql.SQL("ORDER BY {sort_col} {sort_dir}").format(
             sort_col=sql.Identifier(sort_by), sort_dir=sort_order_sql
         ))
 
         query = sql.SQL(" ").join(query_parts)
-        
+
         try:
             notifications_data = self.execute_query(query, tuple(params) if params else None, fetch_all=True)
             if notifications_data is None: return None
 
-            columns = ['notification_id', 'user_id', 'initiator_username', 
+            columns = ['notification_id', 'user_id', 'initiator_username',
                        'target_user_id', 'target_username',
                        'notification_type', 'message', 'status', 'created_at']
             return [dict(zip(columns, row)) for row in notifications_data]
@@ -1662,10 +1723,8 @@ class DatabaseManager:
                         return False
         except psycopg2.Error as db_error:
             print(f"DB Error when user {user_id} trying to leave studio: {db_error}")
-            messagebox.showerror("Помилка Бази Даних", f"Не вдалося покинути студію:\n{db_error}", parent=None)
             return False
         except Exception as e:
             print(f"DB Unexpected error when user {user_id} trying to leave studio: {e}")
             traceback.print_exc()
-            messagebox.showerror("Неочікувана Помилка", f"Сталася помилка: {e}", parent=None)
             return False

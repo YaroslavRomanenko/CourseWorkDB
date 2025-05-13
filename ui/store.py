@@ -1055,6 +1055,7 @@ class StoreWindow(tk.Tk):
                                               font=self.fonts.get('comment', ("Verdana", 9)),
                                               fg="grey", bg=self.original_bg)
                     revoke_info_label.pack(pady=(0, 15))
+
         else:
             title_label = tk.Label(content_frame, text="Стати розробником",
                                   font=self.fonts.get('title', ("Verdana", 16, "bold")),
@@ -1073,9 +1074,29 @@ class StoreWindow(tk.Tk):
                                  bg=self.original_bg, justify=tk.CENTER, wraplength=550)
             info_label.pack(pady=15)
 
-            request_dev_status_button = ttk.Button(content_frame, text="Подати запит на статус розробника",
+            button_state = tk.NORMAL
+            button_text = "Подати запит на статус розробника"
+            has_pending_req = False
+            if self.current_user_id and self.db_manager:
+                try:
+                    has_pending_req = self.db_manager.has_pending_developer_status_request(self.current_user_id)
+                except AttributeError:
+                    print("Warning: db_manager.has_pending_developer_status_request method not found.")
+                except Exception as e:
+                    print(f"Error checking for pending developer status request: {e}")
+
+            if has_pending_req:
+                button_state = tk.DISABLED
+                button_text = "Запит надіслано (в обробці)"
+            elif self.is_app_admin:
+                 button_state = tk.DISABLED
+                 button_text = "Адміністратори мають права розробника"
+
+
+            request_dev_status_button = ttk.Button(content_frame, text=button_text,
                                            command=self._prompt_formal_developer_request,
-                                           style=self.custom_button_style)
+                                           style=self.custom_button_style,
+                                           state=button_state)
             request_dev_status_button.pack(pady=(10,15))
 
     def _prompt_become_developer_from_workshop(self):
@@ -1183,6 +1204,9 @@ class StoreWindow(tk.Tk):
         if self.is_developer:
             messagebox.showinfo("Інформація", "Ви вже є розробником.", parent=self)
             return
+        if self.db_manager.has_pending_developer_status_request(self.current_user_id):
+            messagebox.showinfo("Інформація", "Ваш запит на отримання статусу розробника вже знаходиться на розгляді.", parent=self)
+            return
 
         dialog_prompt = (
             "Будь ласка, введіть вашу робочу електронну пошту для цього запиту.\n"
@@ -1200,14 +1224,15 @@ class StoreWindow(tk.Tk):
              if "@" not in contact_email or "." not in contact_email.split('@')[-1]:
                   messagebox.showwarning("Помилка", "Будь ласка, введіть дійсну адресу електронної пошти.", parent=self)
                   return
-            
+
              if messagebox.askyesno("Підтвердження запиту",
                                     f"Надіслати запит на отримання статусу розробника з контактною поштою:\n{contact_email}\n\nВаш запит буде розглянуто адміністратором.",
                                     parent=self):
-                
+
                 success = self.db_manager.create_developer_status_request(self.current_user_id, contact_email)
                 if success:
                     messagebox.showinfo("Запит надіслано", "Ваш запит на отримання статусу розробника було успішно надіслано та очікує на розгляд.", parent=self)
+                    self._setup_workshop_tab()
         else:
             print("Formal developer request cancelled by user.")
     

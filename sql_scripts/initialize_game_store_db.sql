@@ -380,8 +380,7 @@ CREATE TYPE notification_status AS ENUM (
 CREATE TABLE AdminNotifications (
     notification_id SERIAL PRIMARY KEY,
     user_id INT NULL,                            
-    target_user_id INT NULL,                     
-    target_entity_id INT NULL,                   
+    target_user_id INT NULL,                   
     notification_type notification_type NOT NULL,
     message TEXT NULL,                           
     status notification_status NOT NULL DEFAULT 'pending', 
@@ -399,3 +398,5 @@ CREATE TABLE AdminNotifications (
 
 CREATE INDEX idx_adminnotifications_status_type ON AdminNotifications(status, notification_type);
 CREATE INDEX idx_adminnotifications_target_user_id ON AdminNotifications(target_user_id);
+
+SELECT * FROM AdminNotifications;
