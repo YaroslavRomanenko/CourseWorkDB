@@ -1292,5 +1292,3 @@ class StoreWindow(tk.Tk):
         """Handles the window close event"""
         self._image_references.clear()
         self.destroy()
-        
-    

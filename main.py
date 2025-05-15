@@ -1,9 +1,7 @@
 import os
 
 from functools import partial
-
 from ui import LoginWindow, RegistrationWindow, StoreWindow
-
 from database_manager import DatabaseManager
 
 try:

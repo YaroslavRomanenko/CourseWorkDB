@@ -173,7 +173,7 @@ CREATE TYPE purchase_status AS ENUM (
 
 CREATE TABLE Purchases (
     purchase_id SERIAL PRIMARY KEY,
-    user_id INT NOT NULL,
+    user_id INT NULL,
     purchase_date TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP,
     total_amount DECIMAL(7, 2) NOT NULL DEFAULT 0.00,
     status purchase_status NOT NULL,
@@ -181,10 +181,9 @@ CREATE TABLE Purchases (
     CONSTRAINT fk_purchase_user
         FOREIGN KEY (user_id)
         REFERENCES Users (user_id)
-        ON DELETE RESTRICT
+        ON DELETE SET NULL
         ON UPDATE CASCADE
 );
-
 CREATE INDEX idx_purchases_user_id ON Purchases(user_id);
 CREATE INDEX idx_purchases_purchase_date ON Purchases(purchase_date);
 
@@ -312,29 +311,6 @@ CREATE INDEX idx_gamegenres_game_id ON Game_Genres(game_id);
 CREATE INDEX idx_gamegenres_genre_id ON Game_Genres(genre_id);
 
 SELECT * FROM Game_Genres;
-
-CREATE TABLE Developers_Games (
-    developer_id INT NOT NULL,
-    game_id INT NOT NULL,     
-	
-    CONSTRAINT pk_developers_games PRIMARY KEY (developer_id, game_id),
-
-    CONSTRAINT fk_devgames_developer
-        FOREIGN KEY (developer_id)
-        REFERENCES Developers (developer_id)
-        ON DELETE CASCADE
-        ON UPDATE CASCADE, 
-		
-    CONSTRAINT fk_devgames_game
-        FOREIGN KEY (game_id)
-        REFERENCES Games (game_id)
-        ON DELETE CASCADE
-        ON UPDATE CASCADE
-);
-CREATE INDEX idx_devgames_developer_id ON Developers_Games(developer_id);
-CREATE INDEX idx_devgames_game_id ON Developers_Games(game_id);
-
-SELECT * FROM Developers_Games;
 
 CREATE OR REPLACE FUNCTION calculate_total_spent(p_user_id INT)
 RETURNS DECIMAL(10, 2)
