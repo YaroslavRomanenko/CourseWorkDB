@@ -78,8 +78,8 @@ CREATE TABLE Game_Studios (
 		ON DELETE CASCADE
 		ON UPDATE CASCADE
 );
-CREATE INDEX idx_gamestudios_game_id ON Game_Studios(game_id);
-CREATE INDEX idx_gamestudios_studio_id ON Game_Studios(studio_id);
+CREATE INDEX idx_developers_studio_id ON Developers(game_id);
+CREATE INDEX idx_developers_studio_id ON Developers(studio_id);
 
 SELECT * FROM Game_Studios;
 
@@ -108,7 +108,6 @@ CREATE TABLE Games (
 	created_at DATE NULL DEFAULT CURRENT_DATE,
 	updated_at DATE NULL DEFAULT CURRENT_DATE
 );
-CREATE INDEX idx_games_title ON Games(title);
 CREATE INDEX idx_games_status ON Games(status);
 CREATE INDEX idx_games_price ON Games(price);
 
@@ -279,8 +278,6 @@ CREATE TABLE Game_Platforms (
         ON DELETE CASCADE
         ON UPDATE CASCADE
 );
-CREATE INDEX idx_gameplatforms_game_id ON Game_Platforms(game_id);
-CREATE INDEX idx_gameplatforms_platform_id ON Game_Platforms(platform_id);
 
 SELECT * FROM Game_Platforms;
 
@@ -288,7 +285,6 @@ CREATE TABLE Genres (
     genre_id SERIAL PRIMARY KEY,
     name VARCHAR(30) UNIQUE NOT NULL
 );
-CREATE INDEX idx_genres_name ON Genres(name);
 
 SELECT * FROM Genres;
 
@@ -307,8 +303,6 @@ CREATE TABLE Game_Genres (
         ON DELETE CASCADE
         ON UPDATE CASCADE
 );
-CREATE INDEX idx_gamegenres_game_id ON Game_Genres(game_id);
-CREATE INDEX idx_gamegenres_genre_id ON Game_Genres(genre_id);
 
 SELECT * FROM Game_Genres;
 
@@ -371,7 +365,6 @@ CREATE TABLE AdminNotifications (
     CONSTRAINT fk_notification_reviewed_by
         FOREIGN KEY (reviewed_by_admin_id) REFERENCES Users (user_id) ON DELETE SET NULL
 );
-
 CREATE INDEX idx_adminnotifications_status_type ON AdminNotifications(status, notification_type);
 CREATE INDEX idx_adminnotifications_target_user_id ON AdminNotifications(target_user_id);
 

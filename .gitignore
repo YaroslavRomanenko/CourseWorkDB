@@ -1,8 +1,12 @@
 __pycache__/
 *.pyc
+*.spec
 venv/
 config.json
 note.txt
 todo
 test.py
 app.py
+
+build/
+dist/
